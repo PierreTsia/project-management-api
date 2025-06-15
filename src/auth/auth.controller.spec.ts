@@ -52,6 +52,7 @@ describe('AuthController', () => {
       refreshTokens: jest.fn(),
       logout: jest.fn(),
       findOrCreateUser: jest.fn(),
+      generateTokens: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -283,6 +284,83 @@ describe('AuthController', () => {
       expect(response.body).toEqual({
         message: 'Password updated successfully',
       });
+    });
+  });
+
+  describe('GET /auth/google/callback', () => {
+    const mockRequest = {
+      user: {
+        email: 'test@test.com',
+        id: '1',
+      },
+    };
+    const mockResponse = {
+      redirect: jest.fn(),
+    };
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    beforeEach(() => {
+      mockResponse.redirect.mockClear();
+    });
+
+    it('should redirect to frontend with tokens on successful authentication', async () => {
+      const mockTokens = {
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-refresh-token',
+      };
+
+      (mockAuthService.generateTokens as jest.Mock).mockResolvedValue(
+        mockTokens,
+      );
+
+      await controller.googleAuthCallback(
+        mockRequest as any,
+        mockResponse as any,
+      );
+
+      expect(mockResponse.redirect).toHaveBeenCalledWith(
+        `${frontendUrl}/auth/callback?access_token=${mockTokens.accessToken}&refresh_token=${mockTokens.refreshToken}&provider=google`,
+      );
+    });
+
+    it('should redirect to error page when user is undefined', async () => {
+      await controller.googleAuthCallback(
+        { user: undefined } as any,
+        mockResponse as any,
+      );
+
+      expect(mockResponse.redirect).toHaveBeenCalledWith(
+        `${frontendUrl}/auth/error?message=Google%20login%20failed`,
+      );
+    });
+
+    it('should redirect to error page when token generation fails', async () => {
+      (mockAuthService.generateTokens as jest.Mock).mockResolvedValue(null);
+
+      await controller.googleAuthCallback(
+        mockRequest as any,
+        mockResponse as any,
+      );
+
+      expect(mockResponse.redirect).toHaveBeenCalledWith(
+        `${frontendUrl}/auth/error?message=Token%20generation%20failed`,
+      );
+    });
+
+    it('should redirect to error page when tokens are incomplete', async () => {
+      (mockAuthService.generateTokens as jest.Mock).mockResolvedValue({
+        accessToken: 'mock-access-token',
+        // missing refreshToken
+      });
+
+      await controller.googleAuthCallback(
+        mockRequest as any,
+        mockResponse as any,
+      );
+
+      expect(mockResponse.redirect).toHaveBeenCalledWith(
+        `${frontendUrl}/auth/error?message=Token%20generation%20failed`,
+      );
     });
   });
 });

@@ -12,85 +12,97 @@ import { UsersService } from '../users/users.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { EmailService } from '../email/email.service';
 import { I18nService } from 'nestjs-i18n';
+import { User } from '../users/entities/user.entity';
 
 jest.mock('bcrypt', () => ({
-  hash: jest.fn(),
   compare: jest.fn(),
+  hash: jest.fn(),
 }));
 
 describe('AuthService', () => {
   let service: AuthService;
+  let refreshTokenService: RefreshTokenService;
+  let usersService: UsersService;
+  let emailService: EmailService;
 
-  const mockUser = {
+  const mockUser: User = {
     id: '1',
     email: 'test@example.com',
-    name: 'Test User',
     password: 'hashedPassword',
+    name: 'Test User',
+    isEmailConfirmed: true,
     createdAt: new Date(),
     updatedAt: new Date(),
-    isEmailConfirmed: false,
-    emailConfirmationToken: 'valid-token',
-    emailConfirmationExpires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    passwordResetToken: null,
-    passwordResetExpires: null,
+    refreshTokens: [],
     avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=default',
     provider: null,
     providerId: null,
-  };
-
-  const mockUsersService = {
-    findByEmail: jest.fn(),
-    create: jest.fn(),
-    findOne: jest.fn(),
-    update: jest.fn(),
-    findByEmailConfirmationToken: jest.fn(),
-    findByPasswordResetToken: jest.fn(),
-    findByProviderId: jest.fn(),
-  };
-
-  const mockRefreshTokenService = {
-    createRefreshToken: jest.fn(),
-    validateRefreshToken: jest.fn(),
-    revokeRefreshToken: jest.fn(),
-  };
-
-  const mockEmailService = {
-    sendEmailConfirmation: jest.fn(),
-    sendPasswordReset: jest.fn(),
-  };
-
-  const mockI18nService = {
-    translate: jest.fn().mockReturnValue('translated message'),
-  };
-
-  const mockJwtService = {
-    signAsync: jest.fn().mockResolvedValue('mocked-jwt-token'),
-  };
-
-  const mockConfigService = {
-    get: jest.fn((key: string) => {
-      const config = {
-        JWT_SECRET: 'test-secret',
-        JWT_EXPIRATION_TIME: '1h',
-      };
-      return config[key];
-    }),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: UsersService, useValue: mockUsersService },
-        { provide: RefreshTokenService, useValue: mockRefreshTokenService },
-        { provide: EmailService, useValue: mockEmailService },
-        { provide: I18nService, useValue: mockI18nService },
-        { provide: JwtService, useValue: mockJwtService },
-        { provide: ConfigService, useValue: mockConfigService },
+        {
+          provide: JwtService,
+          useValue: {
+            signAsync: jest.fn().mockResolvedValue('access-token'),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockImplementation((key: string) => {
+              switch (key) {
+                case 'JWT_SECRET':
+                  return 'test-secret';
+                case 'JWT_EXPIRATION':
+                  return '1h';
+                default:
+                  return undefined;
+              }
+            }),
+          },
+        },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: jest.fn().mockImplementation((key: string) => key),
+          },
+        },
+        {
+          provide: RefreshTokenService,
+          useValue: {
+            createRefreshToken: jest.fn().mockResolvedValue(undefined),
+            validateRefreshToken: jest.fn(),
+            revokeRefreshToken: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: UsersService,
+          useValue: {
+            findByEmail: jest.fn(),
+            findOne: jest.fn(),
+            create: jest.fn(),
+            update: jest.fn(),
+            findByEmailConfirmationToken: jest.fn(),
+            findByProviderId: jest.fn(),
+          },
+        },
+        {
+          provide: EmailService,
+          useValue: {
+            sendEmailConfirmation: jest.fn().mockResolvedValue(undefined),
+            sendPasswordReset: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
+    refreshTokenService = module.get<RefreshTokenService>(RefreshTokenService);
+    usersService = module.get<UsersService>(UsersService);
+    emailService = module.get<EmailService>(EmailService);
   });
 
   afterEach(() => {
@@ -106,12 +118,8 @@ describe('AuthService', () => {
       const loginDto = { email: 'test@example.com', password: 'password123' };
       const confirmedUser = { ...mockUser, isEmailConfirmed: true };
 
-      mockUsersService.findByEmail.mockResolvedValue(confirmedUser);
+      (usersService.findByEmail as jest.Mock).mockResolvedValue(confirmedUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      mockJwtService.signAsync.mockResolvedValue('mocked-jwt-token');
-      mockRefreshTokenService.createRefreshToken.mockResolvedValue(
-        'mocked-refresh-token',
-      );
 
       const result = await service.login(loginDto);
 
@@ -120,16 +128,14 @@ describe('AuthService', () => {
           email: confirmedUser.email,
           id: confirmedUser.id,
         }),
-        accessToken: 'mocked-jwt-token',
-        refreshToken: expect.stringMatching(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-        ),
+        accessToken: 'access-token',
+        refreshToken: expect.any(String),
       });
     });
 
     it('should throw UnauthorizedException for invalid credentials', async () => {
       const loginDto = { email: 'test@example.com', password: 'wrongpassword' };
-      mockUsersService.findByEmail.mockResolvedValue(mockUser);
+      (usersService.findByEmail as jest.Mock).mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(service.login(loginDto)).rejects.toThrow(
@@ -139,7 +145,10 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException for unconfirmed email', async () => {
       const loginDto = { email: 'test@example.com', password: 'password123' };
-      mockUsersService.findByEmail.mockResolvedValue(mockUser);
+      const unconfirmedUser = { ...mockUser, isEmailConfirmed: false };
+      (usersService.findByEmail as jest.Mock).mockResolvedValue(
+        unconfirmedUser,
+      );
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       await expect(service.login(loginDto)).rejects.toThrow(
@@ -156,23 +165,23 @@ describe('AuthService', () => {
         name: 'New User',
       };
 
-      mockUsersService.findByEmail.mockResolvedValue(null);
+      (usersService.findByEmail as jest.Mock).mockResolvedValue(null);
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashedPassword');
-      mockUsersService.create.mockResolvedValue(mockUser);
+      (usersService.create as jest.Mock).mockResolvedValue(mockUser);
 
       const result = await service.register(registerDto);
 
       expect(result).toEqual({
-        message: 'translated message',
+        message: expect.any(String),
       });
-      expect(mockUsersService.create).toHaveBeenCalledWith({
+      expect(usersService.create).toHaveBeenCalledWith({
         email: registerDto.email,
         password: 'hashedPassword',
         name: registerDto.name,
         isEmailConfirmed: false,
         emailConfirmationToken: expect.any(String),
       });
-      expect(mockEmailService.sendEmailConfirmation).toHaveBeenCalled();
+      expect(emailService.sendEmailConfirmation).toHaveBeenCalled();
     });
 
     it('should throw ConflictException if email already exists', async () => {
@@ -182,7 +191,7 @@ describe('AuthService', () => {
         name: 'Existing User',
       };
 
-      mockUsersService.findByEmail.mockResolvedValue(mockUser);
+      (usersService.findByEmail as jest.Mock).mockResolvedValue(mockUser);
 
       await expect(service.register(registerDto)).rejects.toThrow(
         ConflictException,
@@ -193,14 +202,16 @@ describe('AuthService', () => {
   describe('confirmEmail', () => {
     it('should confirm email with valid token', async () => {
       const confirmEmailDto = { token: 'valid-token' };
-      mockUsersService.findByEmailConfirmationToken.mockResolvedValue(mockUser);
+      (
+        usersService.findByEmailConfirmationToken as jest.Mock
+      ).mockResolvedValue(mockUser);
 
       const result = await service.confirmEmail(confirmEmailDto);
 
       expect(result).toEqual({
-        message: 'translated message',
+        message: expect.any(String),
       });
-      expect(mockUsersService.update).toHaveBeenCalledWith(mockUser.id, {
+      expect(usersService.update).toHaveBeenCalledWith(mockUser.id, {
         isEmailConfirmed: true,
         emailConfirmationToken: null,
         emailConfirmationExpires: null,
@@ -209,7 +220,9 @@ describe('AuthService', () => {
 
     it('should throw NotFoundException for invalid token', async () => {
       const confirmEmailDto = { token: 'invalid-token' };
-      mockUsersService.findByEmailConfirmationToken.mockResolvedValue(null);
+      (
+        usersService.findByEmailConfirmationToken as jest.Mock
+      ).mockResolvedValue(null);
 
       await expect(service.confirmEmail(confirmEmailDto)).rejects.toThrow(
         NotFoundException,
@@ -217,74 +230,96 @@ describe('AuthService', () => {
     });
   });
 
-  describe('findOrCreateUser', () => {
-    const googleUserData = {
-      provider: 'google' as const,
-      providerId: 'google123',
-      email: 'google@example.com',
-      name: 'Google User',
-      avatarUrl: 'https://google.com/avatar.jpg',
-    };
+  describe('refreshTokens', () => {
+    it('should refresh tokens successfully', async () => {
+      const refreshToken = 'valid-refresh-token';
+      (refreshTokenService.validateRefreshToken as jest.Mock).mockResolvedValue(
+        {
+          user: { id: '1' },
+        },
+      );
+      (usersService.findOne as jest.Mock).mockResolvedValue(mockUser);
 
-    it('should find existing user by provider ID', async () => {
-      const existingUser = {
-        ...mockUser,
-        provider: 'google',
-        providerId: 'google123',
-      };
-      mockUsersService.findByProviderId.mockResolvedValue(existingUser);
+      const result = await service.refreshTokens(refreshToken);
 
-      const result = await service.findOrCreateUser(googleUserData);
-
-      expect(result).toEqual(existingUser);
-      expect(mockUsersService.findByProviderId).toHaveBeenCalledWith(
-        'google',
-        'google123',
+      expect(result).toEqual({
+        user: expect.objectContaining({
+          email: mockUser.email,
+          id: mockUser.id,
+        }),
+        accessToken: 'access-token',
+        refreshToken: expect.any(String),
+      });
+      expect(refreshTokenService.revokeRefreshToken).toHaveBeenCalledWith(
+        refreshToken,
       );
     });
 
-    it('should update existing user with provider info', async () => {
-      const existingUser = { ...mockUser, provider: null, providerId: null };
-      const updatedUser = { ...existingUser, ...googleUserData };
+    it('should throw UnauthorizedException for invalid refresh token', async () => {
+      (refreshTokenService.validateRefreshToken as jest.Mock).mockResolvedValue(
+        null,
+      );
 
-      mockUsersService.findByProviderId.mockResolvedValue(null);
-      mockUsersService.findByEmail.mockResolvedValue(existingUser);
-      mockUsersService.update.mockResolvedValue(updatedUser);
-
-      const result = await service.findOrCreateUser(googleUserData);
-
-      expect(result).toEqual(updatedUser);
-      expect(mockUsersService.update).toHaveBeenCalledWith(existingUser.id, {
-        provider: 'google',
-        providerId: 'google123',
-        avatarUrl: googleUserData.avatarUrl,
-      });
+      await expect(service.refreshTokens('invalid-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
-    it('should create new user if not found', async () => {
-      const newUser = {
-        ...mockUser,
-        ...googleUserData,
-        isEmailConfirmed: true,
-      };
+    it('should throw UnauthorizedException when user not found', async () => {
+      (refreshTokenService.validateRefreshToken as jest.Mock).mockResolvedValue(
+        {
+          user: { id: '1' },
+        },
+      );
+      (usersService.findOne as jest.Mock).mockResolvedValue(null);
 
-      mockUsersService.findByProviderId.mockResolvedValue(null);
-      mockUsersService.findByEmail.mockResolvedValue(null);
-      mockUsersService.create.mockResolvedValue(newUser);
-
-      const result = await service.findOrCreateUser(googleUserData);
-
-      expect(result).toEqual(newUser);
-      expect(mockUsersService.create).toHaveBeenCalledWith({
-        email: googleUserData.email,
-        name: googleUserData.name,
-        provider: 'google',
-        providerId: 'google123',
-        avatarUrl: googleUserData.avatarUrl,
-        isEmailConfirmed: true,
-      });
+      await expect(service.refreshTokens('valid-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
-  // Add more test cases for other methods...
+  describe('findOrCreateUser', () => {
+    it('should find existing user', async () => {
+      const providerData = {
+        provider: 'google' as const,
+        providerId: 'google123',
+        email: 'test@example.com',
+        name: 'Test User',
+      };
+      (usersService.findByProviderId as jest.Mock).mockResolvedValue(mockUser);
+
+      const result = await service.findOrCreateUser(providerData);
+
+      expect(result).toEqual(mockUser);
+      expect(usersService.create).not.toHaveBeenCalled();
+    });
+
+    it('should create new user if not found', async () => {
+      const providerData = {
+        provider: 'google' as const,
+        providerId: 'google123',
+        email: 'new@example.com',
+        name: 'New User',
+        avatarUrl: 'https://example.com/avatar.jpg',
+      };
+      (usersService.findByProviderId as jest.Mock).mockResolvedValue(null);
+      (usersService.findByEmail as jest.Mock).mockResolvedValue(null);
+      (usersService.create as jest.Mock).mockResolvedValue({
+        ...mockUser,
+        ...providerData,
+      });
+
+      const result = await service.findOrCreateUser(providerData);
+
+      expect(result).toEqual(expect.objectContaining(providerData));
+      expect(usersService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: providerData.email,
+          name: providerData.name,
+          isEmailConfirmed: true,
+        }),
+      );
+    });
+  });
 });

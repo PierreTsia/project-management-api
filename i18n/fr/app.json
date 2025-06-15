@@ -1,0 +1,18 @@
+{
+  "test": {
+    "hello": "Bonjour",
+    "world": "Monde",
+    "welcome": "Bonjour {{name}} !",
+    "day_interval": {
+      "one": "il y a {{count}} jour",
+      "other": "il y a {{count}} jours"
+    }
+  },
+  "health": {
+    "database": {
+      "connected": "La base de données est connectée",
+      "disconnected": "La base de données est déconnectée"
+    },
+    "timestamp": "{{date}}"
+  }
+}

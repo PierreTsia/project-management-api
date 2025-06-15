@@ -198,13 +198,15 @@ export class AuthService {
 
   async logout(refreshToken: string) {
     await this.refreshTokenService.revokeRefreshToken(refreshToken);
-    return { message: 'Logged out successfully' };
+    return { message: this.i18n.translate('auth.messages.logout_success') };
   }
 
   async confirmEmail({ token }: ConfirmEmailDto) {
     const user = await this.usersService.findByEmailConfirmationToken(token);
     if (!user) {
-      throw new NotFoundException('Invalid confirmation token');
+      throw new NotFoundException(
+        this.i18n.translate('auth.errors.invalid_token'),
+      );
     }
 
     const currentDate = new Date();
@@ -212,7 +214,9 @@ export class AuthService {
       user.emailConfirmationExpires &&
       user.emailConfirmationExpires < currentDate
     ) {
-      throw new UnauthorizedException('Confirmation token has expired');
+      throw new UnauthorizedException(
+        this.i18n.translate('auth.errors.token_expired'),
+      );
     }
 
     await this.usersService.update(user.id, {
@@ -221,7 +225,7 @@ export class AuthService {
       emailConfirmationExpires: null,
     });
 
-    return { message: 'Email confirmed successfully' };
+    return { message: this.i18n.translate('auth.messages.email_confirmed') };
   }
 
   async forgotPassword(email: string) {
@@ -229,7 +233,7 @@ export class AuthService {
     if (!user) {
       // Don't reveal if email exists
       return {
-        message: this.i18n.translate('auth.forgot_password.success'),
+        message: this.i18n.translate('auth.messages.reset_link_sent'),
       };
     }
 
@@ -244,7 +248,7 @@ export class AuthService {
     await this.emailService.sendPasswordReset(user.email, resetToken);
 
     return {
-      message: this.i18n.translate('auth.forgot_password.success'),
+      message: this.i18n.translate('auth.messages.reset_link_sent'),
     };
   }
 
@@ -252,7 +256,7 @@ export class AuthService {
     const user = await this.usersService.findByPasswordResetToken(token);
     if (!user) {
       throw new NotFoundException(
-        this.i18n.translate('auth.reset_password.invalid_token'),
+        this.i18n.translate('auth.errors.invalid_token'),
       );
     }
 
@@ -265,7 +269,7 @@ export class AuthService {
     });
 
     return {
-      message: this.i18n.translate('auth.reset_password.success'),
+      message: this.i18n.translate('auth.messages.password_reset_success'),
     };
   }
 
@@ -275,13 +279,14 @@ export class AuthService {
     if (!user) {
       // Don't reveal if email exists or not
       return {
-        message:
-          'If your email is registered, you will receive a new confirmation link',
+        message: this.i18n.translate('auth.messages.confirmation_email_sent'),
       };
     }
 
     if (user.isEmailConfirmed) {
-      throw new ConflictException('Email is already confirmed');
+      throw new ConflictException(
+        this.i18n.translate('auth.errors.already_confirmed'),
+      );
     }
 
     const confirmationToken = crypto.randomBytes(32).toString('hex');
@@ -296,8 +301,7 @@ export class AuthService {
     await this.emailService.sendEmailConfirmation(email, confirmationToken);
 
     return {
-      message:
-        'If your email is registered, you will receive a new confirmation link',
+      message: this.i18n.translate('auth.messages.confirmation_email_sent'),
     };
   }
 

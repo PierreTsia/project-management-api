@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
@@ -371,6 +372,10 @@ export class AuthService {
     avatarUrl?: string;
   }): Promise<User> {
     try {
+      if (provider !== 'google') {
+        throw new BadRequestException('Invalid provider type');
+      }
+
       let user = await this.usersService.findByProviderId(provider, providerId);
       if (user) {
         return user;

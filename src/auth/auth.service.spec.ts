@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -24,6 +25,7 @@ describe('AuthService', () => {
   let refreshTokenService: RefreshTokenService;
   let usersService: UsersService;
   let emailService: EmailService;
+  let originalConsoleError: typeof console.error;
 
   const mockUser: User = {
     id: '1',
@@ -40,6 +42,10 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
+    // Save original console.error and mock it
+    originalConsoleError = console.error;
+    console.error = jest.fn();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -106,6 +112,8 @@ describe('AuthService', () => {
   });
 
   afterEach(() => {
+    // Restore original console.error
+    console.error = originalConsoleError;
     jest.clearAllMocks();
   });
 
@@ -280,45 +288,129 @@ describe('AuthService', () => {
   });
 
   describe('findOrCreateUser', () => {
-    it('should find existing user', async () => {
-      const providerData = {
-        provider: 'google' as const,
-        providerId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-      (usersService.findByProviderId as jest.Mock).mockResolvedValue(mockUser);
+    const providerData = {
+      provider: 'google' as const,
+      providerId: 'google123',
+      email: 'test@example.com',
+      name: 'Test User',
+      avatarUrl: 'https://example.com/avatar.jpg',
+    };
 
-      const result = await service.findOrCreateUser(providerData);
-
-      expect(result).toEqual(mockUser);
-      expect(usersService.create).not.toHaveBeenCalled();
-    });
-
-    it('should create new user if not found', async () => {
-      const providerData = {
-        provider: 'google' as const,
-        providerId: 'google123',
-        email: 'new@example.com',
-        name: 'New User',
-        avatarUrl: 'https://example.com/avatar.jpg',
-      };
+    it('should create new user when not found', async () => {
       (usersService.findByProviderId as jest.Mock).mockResolvedValue(null);
-      (usersService.findByEmail as jest.Mock).mockResolvedValue(null);
       (usersService.create as jest.Mock).mockResolvedValue({
         ...mockUser,
-        ...providerData,
+        provider: 'google',
+        providerId: 'google123',
       });
 
       const result = await service.findOrCreateUser(providerData);
 
-      expect(result).toEqual(expect.objectContaining(providerData));
-      expect(usersService.create).toHaveBeenCalledWith(
+      expect(result).toEqual(
         expect.objectContaining({
-          email: providerData.email,
-          name: providerData.name,
-          isEmailConfirmed: true,
+          provider: 'google',
+          providerId: 'google123',
         }),
+      );
+      expect(usersService.create).toHaveBeenCalledWith({
+        email: providerData.email,
+        name: providerData.name,
+        provider: 'google',
+        providerId: 'google123',
+        avatarUrl: providerData.avatarUrl,
+        isEmailConfirmed: true,
+      });
+    });
+
+    it('should find existing user by provider ID', async () => {
+      const existingUser = {
+        ...mockUser,
+        provider: 'google',
+        providerId: 'google123',
+      };
+      (usersService.findByProviderId as jest.Mock).mockResolvedValue(
+        existingUser,
+      );
+
+      const result = await service.findOrCreateUser(providerData);
+
+      expect(result).toEqual(existingUser);
+      expect(usersService.create).not.toHaveBeenCalled();
+    });
+
+    it('should update existing user with provider info if not set', async () => {
+      const existingUser = {
+        ...mockUser,
+        provider: null,
+        providerId: null,
+      };
+      const updatedUser = {
+        ...existingUser,
+        provider: 'google',
+        providerId: 'google123',
+        avatarUrl: providerData.avatarUrl,
+      };
+      (usersService.findByProviderId as jest.Mock).mockResolvedValue(null);
+      (usersService.findByEmail as jest.Mock).mockResolvedValue(existingUser);
+      (usersService.update as jest.Mock).mockResolvedValue(updatedUser);
+
+      const result = await service.findOrCreateUser(providerData);
+
+      expect(result).toEqual(updatedUser);
+      expect(usersService.update).toHaveBeenCalledWith(existingUser.id, {
+        provider: 'google',
+        providerId: 'google123',
+        avatarUrl: providerData.avatarUrl,
+      });
+    });
+
+    it('should throw error when user creation fails', async () => {
+      (usersService.findByProviderId as jest.Mock).mockResolvedValue(null);
+      (usersService.create as jest.Mock).mockRejectedValue(
+        new Error('Database error'),
+      );
+
+      await expect(service.findOrCreateUser(providerData)).rejects.toThrow(
+        'Database error',
+      );
+    });
+
+    it('should throw error when user update fails', async () => {
+      const existingUser = {
+        ...mockUser,
+        provider: null,
+        providerId: null,
+      };
+      (usersService.findByProviderId as jest.Mock).mockResolvedValue(null);
+      (usersService.findByEmail as jest.Mock).mockResolvedValue(existingUser);
+      (usersService.update as jest.Mock).mockRejectedValue(
+        new Error('Update failed'),
+      );
+
+      await expect(service.findOrCreateUser(providerData)).rejects.toThrow(
+        'Update failed',
+      );
+    });
+
+    it('should throw error when provider validation fails', async () => {
+      const invalidProviderData = {
+        ...providerData,
+        provider: 'invalid' as any,
+      };
+
+      await expect(
+        service.findOrCreateUser(invalidProviderData),
+      ).rejects.toThrow(new BadRequestException('Invalid provider type'));
+    });
+
+    it('should handle database transaction failures', async () => {
+      (usersService.findByProviderId as jest.Mock).mockResolvedValue(null);
+      (usersService.create as jest.Mock).mockRejectedValue(
+        new Error('Transaction failed'),
+      );
+
+      await expect(service.findOrCreateUser(providerData)).rejects.toThrow(
+        'Transaction failed',
       );
     });
   });

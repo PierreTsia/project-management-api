@@ -239,50 +239,179 @@ describe('AuthService', () => {
   });
 
   describe('refreshTokens', () => {
-    it('should refresh tokens successfully', async () => {
-      const refreshToken = 'valid-refresh-token';
-      (refreshTokenService.validateRefreshToken as jest.Mock).mockResolvedValue(
-        {
-          user: { id: '1' },
-        },
-      );
-      (usersService.findOne as jest.Mock).mockResolvedValue(mockUser);
+    const mockRefreshToken = 'valid.refresh.token';
+    const mockUser = {
+      id: '1',
+      email: 'test@example.com',
+      password: 'hashedPassword',
+      name: 'Test User',
+      isEmailConfirmed: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      refreshTokens: [],
+      avatarUrl: null,
+      provider: null,
+      providerId: null,
+    };
 
-      const result = await service.refreshTokens(refreshToken);
+    beforeEach(() => {
+      jest
+        .spyOn(refreshTokenService, 'validateRefreshToken')
+        .mockResolvedValue({
+          id: '1',
+          token: mockRefreshToken,
+          expiresAt: new Date(Date.now() + 3600000),
+          createdAt: new Date(),
+          revokedAt: null,
+          user: {
+            id: mockUser.id,
+            email: mockUser.email,
+            name: mockUser.name,
+            isEmailConfirmed: mockUser.isEmailConfirmed,
+            createdAt: mockUser.createdAt,
+            updatedAt: mockUser.updatedAt,
+            refreshTokens: mockUser.refreshTokens,
+            avatarUrl: mockUser.avatarUrl,
+            provider: mockUser.provider,
+            providerId: mockUser.providerId,
+          },
+        });
+      jest.spyOn(usersService, 'findOne').mockResolvedValue(mockUser);
+      jest.spyOn(refreshTokenService, 'revokeRefreshToken').mockResolvedValue();
+      jest.spyOn(service, 'generateTokens').mockResolvedValue({
+        accessToken: 'new.access.token',
+        refreshToken: 'new.refresh.token',
+      });
+    });
+
+    it('should refresh tokens successfully', async () => {
+      const result = await service.refreshTokens(mockRefreshToken);
 
       expect(result).toEqual({
-        user: expect.objectContaining({
-          email: mockUser.email,
+        user: {
           id: mockUser.id,
-        }),
-        accessToken: 'access-token',
-        refreshToken: expect.any(String),
-      });
-      expect(refreshTokenService.revokeRefreshToken).toHaveBeenCalledWith(
-        refreshToken,
-      );
-    });
-
-    it('should throw UnauthorizedException for invalid refresh token', async () => {
-      (refreshTokenService.validateRefreshToken as jest.Mock).mockResolvedValue(
-        null,
-      );
-
-      await expect(service.refreshTokens('invalid-token')).rejects.toThrow(
-        UnauthorizedException,
-      );
-    });
-
-    it('should throw UnauthorizedException when user not found', async () => {
-      (refreshTokenService.validateRefreshToken as jest.Mock).mockResolvedValue(
-        {
-          user: { id: '1' },
+          email: mockUser.email,
+          name: mockUser.name,
+          isEmailConfirmed: mockUser.isEmailConfirmed,
+          createdAt: mockUser.createdAt,
+          updatedAt: mockUser.updatedAt,
+          refreshTokens: mockUser.refreshTokens,
+          avatarUrl: mockUser.avatarUrl,
+          provider: mockUser.provider,
+          providerId: mockUser.providerId,
         },
-      );
-      (usersService.findOne as jest.Mock).mockResolvedValue(null);
+        accessToken: 'new.access.token',
+        refreshToken: 'new.refresh.token',
+      });
 
-      await expect(service.refreshTokens('valid-token')).rejects.toThrow(
+      expect(refreshTokenService.validateRefreshToken).toHaveBeenCalledWith(
+        mockRefreshToken,
+      );
+      expect(usersService.findOne).toHaveBeenCalledWith(mockUser.id);
+      expect(refreshTokenService.revokeRefreshToken).toHaveBeenCalledWith(
+        mockRefreshToken,
+      );
+      expect(service.generateTokens).toHaveBeenCalledWith({
+        email: mockUser.email,
+        id: mockUser.id,
+      });
+    });
+
+    it('should handle invalid token format', async () => {
+      jest
+        .spyOn(refreshTokenService, 'validateRefreshToken')
+        .mockResolvedValue(null);
+
+      await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(
         UnauthorizedException,
+      );
+      await expect(
+        service.refreshTokens(mockRefreshToken),
+      ).rejects.toMatchObject({
+        response: {
+          status: 401,
+          code: 'AUTH.INVALID_REFRESH_TOKEN',
+        },
+      });
+    });
+
+    it('should handle token validation failure', async () => {
+      jest
+        .spyOn(refreshTokenService, 'validateRefreshToken')
+        .mockRejectedValue(new Error('Token validation failed'));
+
+      await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(
+        service.refreshTokens(mockRefreshToken),
+      ).rejects.toMatchObject({
+        response: {
+          status: 401,
+          code: 'AUTH.INVALID_REFRESH_TOKEN',
+        },
+      });
+    });
+
+    it('should handle user lookup failure', async () => {
+      jest.spyOn(usersService, 'findOne').mockResolvedValue(null);
+
+      await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(
+        service.refreshTokens(mockRefreshToken),
+      ).rejects.toMatchObject({
+        response: {
+          status: 401,
+          code: 'AUTH.USER_NOT_FOUND',
+        },
+      });
+    });
+
+    it('should handle token revocation failure', async () => {
+      jest
+        .spyOn(refreshTokenService, 'revokeRefreshToken')
+        .mockRejectedValue(new Error('Token revocation failed'));
+
+      await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(
+        'Token revocation failed',
+      );
+    });
+
+    it('should handle new token generation failure', async () => {
+      jest
+        .spyOn(service, 'generateTokens')
+        .mockRejectedValue(new Error('Token generation failed'));
+
+      await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(
+        'Token generation failed',
+      );
+    });
+
+    it('should handle expired tokens', async () => {
+      jest
+        .spyOn(refreshTokenService, 'validateRefreshToken')
+        .mockRejectedValue(new Error('Token expired'));
+
+      await expect(service.refreshTokens(mockRefreshToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(
+        service.refreshTokens(mockRefreshToken),
+      ).rejects.toMatchObject({
+        response: {
+          status: 401,
+          code: 'AUTH.INVALID_REFRESH_TOKEN',
+        },
+      });
+    });
+
+    it('should strip Bearer prefix from token', async () => {
+      await service.refreshTokens(`Bearer ${mockRefreshToken}`);
+
+      expect(refreshTokenService.validateRefreshToken).toHaveBeenCalledWith(
+        mockRefreshToken,
       );
     });
   });

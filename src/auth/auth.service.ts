@@ -155,8 +155,19 @@ export class AuthService {
     // Strip 'Bearer ' prefix if present
     const cleanToken = refreshToken.replace(/^Bearer\s+/i, '');
 
-    const payload =
-      await this.refreshTokenService.validateRefreshToken(cleanToken);
+    let payload;
+    try {
+      payload = await this.refreshTokenService.validateRefreshToken(cleanToken);
+    } catch (error) {
+      throw new UnauthorizedException({
+        status: 401,
+        code: 'AUTH.INVALID_REFRESH_TOKEN',
+        message: this.i18n.translate('auth.errors.invalid_refresh_token', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
     if (!payload) {
       throw new UnauthorizedException({
         status: 401,

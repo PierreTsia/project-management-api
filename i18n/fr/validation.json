@@ -1,0 +1,9 @@
+{
+  "failed": "Échec de la validation",
+  "invalid_request": "Requête invalide",
+  "required_field": "Ce champ est obligatoire",
+  "invalid_email": "Veuillez entrer une adresse email valide",
+  "password_too_short": "Le mot de passe doit contenir au moins 8 caractères",
+  "name_too_short": "Le nom doit contenir au moins 1 caractère",
+  "password_format": "Le mot de passe doit contenir au moins une majuscule, un chiffre et un caractère spécial"
+} 

@@ -1,18 +1,69 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
+import { I18nService } from 'nestjs-i18n';
+
+import { User } from '../users/entities/user.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 
 @Injectable()
 export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokenRepository: Repository<RefreshToken>,
+    private readonly i18n: I18nService,
+  ) {}
+
+  async register(registerDto: RegisterDto) {
+    const { email, password, name } = registerDto;
+
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException({
+        code: 'AUTH.EMAIL_EXISTS',
+        message: this.i18n.translate('auth.email_exists'),
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Generate confirmation token
+    const confirmationToken = uuidv4();
+
+    // Create new user
+    const user = this.userRepository.create({
+      email,
+      password: hashedPassword,
+      name,
+      isEmailConfirmed: false,
+      emailConfirmationToken: confirmationToken,
+    });
+
+    await this.userRepository.save(user);
+
+    // TODO: Send confirmation email
+    // For now, just return the token
+    return {
+      message: this.i18n.translate('auth.messages.registration_success'),
+      confirmationToken,
+    };
+  }
+
   async login(loginDto: LoginDto) {
     // TODO: Implement login
     return { message: 'Login not implemented yet' };
-  }
-
-  async register(registerDto: RegisterDto) {
-    // TODO: Implement registration
-    return { message: 'Registration not implemented yet' };
   }
 
   async refreshTokens(refreshToken: string) {

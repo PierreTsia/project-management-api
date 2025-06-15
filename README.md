@@ -20,6 +20,7 @@ A robust REST API for project management, built with NestJS and TypeScript.
 - PostgreSQL
 - TypeORM
 - JWT Authentication
+- Google Athentication
 - Jest for testing
 - PNPM for package management
 - Docker

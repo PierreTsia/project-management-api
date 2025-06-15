@@ -64,6 +64,10 @@ describe('AuthService', () => {
                   return 'test-secret';
                 case 'JWT_EXPIRATION':
                   return '1h';
+                case 'jwt.refreshTokenExpiresIn':
+                  return '7d';
+                case 'jwt.accessTokenExpiresIn':
+                  return '15m';
                 default:
                   return undefined;
               }
@@ -92,6 +96,7 @@ describe('AuthService', () => {
             create: jest.fn(),
             update: jest.fn(),
             findByEmailConfirmationToken: jest.fn(),
+            findByPasswordResetToken: jest.fn(),
             findByProviderId: jest.fn(),
           },
         },
@@ -541,6 +546,188 @@ describe('AuthService', () => {
       await expect(service.findOrCreateUser(providerData)).rejects.toThrow(
         'Transaction failed',
       );
+    });
+  });
+
+  describe('logout', () => {
+    it('should revoke refresh token and return success message', async () => {
+      const refreshToken = 'valid.refresh.token';
+      jest.spyOn(refreshTokenService, 'revokeRefreshToken').mockResolvedValue();
+
+      const result = await service.logout(refreshToken);
+
+      expect(result).toEqual({
+        message: expect.any(String),
+      });
+      expect(refreshTokenService.revokeRefreshToken).toHaveBeenCalledWith(
+        refreshToken,
+      );
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('should send reset link when user exists', async () => {
+      const email = 'test@example.com';
+      const mockUser = {
+        id: '1',
+        email,
+        password: 'hashedPassword',
+        name: 'Test User',
+        isEmailConfirmed: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        refreshTokens: [],
+        avatarUrl: null,
+        provider: null,
+        providerId: null,
+      };
+
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(mockUser);
+      jest.spyOn(usersService, 'update').mockResolvedValue(mockUser);
+      jest.spyOn(emailService, 'sendPasswordReset').mockResolvedValue();
+
+      const result = await service.forgotPassword(email);
+
+      expect(result).toEqual({
+        message: expect.any(String),
+      });
+      expect(usersService.findByEmail).toHaveBeenCalledWith(email);
+      expect(usersService.update).toHaveBeenCalled();
+      expect(emailService.sendPasswordReset).toHaveBeenCalledWith(
+        email,
+        expect.any(String),
+      );
+    });
+
+    it('should return success message even when user does not exist', async () => {
+      const email = 'nonexistent@example.com';
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(null);
+
+      const result = await service.forgotPassword(email);
+
+      expect(result).toEqual({
+        message: expect.any(String),
+      });
+      expect(usersService.findByEmail).toHaveBeenCalledWith(email);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should reset password successfully', async () => {
+      const token = 'valid.reset.token';
+      const newPassword = 'newPassword123';
+      const mockUser = {
+        id: '1',
+        email: 'test@example.com',
+        password: 'oldHashedPassword',
+        name: 'Test User',
+        isEmailConfirmed: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        refreshTokens: [],
+        avatarUrl: null,
+        provider: null,
+        providerId: null,
+      };
+
+      jest
+        .spyOn(usersService, 'findByPasswordResetToken')
+        .mockResolvedValue(mockUser);
+      jest.spyOn(usersService, 'update').mockResolvedValue(mockUser);
+
+      const result = await service.resetPassword({
+        token,
+        password: newPassword,
+      });
+
+      expect(result).toEqual({
+        message: expect.any(String),
+      });
+      expect(usersService.findByPasswordResetToken).toHaveBeenCalledWith(token);
+      expect(usersService.update).toHaveBeenCalledWith(mockUser.id, {
+        password: expect.any(String),
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      });
+    });
+  });
+
+  describe('resendConfirmation', () => {
+    it('should resend confirmation email when user exists and is not confirmed', async () => {
+      const email = 'test@example.com';
+      const mockUser = {
+        id: '1',
+        email,
+        password: 'hashedPassword',
+        name: 'Test User',
+        isEmailConfirmed: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        refreshTokens: [],
+        avatarUrl: null,
+        provider: null,
+        providerId: null,
+      };
+
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(mockUser);
+      jest.spyOn(usersService, 'update').mockResolvedValue(mockUser);
+      jest.spyOn(emailService, 'sendEmailConfirmation').mockResolvedValue();
+
+      const result = await service.resendConfirmation({ email });
+
+      expect(result).toEqual({
+        message: expect.any(String),
+      });
+      expect(usersService.findByEmail).toHaveBeenCalledWith(email);
+      expect(usersService.update).toHaveBeenCalled();
+      expect(emailService.sendEmailConfirmation).toHaveBeenCalledWith(
+        email,
+        expect.any(String),
+      );
+    });
+  });
+
+  describe('updatePassword', () => {
+    it('should update password successfully', async () => {
+      const email = 'test@example.com';
+      const currentPassword = 'currentPassword123';
+      const newPassword = 'newPassword123';
+      const mockUser = {
+        id: '1',
+        email,
+        password: 'hashedCurrentPassword',
+        name: 'Test User',
+        isEmailConfirmed: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        refreshTokens: [],
+        avatarUrl: null,
+        provider: null,
+        providerId: null,
+      };
+
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(mockUser);
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(true));
+      jest.spyOn(usersService, 'update').mockResolvedValue(mockUser);
+
+      const result = await service.updatePassword(email, {
+        currentPassword,
+        newPassword,
+      });
+
+      expect(result).toEqual({
+        message: expect.any(String),
+      });
+      expect(usersService.findByEmail).toHaveBeenCalledWith(email);
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        currentPassword,
+        mockUser.password,
+      );
+      expect(usersService.update).toHaveBeenCalledWith(mockUser.id, {
+        password: expect.any(String),
+      });
     });
   });
 });

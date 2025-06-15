@@ -1,6 +1,6 @@
 # Project Management API
 
-<a href="https://codecov.io/gh/nestjs/nest" target="_blank"><img src="https://codecov.io/gh/nestjs/nest/branch/master/graph/badge.svg" alt="Codecov" /></a>
+<a href="https://codecov.io/gh/pierre-tsiakkaros/project-management-api" target="_blank"><img src="https://codecov.io/gh/pierre-tsiakkaros/project-management-api/branch/main/graph/badge.svg" alt="Codecov" /></a>
 
 A robust REST API for project management, built with NestJS and TypeScript.
 

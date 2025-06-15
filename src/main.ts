@@ -3,8 +3,6 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const string: string = 12;
-  console.log(string);
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   const corsOptions = {

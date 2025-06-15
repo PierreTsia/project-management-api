@@ -103,6 +103,9 @@ devDependencies:
   ts-node:
     specifier: ^10.9.1
     version: 10.9.2(@types/node@20.19.0)(typescript@5.8.3)
+  tsc-files:
+    specifier: ^1.1.4
+    version: 1.1.4(typescript@5.8.3)
   tsconfig-paths:
     specifier: ^4.2.0
     version: 4.2.0
@@ -5336,6 +5339,15 @@ packages:
       typescript: 5.8.3
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
+
+  /tsc-files@1.1.4(typescript@5.8.3):
+    resolution: {integrity: sha512-RePsRsOLru3BPpnf237y1Xe1oCGta8rmSYzM76kYo5tLGsv5R2r3s64yapYorGTPuuLyfS9NVbh9ydzmvNie2w==, tarball: https://registry.npmjs.org/tsc-files/-/tsc-files-1.1.4.tgz}
+    hasBin: true
+    peerDependencies:
+      typescript: '>=3'
+    dependencies:
+      typescript: 5.8.3
+    dev: true
 
   /tsconfig-paths-webpack-plugin@4.2.0:
     resolution: {integrity: sha512-zbem3rfRS8BgeNK50Zz5SIQgXzLafiHjOwUAvk/38/o1jHn/V5QAgVUcz884or7WYcPaH3N2CIfUc2u0ul7UcA==, tarball: https://registry.npmjs.org/tsconfig-paths-webpack-plugin/-/tsconfig-paths-webpack-plugin-4.2.0.tgz}

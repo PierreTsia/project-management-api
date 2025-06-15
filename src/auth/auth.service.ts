@@ -2,11 +2,14 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { I18nService } from 'nestjs-i18n';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -15,6 +18,8 @@ import { RefreshTokenService } from './refresh-token.service';
 import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
 import { REFRESH_TOKEN_EXPIRATION_TIME } from './constants';
+import { ConfirmEmailDto } from './dto/confirm-email.dto';
+import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +29,7 @@ export class AuthService {
     private readonly refreshTokenService: RefreshTokenService,
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   private async verifyPassword(
@@ -194,9 +200,27 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  async confirmEmail(_token: string) {
-    // TODO: Implement email confirmation
-    return { message: 'Email confirmation not implemented yet' };
+  async confirmEmail({ token }: ConfirmEmailDto) {
+    const user = await this.usersService.findByEmailConfirmationToken(token);
+    if (!user) {
+      throw new NotFoundException('Invalid confirmation token');
+    }
+
+    const currentDate = new Date();
+    if (
+      user.emailConfirmationExpires &&
+      user.emailConfirmationExpires < currentDate
+    ) {
+      throw new UnauthorizedException('Confirmation token has expired');
+    }
+
+    await this.usersService.update(user.id, {
+      isEmailConfirmed: true,
+      emailConfirmationToken: null,
+      emailConfirmationExpires: null,
+    });
+
+    return { message: 'Email confirmed successfully' };
   }
 
   async forgotPassword(_email: string) {
@@ -209,9 +233,36 @@ export class AuthService {
     return { message: 'Password reset not implemented yet' };
   }
 
-  async resendConfirmation(_email: string) {
-    // TODO: Implement resend confirmation
-    return { message: 'Resend confirmation not implemented yet' };
+  async resendConfirmation({ email }: ResendConfirmationDto) {
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      // Don't reveal if email exists or not
+      return {
+        message:
+          'If your email is registered, you will receive a new confirmation link',
+      };
+    }
+
+    if (user.isEmailConfirmed) {
+      throw new ConflictException('Email is already confirmed');
+    }
+
+    const confirmationToken = crypto.randomBytes(32).toString('hex');
+    const confirmationExpires = new Date();
+    confirmationExpires.setDate(confirmationExpires.getDate() + 7); // 7 days from now
+
+    await this.usersService.update(user.id, {
+      emailConfirmationToken: confirmationToken,
+      emailConfirmationExpires: confirmationExpires,
+    });
+
+    await this.emailService.sendEmailConfirmation(email, confirmationToken);
+
+    return {
+      message:
+        'If your email is registered, you will receive a new confirmation link',
+    };
   }
 
   async updatePassword(

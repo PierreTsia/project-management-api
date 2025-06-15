@@ -7,7 +7,6 @@ import {
   Headers,
   UseGuards,
   Get,
-  Query,
   Put,
   Req,
   Res,
@@ -20,7 +19,7 @@ import {
   ApiBearerAuth,
   ApiCookieAuth,
 } from '@nestjs/swagger';
-import { ThrottlerGuard } from '@nestjs/throttler';
+
 import { Response, Request } from 'express';
 
 import { AuthService } from './auth.service';
@@ -34,6 +33,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -90,15 +90,13 @@ export class AuthController {
     return this.authService.logout(refreshToken);
   }
 
-  @ApiOperation({ summary: 'Confirm email address' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Email successfully confirmed',
-  })
-  @Get('confirm-email')
-  @HttpCode(HttpStatus.OK)
-  async confirmEmail(@Query() confirmEmailDto: ConfirmEmailDto) {
-    return this.authService.confirmEmail(confirmEmailDto.token);
+  @Post('confirm-email')
+  @ApiOperation({ summary: 'Confirm user email' })
+  @ApiResponse({ status: 200, description: 'Email confirmed successfully' })
+  @ApiResponse({ status: 404, description: 'Invalid confirmation token' })
+  @ApiResponse({ status: 401, description: 'Confirmation token has expired' })
+  async confirmEmail(@Body() confirmEmailDto: ConfirmEmailDto) {
+    return this.authService.confirmEmail(confirmEmailDto);
   }
 
   @ApiOperation({ summary: 'Request password reset' })
@@ -123,15 +121,15 @@ export class AuthController {
     return this.authService.resetPassword(token, password);
   }
 
-  @ApiOperation({ summary: 'Resend confirmation email' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Confirmation email sent successfully',
-  })
   @Post('resend-confirmation')
-  @UseGuards(ThrottlerGuard)
+  @ApiOperation({ summary: 'Resend email confirmation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Confirmation email sent if account exists',
+  })
+  @ApiResponse({ status: 409, description: 'Email is already confirmed' })
   async resendConfirmation(@Body() dto: ResendConfirmationDto) {
-    return this.authService.resendConfirmation(dto.email);
+    return this.authService.resendConfirmation(dto);
   }
 
   @ApiOperation({ summary: 'Update user password' })
@@ -172,30 +170,8 @@ export class AuthController {
     description: 'Redirects to frontend with tokens in query params',
   })
   @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
-  async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
-    /*  const user = req.user as { email?: string; id?: string } | undefined;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-
-    if (!user) {
-      return res.redirect(
-        `${frontendUrl}/auth/error?message=Google%20login%20failed`,
-      );
-    }
-
-    const tokens = await this.authService.generateTokens({
-      email: user.email!,
-      id: user.id!,
-    });
-
-    if (!tokens || !tokens.accessToken || !tokens.refreshToken) {
-      return res.redirect(
-        `${frontendUrl}/auth/error?message=Token%20generation%20failed`,
-      );
-    }
-
-    return res.redirect(
-      `${frontendUrl}/auth/callback?access_token=${tokens.accessToken}&refresh_token=${tokens.refreshToken}&provider=google`,
-    ); */
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthCallback(@Req() _req: Request, @Res() _res: Response) {
+    // Implementation will be added later
   }
 }

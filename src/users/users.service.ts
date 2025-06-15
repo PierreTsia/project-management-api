@@ -7,24 +7,30 @@ import { User } from './entities/user.entity';
 export class UsersService {
   constructor(
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private readonly usersRepository: Repository<User>,
   ) {}
 
   async findOne(id: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id } });
+    return this.usersRepository.findOne({ where: { id } });
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
+    return this.usersRepository.findOne({ where: { email } });
   }
 
   async update(id: string, data: Partial<User>): Promise<User> {
-    await this.userRepository.update(id, data);
+    await this.usersRepository.update(id, data);
     return this.findOne(id);
   }
 
   async create(data: Partial<User>): Promise<User> {
-    const user = this.userRepository.create(data);
-    return this.userRepository.save(user);
+    const user = this.usersRepository.create(data);
+    return this.usersRepository.save(user);
+  }
+
+  async findByEmailConfirmationToken(token: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { emailConfirmationToken: token },
+    });
   }
 }

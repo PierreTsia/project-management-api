@@ -15,6 +15,9 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { RefreshTokenService } from './refresh-token.service';
+
+const REFRESH_TOKEN_EXPIRATION_TIME = 7 * 24 * 60 * 60; // 7 days in seconds
 
 @Injectable()
 export class AuthService {
@@ -25,6 +28,7 @@ export class AuthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly i18n: I18nService,
     private readonly jwtService: JwtService,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   private async verifyPassword(
@@ -44,16 +48,8 @@ export class AuthService {
 
   private async generateRefreshToken(userId: string): Promise<string> {
     const token = uuidv4();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
-
-    const refreshToken = this.refreshTokenRepository.create({
-      token,
-      userId,
-      expiresAt,
-    });
-
-    await this.refreshTokenRepository.save(refreshToken);
+    const expiresIn = REFRESH_TOKEN_EXPIRATION_TIME; // 7 days in seconds
+    await this.refreshTokenService.createRefreshToken(userId, token, expiresIn);
     return token;
   }
 
@@ -155,8 +151,8 @@ export class AuthService {
   }
 
   async logout(refreshToken: string) {
-    // TODO: Implement logout
-    return { message: 'Logout not implemented yet' };
+    await this.refreshTokenService.revokeRefreshToken(refreshToken);
+    return { message: 'Logged out successfully' };
   }
 
   async confirmEmail(token: string) {

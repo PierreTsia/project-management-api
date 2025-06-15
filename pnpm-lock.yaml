@@ -65,6 +65,9 @@ dependencies:
   passport-google-oauth20:
     specifier: ^2.0.0
     version: 2.0.0
+  passport-jwt:
+    specifier: ^4.0.1
+    version: 4.0.1
   pg:
     specifier: ^8.16.0
     version: 8.16.0
@@ -4670,6 +4673,13 @@ packages:
     engines: {node: '>= 0.4.0'}
     dependencies:
       passport-oauth2: 1.8.0
+    dev: false
+
+  /passport-jwt@4.0.1:
+    resolution: {integrity: sha512-UCKMDYhNuGOBE9/9Ycuoyh7vP6jpeTp/+sfMJl7nLff/t6dps+iaeE0hhNkKN8/HZHcJ7lCdOyDxHdDoxoSvdQ==, tarball: https://registry.npmjs.org/passport-jwt/-/passport-jwt-4.0.1.tgz}
+    dependencies:
+      jsonwebtoken: 9.0.2
+      passport-strategy: 1.0.0
     dev: false
 
   /passport-oauth2@1.8.0:

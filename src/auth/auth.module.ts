@@ -8,10 +8,13 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { UsersModule } from '../users/users.module';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { RefreshTokenService } from './refresh-token.service';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RefreshToken]),
+    TypeOrmModule.forFeature([User, RefreshToken]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     ThrottlerModule.forRoot([
       {
@@ -32,7 +35,7 @@ import { UsersModule } from '../users/users.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, JwtStrategy, RefreshTokenService],
   exports: [AuthService],
 })
 export class AuthModule {}

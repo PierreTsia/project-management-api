@@ -2,13 +2,12 @@ import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
-  CreateDateColumn,
   ManyToOne,
-  JoinColumn,
+  CreateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
-@Entity('refresh_tokens')
+@Entity()
 export class RefreshToken {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -16,16 +15,15 @@ export class RefreshToken {
   @Column()
   token: string;
 
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  user: User;
+
   @Column()
   expiresAt: Date;
 
-  @Column()
-  userId: string;
-
-  @ManyToOne(() => User, (user) => user.refreshTokens, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
-  user: User;
-
   @CreateDateColumn()
   createdAt: Date;
+
+  @Column({ nullable: true })
+  revokedAt: Date;
 }

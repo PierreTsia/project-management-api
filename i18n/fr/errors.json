@@ -1,8 +1,6 @@
 {
   "http": {
-    "409": "Cet email est déjà enregistré"
-  },
-  "auth": {
-    "email_exists": "Cet email est déjà enregistré"
+    "409": "Cet email est déjà enregistré",
+    "404": "Ressource non trouvée"
   }
 } 

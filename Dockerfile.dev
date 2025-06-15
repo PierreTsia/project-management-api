@@ -12,6 +12,9 @@ COPY tsconfig.json tsconfig.build.json ./
 # Install dependencies
 RUN pnpm install
 
+# Copy email templates
+COPY src/email/templates ./src/email/templates
+
 # Expose the port your app runs on
 EXPOSE 3000
 

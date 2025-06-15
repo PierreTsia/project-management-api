@@ -1,0 +1,12 @@
+{
+  "confirm_email": {
+    "subject": "Confirmez votre adresse email",
+    "text": "Merci de vous être inscrit ! Veuillez visiter le lien suivant pour confirmer votre adresse email : {{confirmationUrl}}",
+    "html": "Merci de vous être inscrit ! Veuillez cliquer sur le bouton ci-dessous pour confirmer votre adresse email."
+  },
+  "reset_password": {
+    "subject": "Réinitialisez votre mot de passe",
+    "text": "Nous avons reçu une demande de réinitialisation de votre mot de passe. Visitez le lien suivant pour créer un nouveau mot de passe : {{resetUrl}}",
+    "html": "Nous avons reçu une demande de réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe."
+  }
+} 

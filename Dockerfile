@@ -35,6 +35,7 @@ RUN pnpm install --prod
 # Copy built application and i18n directory from builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/i18n ./i18n
+COPY --from=builder /app/src/email/templates ./dist/email/templates
 
 # Expose the port your app runs on
 EXPOSE 3000

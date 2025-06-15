@@ -1,0 +1,12 @@
+{
+  "confirm_email": {
+    "subject": "Confirm Your Email Address",
+    "text": "Thank you for registering! Please visit the following link to confirm your email address: {{confirmationUrl}}",
+    "html": "Thank you for registering! Please click the button below to confirm your email address."
+  },
+  "reset_password": {
+    "subject": "Reset Your Password",
+    "text": "We received a request to reset your password. Visit the following link to create a new password: {{resetUrl}}",
+    "html": "We received a request to reset your password. Click the button below to create a new password."
+  }
+} 

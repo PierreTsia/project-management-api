@@ -13,6 +13,7 @@ import { RegisterDto } from './dto/register.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { RefreshTokenService } from './refresh-token.service';
 import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
 import { REFRESH_TOKEN_EXPIRATION_TIME } from './constants';
 
 @Injectable()
@@ -22,6 +23,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly usersService: UsersService,
+    private readonly emailService: EmailService,
   ) {}
 
   private async verifyPassword(
@@ -46,7 +48,7 @@ export class AuthService {
     return token;
   }
 
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: RegisterDto, acceptLanguage?: string) {
     const { email, password, name } = registerDto;
 
     // Check if user already exists
@@ -56,7 +58,9 @@ export class AuthService {
       throw new ConflictException({
         status: 409,
         code: 'AUTH.EMAIL_EXISTS',
-        message: this.i18n.translate('auth.errors.email_exists'),
+        message: this.i18n.translate('auth.errors.email_exists', {
+          lang: acceptLanguage,
+        }),
       });
     }
 
@@ -75,11 +79,17 @@ export class AuthService {
       emailConfirmationToken: confirmationToken,
     });
 
-    // TODO: Send confirmation email
-    // For now, just return the token
-    return {
-      message: this.i18n.translate('auth.messages.registration_success'),
+    // Send confirmation email
+    await this.emailService.sendEmailConfirmation(
+      email,
       confirmationToken,
+      acceptLanguage,
+    );
+
+    return {
+      message: this.i18n.translate('auth.messages.registration_success', {
+        lang: acceptLanguage,
+      }),
     };
   }
 

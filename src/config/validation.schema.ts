@@ -12,13 +12,13 @@ export const validationSchema = Joi.object({
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
   DATABASE_URL: Joi.string().required(),
   PROJECT_NAME: Joi.string().required().default('project-management'),
-  /*   FRONTEND_URL: Joi.string().required(), */
-  /* SMTP_HOST: Joi.string().required(),
+  FRONTEND_URL: Joi.string().required(),
+  SMTP_HOST: Joi.string().required(),
   SMTP_PORT: Joi.number().required(),
   SMTP_USER: Joi.string().required(),
   SMTP_PASS: Joi.string().required(),
   SMTP_FROM_EMAIL: Joi.string().email().required(),
-  CLOUDINARY_CLOUD_NAME: Joi.string().required(),
+  /* CLOUDINARY_CLOUD_NAME: Joi.string().required(),
   CLOUDINARY_API_KEY: Joi.string().required(),
   CLOUDINARY_API_SECRET: Joi.string().required(),
 

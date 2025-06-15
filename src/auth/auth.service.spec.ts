@@ -168,6 +168,28 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
     });
+
+    it('should throw UnauthorizedException when user is not found', async () => {
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(null);
+
+      await expect(
+        service.login({
+          email: 'nonexistent@example.com',
+          password: 'password',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.login({
+          email: 'nonexistent@example.com',
+          password: 'password',
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          status: 401,
+          code: 'AUTH.INVALID_CREDENTIALS',
+        },
+      });
+    });
   });
 
   describe('register', () => {
@@ -563,6 +585,17 @@ describe('AuthService', () => {
         refreshToken,
       );
     });
+
+    it('should throw error when token revocation fails', async () => {
+      const refreshToken = 'valid.refresh.token';
+      jest
+        .spyOn(refreshTokenService, 'revokeRefreshToken')
+        .mockRejectedValue(new Error('Token revocation failed'));
+
+      await expect(service.logout(refreshToken)).rejects.toThrow(
+        'Token revocation failed',
+      );
+    });
   });
 
   describe('forgotPassword', () => {
@@ -727,6 +760,67 @@ describe('AuthService', () => {
       );
       expect(usersService.update).toHaveBeenCalledWith(mockUser.id, {
         password: expect.any(String),
+      });
+    });
+
+    it('should throw UnauthorizedException when user is not found', async () => {
+      const email = 'nonexistent@example.com';
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(null);
+
+      await expect(
+        service.updatePassword(email, {
+          currentPassword: 'currentPassword',
+          newPassword: 'newPassword',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.updatePassword(email, {
+          currentPassword: 'currentPassword',
+          newPassword: 'newPassword',
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'AUTH.USER_NOT_FOUND',
+        },
+      });
+    });
+
+    it('should throw UnauthorizedException when current password is invalid', async () => {
+      const email = 'test@example.com';
+      const mockUser = {
+        id: '1',
+        email,
+        password: 'hashedCurrentPassword',
+        name: 'Test User',
+        isEmailConfirmed: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        refreshTokens: [],
+        avatarUrl: null,
+        provider: null,
+        providerId: null,
+      };
+
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(mockUser);
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(false));
+
+      await expect(
+        service.updatePassword(email, {
+          currentPassword: 'wrongPassword',
+          newPassword: 'newPassword',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.updatePassword(email, {
+          currentPassword: 'wrongPassword',
+          newPassword: 'newPassword',
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'AUTH.INVALID_CREDENTIALS',
+        },
       });
     });
   });

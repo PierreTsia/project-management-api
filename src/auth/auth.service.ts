@@ -20,6 +20,7 @@ import { EmailService } from '../email/email.service';
 import { REFRESH_TOKEN_EXPIRATION_TIME } from './constants';
 import { ConfirmEmailDto } from './dto/confirm-email.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -223,14 +224,49 @@ export class AuthService {
     return { message: 'Email confirmed successfully' };
   }
 
-  async forgotPassword(_email: string) {
-    // TODO: Implement forgot password
-    return { message: 'Forgot password not implemented yet' };
+  async forgotPassword(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      // Don't reveal if email exists
+      return {
+        message: this.i18n.translate('auth.forgot_password.success'),
+      };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+    await this.usersService.update(user.id, {
+      passwordResetToken: resetToken,
+      passwordResetExpires: resetExpires,
+    });
+
+    await this.emailService.sendPasswordReset(user.email, resetToken);
+
+    return {
+      message: this.i18n.translate('auth.forgot_password.success'),
+    };
   }
 
-  async resetPassword(_token: string, _password: string) {
-    // TODO: Implement password reset
-    return { message: 'Password reset not implemented yet' };
+  async resetPassword({ token, password }: ResetPasswordDto) {
+    const user = await this.usersService.findByPasswordResetToken(token);
+    if (!user) {
+      throw new NotFoundException(
+        this.i18n.translate('auth.reset_password.invalid_token'),
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await this.usersService.update(user.id, {
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
+
+    return {
+      message: this.i18n.translate('auth.reset_password.success'),
+    };
   }
 
   async resendConfirmation({ email }: ResendConfirmationDto) {

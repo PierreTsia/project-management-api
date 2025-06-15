@@ -118,7 +118,7 @@ export class AuthController {
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() { token, password }: ResetPasswordDto) {
-    return this.authService.resetPassword(token, password);
+    return this.authService.resetPassword({ token, password });
   }
 
   @Post('resend-confirmation')

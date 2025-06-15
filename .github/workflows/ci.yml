@@ -37,5 +37,11 @@ jobs:
     - name: Lint
       run: pnpm lint
     
-    - name: Test
-      run: pnpm test 
+    - name: Test with coverage
+      run: pnpm test:cov
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: true 

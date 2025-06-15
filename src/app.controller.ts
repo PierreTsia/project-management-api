@@ -13,7 +13,7 @@ export class AppController {
   async getHello() {
     return this.i18n.translate('test.day_interval', {
       args: {
-        count: 2,
+        count: 3,
       },
     });
   }

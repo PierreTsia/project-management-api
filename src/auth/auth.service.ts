@@ -3,32 +3,26 @@ import {
   ConflictException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { I18nService } from 'nestjs-i18n';
 import { JwtService } from '@nestjs/jwt';
 
-import { User } from '../users/entities/user.entity';
-import { RefreshToken } from './entities/refresh-token.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { RefreshTokenService } from './refresh-token.service';
+import { UsersService } from '../users/users.service';
 
 const REFRESH_TOKEN_EXPIRATION_TIME = 7 * 24 * 60 * 60; // 7 days in seconds
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(RefreshToken)
-    private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly i18n: I18nService,
     private readonly jwtService: JwtService,
     private readonly refreshTokenService: RefreshTokenService,
+    private readonly usersService: UsersService,
   ) {}
 
   private async verifyPassword(
@@ -57,9 +51,7 @@ export class AuthService {
     const { email, password, name } = registerDto;
 
     // Check if user already exists
-    const existingUser = await this.userRepository.findOne({
-      where: { email },
-    });
+    const existingUser = await this.usersService.findByEmail(email);
 
     if (existingUser) {
       throw new ConflictException({
@@ -76,15 +68,13 @@ export class AuthService {
     const confirmationToken = uuidv4();
 
     // Create new user
-    const user = this.userRepository.create({
+    await this.usersService.create({
       email,
       password: hashedPassword,
       name,
       isEmailConfirmed: false,
       emailConfirmationToken: confirmationToken,
     });
-
-    await this.userRepository.save(user);
 
     // TODO: Send confirmation email
     // For now, just return the token
@@ -98,9 +88,7 @@ export class AuthService {
     const { email, password } = loginDto;
 
     // Find user by email
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+    const user = await this.usersService.findByEmail(email);
 
     if (!user) {
       throw new UnauthorizedException({
@@ -180,7 +168,49 @@ export class AuthService {
     updatePasswordDto: UpdatePasswordDto,
     acceptLanguage?: string,
   ) {
-    // TODO: Implement password update
-    return { message: 'Password update not implemented yet' };
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException({
+        code: 'AUTH.USER_NOT_FOUND',
+        message: this.i18n.translate('errors.auth.user_not_found', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
+    const isPasswordValid = user.password
+      ? await bcrypt.compare(updatePasswordDto.currentPassword, user.password)
+      : false;
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException({
+        code: 'AUTH.INVALID_CREDENTIALS',
+        message: this.i18n.translate('auth.errors.invalid_credentials', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
+    // Check if new password is different from current password
+    if (updatePasswordDto.newPassword === updatePasswordDto.currentPassword) {
+      throw new UnauthorizedException({
+        code: 'AUTH.NEW_PASSWORD_SAME_AS_CURRENT',
+        message: this.i18n.translate(
+          'errors.auth.new_password_same_as_current',
+          {
+            lang: acceptLanguage,
+          },
+        ),
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(updatePasswordDto.newPassword, 10);
+    await this.usersService.update(user.id, { password: hashedPassword });
+
+    return {
+      message: this.i18n.translate('auth.messages.password_updated', {
+        lang: acceptLanguage,
+      }),
+    };
   }
 }

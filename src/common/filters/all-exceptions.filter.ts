@@ -18,41 +18,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const acceptLanguage = request.headers['accept-language'];
 
-    // Handle HttpExceptions with formatted responses
+    // Let HttpExceptions pass through - they are handled by their respective services
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const res = exception.getResponse();
-
-      // If the response is already formatted (has code and message), pass it through
-      if (
-        typeof res === 'object' &&
-        res !== null &&
-        'code' in res &&
-        'message' in res
-      ) {
-        return response.status(status).json({
-          ...res,
-          status,
-          meta: {
-            language: acceptLanguage,
-          },
-        });
-      }
-
-      // Handle other HttpExceptions (like validation errors)
-      return response.status(status).json({
-        code: `HTTP.${status}`,
-        message: this.i18n.translate(`errors.http.${status}`, {
-          lang: acceptLanguage,
-        }),
-        status,
-        meta: {
-          language: acceptLanguage,
-        },
-      });
+      return response.status(status).json(res);
     }
 
-    // Handle unknown errors
+    // Handle only unknown/generic errors
     console.error('Exception caught by global filter:', {
       exception,
       path: request.url,

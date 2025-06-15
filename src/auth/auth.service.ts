@@ -13,8 +13,7 @@ import { RegisterDto } from './dto/register.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { RefreshTokenService } from './refresh-token.service';
 import { UsersService } from '../users/users.service';
-
-const REFRESH_TOKEN_EXPIRATION_TIME = 7 * 24 * 60 * 60; // 7 days in seconds
+import { REFRESH_TOKEN_EXPIRATION_TIME } from './constants';
 
 @Injectable()
 export class AuthService {
@@ -133,9 +132,51 @@ export class AuthService {
     };
   }
 
-  async refreshTokens(refreshToken: string) {
-    // TODO: Implement token refresh
-    return { message: 'Token refresh not implemented yet' };
+  async refreshTokens(refreshToken: string, acceptLanguage?: string) {
+    // Strip 'Bearer ' prefix if present
+    const cleanToken = refreshToken.replace(/^Bearer\s+/i, '');
+
+    const payload =
+      await this.refreshTokenService.validateRefreshToken(cleanToken);
+    if (!payload) {
+      throw new UnauthorizedException({
+        status: 401,
+        code: 'AUTH.INVALID_REFRESH_TOKEN',
+        message: this.i18n.translate('auth.errors.invalid_refresh_token', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
+    const user = await this.usersService.findOne(payload.user.id);
+    if (!user) {
+      throw new UnauthorizedException({
+        status: 401,
+        code: 'AUTH.USER_NOT_FOUND',
+        message: this.i18n.translate('auth.errors.user_not_found', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
+    // Generate new tokens
+    const { accessToken, refreshToken: newRefreshToken } =
+      await this.generateTokens({
+        email: user.email,
+        id: user.id,
+      });
+
+    // Revoke the old refresh token
+    await this.refreshTokenService.revokeRefreshToken(cleanToken);
+
+    // Remove password from user object
+    const { password: _, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      accessToken,
+      refreshToken: newRefreshToken,
+    };
   }
 
   async logout(refreshToken: string) {
@@ -143,22 +184,22 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  async confirmEmail(token: string) {
+  async confirmEmail(_token: string) {
     // TODO: Implement email confirmation
     return { message: 'Email confirmation not implemented yet' };
   }
 
-  async forgotPassword(email: string) {
+  async forgotPassword(_email: string) {
     // TODO: Implement forgot password
     return { message: 'Forgot password not implemented yet' };
   }
 
-  async resetPassword(token: string, password: string) {
+  async resetPassword(_token: string, _password: string) {
     // TODO: Implement password reset
     return { message: 'Password reset not implemented yet' };
   }
 
-  async resendConfirmation(email: string) {
+  async resendConfirmation(_email: string) {
     // TODO: Implement resend confirmation
     return { message: 'Resend confirmation not implemented yet' };
   }

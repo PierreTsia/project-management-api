@@ -16,6 +16,7 @@ import { RefreshTokenService } from './refresh-token.service';
 import { I18nService } from 'nestjs-i18n';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { Request, Response } from 'express';
 
 describe('AuthController', () => {
   let app: INestApplication;
@@ -288,19 +289,31 @@ describe('AuthController', () => {
   });
 
   describe('GET /auth/google/callback', () => {
-    const mockRequest = {
+    interface GoogleUser {
+      email?: string;
+      id?: string;
+    }
+
+    interface GoogleRequest extends Request {
+      user?: GoogleUser;
+    }
+
+    const mockRequest: GoogleRequest = {
       user: {
         email: 'test@test.com',
         id: '1',
       },
+    } as GoogleRequest;
+
+    const mockRedirect = jest.fn();
+    const mockResponse: Partial<Response> = {
+      redirect: mockRedirect,
     };
-    const mockResponse = {
-      redirect: jest.fn(),
-    };
+
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
     beforeEach(() => {
-      mockResponse.redirect.mockClear();
+      mockRedirect.mockClear();
     });
 
     it('should redirect to frontend with tokens on successful authentication', async () => {
@@ -314,22 +327,27 @@ describe('AuthController', () => {
       );
 
       await controller.googleAuthCallback(
-        mockRequest as any,
-        mockResponse as any,
+        mockRequest,
+        mockResponse as Response,
       );
 
-      expect(mockResponse.redirect).toHaveBeenCalledWith(
+      expect(mockRedirect).toHaveBeenCalledWith(
         `${frontendUrl}/auth/callback?access_token=${mockTokens.accessToken}&refresh_token=${mockTokens.refreshToken}&provider=google`,
       );
     });
 
     it('should redirect to error page when user is undefined', async () => {
+      const requestWithoutUser: GoogleRequest = {
+        ...mockRequest,
+        user: undefined,
+      } as GoogleRequest;
+
       await controller.googleAuthCallback(
-        { user: undefined } as any,
-        mockResponse as any,
+        requestWithoutUser,
+        mockResponse as Response,
       );
 
-      expect(mockResponse.redirect).toHaveBeenCalledWith(
+      expect(mockRedirect).toHaveBeenCalledWith(
         `${frontendUrl}/auth/error?message=Google%20login%20failed`,
       );
     });
@@ -338,11 +356,11 @@ describe('AuthController', () => {
       (mockAuthService.generateTokens as jest.Mock).mockResolvedValue(null);
 
       await controller.googleAuthCallback(
-        mockRequest as any,
-        mockResponse as any,
+        mockRequest,
+        mockResponse as Response,
       );
 
-      expect(mockResponse.redirect).toHaveBeenCalledWith(
+      expect(mockRedirect).toHaveBeenCalledWith(
         `${frontendUrl}/auth/error?message=Token%20generation%20failed`,
       );
     });
@@ -354,11 +372,11 @@ describe('AuthController', () => {
       });
 
       await controller.googleAuthCallback(
-        mockRequest as any,
-        mockResponse as any,
+        mockRequest,
+        mockResponse as Response,
       );
 
-      expect(mockResponse.redirect).toHaveBeenCalledWith(
+      expect(mockRedirect).toHaveBeenCalledWith(
         `${frontendUrl}/auth/error?message=Token%20generation%20failed`,
       );
     });

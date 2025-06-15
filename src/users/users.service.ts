@@ -43,4 +43,16 @@ export class UsersService {
       },
     });
   }
+
+  async findByProviderId(
+    provider: string,
+    providerId: string,
+  ): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: {
+        provider,
+        providerId,
+      },
+    });
+  }
 }

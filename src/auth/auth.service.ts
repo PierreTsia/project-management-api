@@ -21,6 +21,7 @@ import { REFRESH_TOKEN_EXPIRATION_TIME } from './constants';
 import { ConfirmEmailDto } from './dto/confirm-email.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -40,7 +41,7 @@ export class AuthService {
     return bcrypt.compare(plainPassword, hashedPassword);
   }
 
-  private async generateTokens(payload: { email: string; id: string }) {
+  async generateTokens(payload: { email: string; id: string }) {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync({ sub: payload.id, email: payload.email }),
       this.generateRefreshToken(payload.id),
@@ -354,5 +355,53 @@ export class AuthService {
         lang: acceptLanguage,
       }),
     };
+  }
+
+  async findOrCreateUser({
+    provider,
+    providerId,
+    email,
+    name,
+    avatarUrl,
+  }: {
+    provider: 'google';
+    providerId: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  }): Promise<User> {
+    try {
+      let user = await this.usersService.findByProviderId(provider, providerId);
+      if (user) {
+        return user;
+      }
+
+      user = await this.usersService.findByEmail(email);
+      if (user) {
+        if (!user.provider || !user.providerId) {
+          user = await this.usersService.update(user.id, {
+            provider,
+            providerId,
+            avatarUrl,
+          });
+        }
+
+        return user;
+      }
+
+      user = await this.usersService.create({
+        email,
+        name,
+        provider,
+        providerId,
+        avatarUrl,
+        isEmailConfirmed: true, // Social auth emails are pre-verified
+      });
+
+      return user;
+    } catch (error) {
+      console.error(`Failed to find or create user for ${email}`, error);
+      throw error;
+    }
   }
 }

@@ -33,7 +33,6 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
-import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -160,8 +159,8 @@ export class AuthController {
   })
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  googleAuth() {
-    // Passport handles the redirect
+  async googleAuth() {
+    // This route initiates the Google OAuth flow
   }
 
   @ApiOperation({ summary: 'Google OAuth callback' })
@@ -170,8 +169,30 @@ export class AuthController {
     description: 'Redirects to frontend with tokens in query params',
   })
   @Get('google/callback')
-  @UseGuards(GoogleAuthGuard)
-  async googleAuthCallback(@Req() _req: Request, @Res() _res: Response) {
-    // Implementation will be added later
+  @UseGuards(AuthGuard('google'))
+  async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
+    const user = req.user as { email?: string; id?: string } | undefined;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    if (!user) {
+      return res.redirect(
+        `${frontendUrl}/auth/error?message=Google%20login%20failed`,
+      );
+    }
+
+    const tokens = await this.authService.generateTokens({
+      email: user.email!,
+      id: user.id!,
+    });
+
+    if (!tokens || !tokens.accessToken || !tokens.refreshToken) {
+      return res.redirect(
+        `${frontendUrl}/auth/error?message=Token%20generation%20failed`,
+      );
+    }
+
+    return res.redirect(
+      `${frontendUrl}/auth/callback?access_token=${tokens.accessToken}&refresh_token=${tokens.refreshToken}&provider=google`,
+    );
   }
 }

@@ -18,39 +18,54 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const acceptLanguage = request.headers['accept-language'];
 
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
-    let code = 'SYSTEM.UNKNOWN_ERROR';
-
+    // Handle HttpExceptions with formatted responses
     if (exception instanceof HttpException) {
-      status = exception.getStatus();
+      const status = exception.getStatus();
       const res = exception.getResponse();
-      if (typeof res === 'string') {
-        message = res;
-        code = `HTTP.${status}`;
-      } else if (typeof res === 'object' && res !== null) {
-        const { message: msg, error: err, code: errCode } = res as any;
-        message = msg || err || message;
-        code = errCode || `HTTP.${status}`;
+
+      // If the response is already formatted (has code and message), pass it through
+      if (
+        typeof res === 'object' &&
+        res !== null &&
+        'code' in res &&
+        'message' in res
+      ) {
+        return response.status(status).json({
+          ...res,
+          status,
+          meta: {
+            language: acceptLanguage,
+          },
+        });
       }
+
+      // Handle other HttpExceptions (like validation errors)
+      return response.status(status).json({
+        code: `HTTP.${status}`,
+        message: this.i18n.translate(`errors.http.${status}`, {
+          lang: acceptLanguage,
+        }),
+        status,
+        meta: {
+          language: acceptLanguage,
+        },
+      });
     }
 
+    // Handle unknown errors
     console.error('Exception caught by global filter:', {
       exception,
       path: request.url,
       method: request.method,
       body: request.body,
-      status,
-      message,
-      code,
     });
 
-    return response.status(status).json({
-      code,
-      message: this.i18n.translate(`errors.${code.toLowerCase()}`, {
+    return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      code: 'SYSTEM.UNKNOWN_ERROR',
+      message: this.i18n.translate('errors.system.unknown', {
         lang: acceptLanguage,
       }),
-      status,
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
       meta: {
         language: acceptLanguage,
       },

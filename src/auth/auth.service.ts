@@ -1,9 +1,14 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { I18nService } from 'nestjs-i18n';
+import { JwtService } from '@nestjs/jwt';
 
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -19,7 +24,38 @@ export class AuthService {
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly i18n: I18nService,
+    private readonly jwtService: JwtService,
   ) {}
+
+  private async verifyPassword(
+    plainPassword: string,
+    hashedPassword: string,
+  ): Promise<boolean> {
+    return bcrypt.compare(plainPassword, hashedPassword);
+  }
+
+  private async generateTokens(payload: { email: string; id: string }) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync({ sub: payload.id, email: payload.email }),
+      this.generateRefreshToken(payload.id),
+    ]);
+    return { accessToken, refreshToken };
+  }
+
+  private async generateRefreshToken(userId: string): Promise<string> {
+    const token = uuidv4();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+
+    const refreshToken = this.refreshTokenRepository.create({
+      token,
+      userId,
+      expiresAt,
+    });
+
+    await this.refreshTokenRepository.save(refreshToken);
+    return token;
+  }
 
   async register(registerDto: RegisterDto) {
     const { email, password, name } = registerDto;
@@ -31,8 +67,9 @@ export class AuthService {
 
     if (existingUser) {
       throw new ConflictException({
+        status: 409,
         code: 'AUTH.EMAIL_EXISTS',
-        message: this.i18n.translate('auth.email_exists'),
+        message: this.i18n.translate('auth.errors.email_exists'),
       });
     }
 
@@ -62,8 +99,54 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    // TODO: Implement login
-    return { message: 'Login not implemented yet' };
+    const { email, password } = loginDto;
+
+    // Find user by email
+    const user = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException({
+        status: 401,
+        code: 'AUTH.INVALID_CREDENTIALS',
+        message: this.i18n.translate('auth.errors.invalid_credentials'),
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await this.verifyPassword(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException({
+        status: 401,
+        code: 'AUTH.INVALID_CREDENTIALS',
+        message: this.i18n.translate('auth.errors.invalid_credentials'),
+      });
+    }
+
+    // Check if email is confirmed
+    if (!user.isEmailConfirmed) {
+      throw new UnauthorizedException({
+        status: 401,
+        code: 'AUTH.EMAIL_NOT_CONFIRMED',
+        message: this.i18n.translate('auth.errors.email_not_confirmed'),
+      });
+    }
+
+    // Generate tokens
+    const { accessToken, refreshToken } = await this.generateTokens({
+      email: user.email,
+      id: user.id,
+    });
+
+    // Remove password from user object
+    const { password: _, ...userWithoutPassword } = user;
+
+    return {
+      user: userWithoutPassword,
+      accessToken,
+      refreshToken,
+    };
   }
 
   async refreshTokens(refreshToken: string) {
@@ -103,10 +186,5 @@ export class AuthService {
   ) {
     // TODO: Implement password update
     return { message: 'Password update not implemented yet' };
-  }
-
-  async generateTokens(payload: { email: string; id: string }) {
-    // TODO: Implement token generation
-    return { message: 'Token generation not implemented yet' };
   }
 }

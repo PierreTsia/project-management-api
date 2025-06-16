@@ -6,10 +6,12 @@ import { User } from './entities/user.entity';
 import { UpdateNameDto } from './dto/update-name.dto';
 import { I18nService } from 'nestjs-i18n';
 import { NotFoundException } from '@nestjs/common';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 describe('UsersService', () => {
   let service: UsersService;
   let usersRepository: Repository<User>;
+  let consoleErrorSpy: jest.SpyInstance;
 
   const mockUser: User = {
     id: 'user-1',
@@ -36,7 +38,15 @@ describe('UsersService', () => {
     translate: jest.fn().mockReturnValue((key) => key),
   };
 
+  const mockCloudinaryService = {
+    uploadImage: jest.fn(),
+    deleteImage: jest.fn(),
+    extractPublicIdFromUrl: jest.fn(),
+  };
+
   beforeEach(async () => {
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -48,6 +58,10 @@ describe('UsersService', () => {
           provide: I18nService,
           useValue: mockI18nService,
         },
+        {
+          provide: CloudinaryService,
+          useValue: mockCloudinaryService,
+        },
       ],
     }).compile();
 
@@ -57,6 +71,7 @@ describe('UsersService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    consoleErrorSpy.mockRestore();
   });
 
   it('should be defined', () => {
@@ -323,6 +338,102 @@ describe('UsersService', () => {
       expect(mockRepository.update).toHaveBeenCalledWith(userId, {
         name: updateNameDto.name,
       });
+    });
+  });
+
+  describe('uploadAvatar', () => {
+    const mockFile = {
+      fieldname: 'avatar',
+      originalname: 'test.jpg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('test'),
+      size: 1024,
+    } as Express.Multer.File;
+
+    const mockUploadResult = {
+      url: 'https://cloudinary.com/test.jpg',
+      publicId: 'test-public-id',
+      version: '1',
+    };
+
+    it('should upload avatar and update user', async () => {
+      mockCloudinaryService.uploadImage.mockResolvedValue(mockUploadResult);
+      mockCloudinaryService.extractPublicIdFromUrl.mockReturnValue(
+        'old-public-id',
+      );
+      mockRepository.findOne.mockResolvedValue(mockUser);
+      mockRepository.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.uploadAvatar('user-1', mockFile);
+
+      expect(mockCloudinaryService.uploadImage).toHaveBeenCalledWith(
+        mockFile,
+        'user-1',
+        undefined,
+      );
+      expect(mockRepository.update).toHaveBeenCalledWith('user-1', {
+        avatarUrl: mockUploadResult.url,
+      });
+      expect(result).toBeDefined();
+    });
+
+    it('should throw NotFoundException if user not found', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.uploadAvatar('non-existent', mockFile),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should clean up old avatar if it exists', async () => {
+      const userWithAvatar = {
+        ...mockUser,
+        avatarUrl: 'https://cloudinary.com/old-avatar.jpg',
+      };
+      mockCloudinaryService.uploadImage.mockResolvedValue(mockUploadResult);
+      mockCloudinaryService.extractPublicIdFromUrl.mockReturnValue(
+        'old-public-id',
+      );
+      mockRepository.findOne.mockResolvedValue(userWithAvatar);
+      mockRepository.update.mockResolvedValue({ affected: 1 });
+
+      await service.uploadAvatar('user-1', mockFile);
+
+      expect(mockCloudinaryService.deleteImage).toHaveBeenCalledWith(
+        'old-public-id',
+        undefined,
+      );
+    });
+
+    it('should handle cleanup errors gracefully', async () => {
+      const userWithAvatar = {
+        ...mockUser,
+        avatarUrl: 'https://cloudinary.com/old-avatar.jpg',
+      };
+      mockCloudinaryService.uploadImage.mockResolvedValue(mockUploadResult);
+      mockCloudinaryService.extractPublicIdFromUrl.mockReturnValue(
+        'old-public-id',
+      );
+      mockCloudinaryService.deleteImage.mockRejectedValue(
+        new Error('Cleanup failed'),
+      );
+      mockRepository.findOne.mockResolvedValue(userWithAvatar);
+      mockRepository.update.mockResolvedValue({ affected: 1 });
+
+      const result = await service.uploadAvatar('user-1', mockFile);
+
+      expect(result).toBeDefined();
+      expect(mockCloudinaryService.deleteImage).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to delete old avatar:',
+        expect.objectContaining({
+          userId: 'user-1',
+          oldPublicId: 'old-public-id',
+          oldUrl: 'https://cloudinary.com/old-avatar.jpg',
+          error: 'Cleanup failed',
+        }),
+      );
     });
   });
 });

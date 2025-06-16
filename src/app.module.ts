@@ -15,6 +15,7 @@ import { validationSchema } from './config/validation.schema';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     }),
     UsersModule,
     AuthModule,
+    CloudinaryModule,
   ],
   controllers: [AppController],
   providers: [

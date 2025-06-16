@@ -105,7 +105,7 @@ describe('UsersController', () => {
       const mockFile = { originalname: 'test.jpg' };
       const mockAcceptLanguage = 'en';
       const mockResult = {
-        id: 'user-id',
+        ...mockUser,
         avatarUrl: 'http://example.com/avatar.jpg',
       };
 

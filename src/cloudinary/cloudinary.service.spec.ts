@@ -1,0 +1,252 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
+import { I18nService } from 'nestjs-i18n';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { CloudinaryService } from './cloudinary.service';
+import { v2 as cloudinary } from 'cloudinary';
+import * as fs from 'fs';
+import { extractPublicId } from 'cloudinary-build-url';
+
+jest.mock('cloudinary');
+jest.mock('fs');
+jest.mock('cloudinary-build-url', () => ({
+  extractPublicId: jest.fn((url: string) => {
+    if (url.includes('cloudinary.com')) {
+      return 'test-project/dev/avatars/user123/avatar-123';
+    }
+    return null;
+  }),
+}));
+
+describe('CloudinaryService', () => {
+  let service: CloudinaryService;
+  let i18nService: I18nService;
+
+  const mockConfigService = {
+    get: jest.fn((key: string) => {
+      const config = {
+        CLOUDINARY_CLOUD_NAME: 'test-cloud',
+        CLOUDINARY_API_KEY: 'test-key',
+        CLOUDINARY_API_SECRET: 'test-secret',
+        PROJECT_NAME: 'test-project',
+        NODE_ENV: 'development',
+      };
+      return config[key];
+    }),
+  };
+
+  const mockI18nService = {
+    translate: jest.fn((key: string, _options: unknown) => {
+      const translations = {
+        'errors.cloudinary.invalid_file': 'Invalid file',
+        'errors.cloudinary.upload_failed': 'Upload failed',
+        'errors.cloudinary.delete_failed': 'Delete failed',
+      };
+      return translations[key] || key;
+    }),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CloudinaryService,
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: I18nService, useValue: mockI18nService },
+      ],
+    }).compile();
+
+    service = module.get<CloudinaryService>(CloudinaryService);
+    i18nService = module.get<I18nService>(I18nService);
+
+    // Reset all mocks before each test
+    jest.clearAllMocks();
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('uploadImage', () => {
+    const mockFile = {
+      fieldname: 'avatar',
+      originalname: 'test.jpg',
+      encoding: '7bit',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('test'),
+      size: 1024,
+      path: '/tmp/test.jpg',
+      stream: {},
+      destination: '/tmp',
+      filename: 'test.jpg',
+    } as Express.Multer.File;
+
+    const mockUserId = 'user123';
+    const mockAcceptLanguage = 'en';
+
+    it('should successfully upload an image', async () => {
+      const mockUploadResult = {
+        secure_url: 'https://cloudinary.com/test.jpg',
+        public_id: 'test-project/dev/avatars/user123/avatar-123',
+        version: '123',
+      };
+
+      (cloudinary.uploader.upload as jest.Mock).mockResolvedValue(
+        mockUploadResult,
+      );
+
+      const result = await service.uploadImage(
+        mockFile,
+        mockUserId,
+        mockAcceptLanguage,
+      );
+
+      expect(result).toEqual({
+        url: mockUploadResult.secure_url,
+        publicId: mockUploadResult.public_id,
+        version: mockUploadResult.version,
+      });
+      expect(cloudinary.uploader.upload).toHaveBeenCalledWith(mockFile.path, {
+        public_id: expect.stringContaining(
+          'test-project/dev/avatars/user123/avatar-',
+        ),
+        resource_type: 'auto',
+      });
+    });
+
+    it('should throw BadRequestException for invalid file type', async () => {
+      const invalidFile = {
+        ...mockFile,
+        mimetype: 'application/pdf',
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadImage(invalidFile, mockUserId, mockAcceptLanguage),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.invalid_file',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
+    it('should throw BadRequestException for file too large', async () => {
+      const largeFile = {
+        ...mockFile,
+        size: 6 * 1024 * 1024,
+      } as Express.Multer.File; // 6MB
+
+      await expect(
+        service.uploadImage(largeFile, mockUserId, mockAcceptLanguage),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.invalid_file',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
+    it('should throw BadRequestException for missing file content', async () => {
+      const invalidFile = {
+        ...mockFile,
+        buffer: null,
+        path: null,
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadImage(invalidFile, mockUserId, mockAcceptLanguage),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.invalid_file',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
+    it('should throw InternalServerErrorException when upload fails', async () => {
+      (cloudinary.uploader.upload as jest.Mock).mockRejectedValue(
+        new Error('Upload failed'),
+      );
+
+      await expect(
+        service.uploadImage(mockFile, mockUserId, mockAcceptLanguage),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.upload_failed',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
+    it('should clean up temporary file after upload', async () => {
+      const mockUploadResult = {
+        secure_url: 'https://cloudinary.com/test.jpg',
+        public_id: 'test-project/dev/avatars/user123/avatar-123',
+        version: '123',
+      };
+
+      (cloudinary.uploader.upload as jest.Mock).mockResolvedValue(
+        mockUploadResult,
+      );
+      (fs.unlink as unknown as jest.Mock).mockImplementation((path, callback) =>
+        callback(null),
+      );
+
+      await service.uploadImage(mockFile, mockUserId, mockAcceptLanguage);
+
+      expect(fs.unlink).toHaveBeenCalledWith(
+        mockFile.path,
+        expect.any(Function),
+      );
+    });
+  });
+
+  describe('deleteImage', () => {
+    const mockPublicId = 'test-project/dev/avatars/user123/avatar-123';
+    const mockAcceptLanguage = 'en';
+
+    it('should successfully delete an image', async () => {
+      (cloudinary.uploader.destroy as jest.Mock).mockResolvedValue({
+        result: 'ok',
+      });
+
+      await service.deleteImage(mockPublicId, mockAcceptLanguage);
+
+      expect(cloudinary.uploader.destroy).toHaveBeenCalledWith(mockPublicId);
+    });
+
+    it('should throw InternalServerErrorException when deletion fails', async () => {
+      (cloudinary.uploader.destroy as jest.Mock).mockRejectedValue(
+        new Error('Delete failed'),
+      );
+
+      await expect(
+        service.deleteImage(mockPublicId, mockAcceptLanguage),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.delete_failed',
+        { lang: mockAcceptLanguage },
+      );
+    });
+  });
+
+  describe('extractPublicIdFromUrl', () => {
+    it('should extract public ID from a valid Cloudinary URL', () => {
+      const url =
+        'https://res.cloudinary.com/test-cloud/image/upload/v123/test-project/dev/avatars/user123/avatar-123.jpg';
+      const result = service.extractPublicIdFromUrl(url);
+      expect(result).toBe('test-project/dev/avatars/user123/avatar-123');
+      expect(extractPublicId).toHaveBeenCalledWith(url);
+    });
+
+    it('should return null for invalid URL', () => {
+      const url = 'https://example.com/invalid-url.jpg';
+      const result = service.extractPublicIdFromUrl(url);
+      expect(result).toBeNull();
+      expect(extractPublicId).toHaveBeenCalledWith(url);
+    });
+  });
+});

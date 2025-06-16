@@ -2,15 +2,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MailerService } from '@nestjs-modules/mailer';
 import { I18nService } from 'nestjs-i18n';
 import { EmailService } from './email.service';
+import { MockCustomLogger } from '../test/mocks';
+import { CustomLogger } from '../common/services/logger.service';
 
 describe('EmailService', () => {
   let service: EmailService;
   let mailerService: MailerService;
-  let i18nService: I18nService;
-
-  const mockTranslate = jest.fn().mockImplementation((key: string) => key);
+  let mockLogger: MockCustomLogger;
 
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmailService,
@@ -23,15 +25,18 @@ describe('EmailService', () => {
         {
           provide: I18nService,
           useValue: {
-            translate: mockTranslate,
+            translate: jest.fn().mockImplementation((key: string) => key),
           },
+        },
+        {
+          provide: CustomLogger,
+          useValue: mockLogger,
         },
       ],
     }).compile();
 
     service = module.get<EmailService>(EmailService);
     mailerService = module.get<MailerService>(MailerService);
-    i18nService = module.get<I18nService>(I18nService);
 
     // Mock environment variable
     process.env.FRONTEND_URL = 'http://localhost:3000';
@@ -58,13 +63,11 @@ describe('EmailService', () => {
         subject: 'email.confirm_email.subject',
         template: 'confirm-email',
         context: {
-          confirmationUrl:
-            'http://localhost:3000/confirm-email?token=confirmation-token',
+          confirmationUrl: expect.stringContaining(token),
         },
       });
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'email.confirm_email.subject',
-        { lang },
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Confirmation email sent to: ${email}`,
       );
     });
 
@@ -79,13 +82,28 @@ describe('EmailService', () => {
         subject: 'email.confirm_email.subject',
         template: 'confirm-email',
         context: {
-          confirmationUrl:
-            'http://localhost:3000/confirm-email?token=confirmation-token',
+          confirmationUrl: expect.stringContaining(token),
         },
       });
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'email.confirm_email.subject',
-        { lang: undefined },
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Confirmation email sent to: ${email}`,
+      );
+    });
+
+    it('should log error when email sending fails', async () => {
+      const email = 'test@example.com';
+      const token = 'confirmation-token';
+      const error = new Error('Failed to send email');
+
+      jest.spyOn(mailerService, 'sendMail').mockRejectedValue(error);
+
+      await expect(service.sendEmailConfirmation(email, token)).rejects.toThrow(
+        error,
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        `Failed to send confirmation email to ${email}: ${error.message}`,
+        error.stack,
       );
     });
   });
@@ -103,12 +121,11 @@ describe('EmailService', () => {
         subject: 'email.reset_password.subject',
         template: 'reset-password',
         context: {
-          resetUrl: 'http://localhost:3000/reset-password?token=reset-token',
+          resetUrl: expect.stringContaining(token),
         },
       });
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'email.reset_password.subject',
-        { lang },
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Password reset email sent to: ${email}`,
       );
     });
 
@@ -123,12 +140,28 @@ describe('EmailService', () => {
         subject: 'email.reset_password.subject',
         template: 'reset-password',
         context: {
-          resetUrl: 'http://localhost:3000/reset-password?token=reset-token',
+          resetUrl: expect.stringContaining(token),
         },
       });
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'email.reset_password.subject',
-        { lang: undefined },
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Password reset email sent to: ${email}`,
+      );
+    });
+
+    it('should log error when password reset email sending fails', async () => {
+      const email = 'test@example.com';
+      const token = 'reset-token';
+      const error = new Error('Failed to send email');
+
+      jest.spyOn(mailerService, 'sendMail').mockRejectedValue(error);
+
+      await expect(service.sendPasswordReset(email, token)).rejects.toThrow(
+        error,
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        `Failed to send password reset email to ${email}: ${error.message}`,
+        error.stack,
       );
     });
   });

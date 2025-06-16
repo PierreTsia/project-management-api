@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { extractPublicId } from 'cloudinary-build-url';
 import { I18nService } from 'nestjs-i18n';
+import { CustomLogger } from '../common/services/logger.service';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -19,12 +20,16 @@ export class CloudinaryService {
   constructor(
     private readonly configService: ConfigService,
     private readonly i18n: I18nService,
+    private readonly logger: CustomLogger,
   ) {
+    this.logger.setContext('CloudinaryService');
+
     const cloudName = this.configService.get('CLOUDINARY_CLOUD_NAME');
     const apiKey = this.configService.get('CLOUDINARY_API_KEY');
     const apiSecret = this.configService.get('CLOUDINARY_API_SECRET');
 
     if (!cloudName || !apiKey || !apiSecret) {
+      this.logger.error('Missing Cloudinary credentials');
       throw new Error('Missing Cloudinary credentials');
     }
 
@@ -111,6 +116,15 @@ export class CloudinaryService {
         throw error;
       }
 
+      this.logger.error(
+        `Failed to upload image to Cloudinary: ${JSON.stringify({
+          userId,
+          fileSize: file?.size,
+          fileType: file?.mimetype,
+        })}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
       throw new InternalServerErrorException({
         status: 500,
         code: 'CLOUDINARY.UPLOAD_FAILED',
@@ -121,7 +135,16 @@ export class CloudinaryService {
     } finally {
       // Clean up the temporary file
       if (file.path) {
-        fs.unlink(file.path, () => {});
+        fs.unlink(file.path, (err) => {
+          if (err) {
+            this.logger.warn(
+              `Failed to delete temporary file: ${JSON.stringify({
+                path: file.path,
+                error: err.message,
+              })}`,
+            );
+          }
+        });
       }
     }
   }
@@ -130,6 +153,11 @@ export class CloudinaryService {
     try {
       await cloudinary.uploader.destroy(publicId);
     } catch (error: unknown) {
+      this.logger.error(
+        `Failed to delete image from Cloudinary: ${JSON.stringify({ publicId })}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
       throw new InternalServerErrorException({
         status: 500,
         code: 'CLOUDINARY.DELETE_FAILED',
@@ -144,7 +172,10 @@ export class CloudinaryService {
     try {
       return extractPublicId(url);
     } catch (error: unknown) {
-      console.error('Failed to extract publicId from URL:', error);
+      this.logger.error(
+        `Failed to extract publicId from URL: ${JSON.stringify({ url })}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       return null;
     }
   }

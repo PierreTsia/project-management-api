@@ -9,6 +9,8 @@ import { CloudinaryService } from './cloudinary.service';
 import { v2 as cloudinary } from 'cloudinary';
 import * as fs from 'fs';
 import { extractPublicId } from 'cloudinary-build-url';
+import { MockCustomLogger } from '../test/mocks';
+import { CustomLogger } from '../common/services/logger.service';
 
 jest.mock('cloudinary');
 jest.mock('fs', () => ({
@@ -30,37 +32,36 @@ jest.mock('cloudinary-build-url', () => ({
 describe('CloudinaryService', () => {
   let service: CloudinaryService;
   let i18nService: I18nService;
-
-  const mockConfigService = {
-    get: jest.fn((key: string) => {
-      const config = {
-        CLOUDINARY_CLOUD_NAME: 'test-cloud',
-        CLOUDINARY_API_KEY: 'test-key',
-        CLOUDINARY_API_SECRET: 'test-secret',
-        PROJECT_NAME: 'test-project',
-        NODE_ENV: 'development',
-      };
-      return config[key];
-    }),
-  };
-
-  const mockI18nService = {
-    translate: jest.fn((key: string, _options: unknown) => {
-      const translations = {
-        'errors.cloudinary.invalid_file': 'Invalid file',
-        'errors.cloudinary.upload_failed': 'Upload failed',
-        'errors.cloudinary.delete_failed': 'Delete failed',
-      };
-      return translations[key] || key;
-    }),
-  };
+  let mockConfigService: Partial<ConfigService>;
+  let mockI18nService: Partial<I18nService>;
+  let mockLogger: MockCustomLogger;
 
   beforeEach(async () => {
+    mockConfigService = {
+      get: jest.fn((key: string) => {
+        const config = {
+          CLOUDINARY_CLOUD_NAME: 'test-cloud',
+          CLOUDINARY_API_KEY: 'test-key',
+          CLOUDINARY_API_SECRET: 'test-secret',
+          PROJECT_NAME: 'test-project',
+          NODE_ENV: 'test',
+        };
+        return config[key];
+      }),
+    };
+
+    mockI18nService = {
+      translate: jest.fn().mockReturnValue('translated message'),
+    };
+
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CloudinaryService,
         { provide: ConfigService, useValue: mockConfigService },
         { provide: I18nService, useValue: mockI18nService },
+        { provide: CustomLogger, useValue: mockLogger },
       ],
     }).compile();
 
@@ -199,6 +200,11 @@ describe('CloudinaryService', () => {
         'errors.cloudinary.upload_failed',
         { lang: mockAcceptLanguage },
       );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to upload image to Cloudinary'),
+        expect.any(String),
+      );
     });
 
     it('should clean up temporary file after upload', async () => {
@@ -248,6 +254,11 @@ describe('CloudinaryService', () => {
         'errors.cloudinary.delete_failed',
         { lang: mockAcceptLanguage },
       );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to delete image from Cloudinary'),
+        expect.any(String),
+      );
     });
   });
 
@@ -261,7 +272,7 @@ describe('CloudinaryService', () => {
     });
 
     it('should return null for invalid URL', () => {
-      const url = 'https://example.com/invalid-url.jpg';
+      const url = 'https://invalid-url.com/image.jpg';
       const result = service.extractPublicIdFromUrl(url);
       expect(result).toBeNull();
       expect(extractPublicId).toHaveBeenCalledWith(url);

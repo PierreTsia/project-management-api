@@ -1,0 +1,26 @@
+# fly.toml app configuration file generated for project-management-api-purple-water-3067 on 2025-06-16T13:54:26+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'project-management-api-purple-water-3067'
+primary_region = 'cdg'
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+# Automatically run DB migrations before each deploy
+[deploy]
+  release_command = "pnpm run migration:run"

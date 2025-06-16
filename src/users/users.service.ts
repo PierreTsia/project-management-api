@@ -55,4 +55,22 @@ export class UsersService {
       },
     });
   }
+
+  async uploadAvatar(
+    _userId: string,
+    _file: any,
+    _acceptLanguage: string,
+  ): Promise<Partial<User>> {
+    // To be implemented
+    return {};
+  }
+
+  async updateName(
+    _userId: string,
+    _updateNameDto: any,
+    _acceptLanguage?: string,
+  ) {
+    // To be implemented
+    return {};
+  }
 }

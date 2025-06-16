@@ -5,6 +5,10 @@ import {
   Headers,
   UseInterceptors,
   ClassSerializerInterceptor,
+  Post,
+  UploadedFile,
+  Body,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,6 +21,8 @@ import { UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { UserResponseDto } from './dto/user-response.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { multerConfig } from '../config/multer.config';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -43,5 +49,39 @@ export class UsersController {
   ): Promise<UserResponseDto> {
     const user = await this.usersService.findOne(req.user.id);
     return new UserResponseDto(user);
+  }
+
+  @ApiOperation({ summary: 'Upload user avatar' })
+  @ApiResponse({
+    status: 200,
+    description: 'Avatar uploaded successfully',
+  })
+  @Post('avatar')
+  @UseInterceptors(FileInterceptor('file', multerConfig))
+  async uploadAvatar(
+    @Request() req: { user: User },
+    @Headers('accept-language') acceptLanguage: string,
+    @UploadedFile() file: any,
+  ): Promise<Partial<User>> {
+    return this.usersService.uploadAvatar(req.user.id, file, acceptLanguage);
+  }
+
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update user name' })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile updated',
+    type: UserResponseDto,
+  })
+  async updateName(
+    @Request() req: { user: User },
+    @Body() updateNameDto: any,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    return this.usersService.updateName(
+      req.user.id,
+      updateNameDto,
+      acceptLanguage,
+    );
   }
 }

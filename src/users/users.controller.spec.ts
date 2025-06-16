@@ -30,6 +30,8 @@ describe('UsersController', () => {
           provide: UsersService,
           useValue: {
             findOne: jest.fn(),
+            uploadAvatar: jest.fn(),
+            updateName: jest.fn(),
           },
         },
       ],
@@ -83,6 +85,79 @@ describe('UsersController', () => {
 
       expect(result).toBeInstanceOf(UserResponseDto);
       expect(usersService.findOne).toHaveBeenCalledWith(mockUser.id);
+    });
+  });
+
+  describe('uploadAvatar', () => {
+    it('should upload avatar successfully', async () => {
+      const mockUser = {
+        id: 'user-id',
+        email: 'test@example.com',
+        name: 'Test User',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        avatarUrl: null,
+        provider: 'local',
+        providerId: null,
+        isEmailConfirmed: false,
+        refreshTokens: [],
+      };
+      const mockFile = { originalname: 'test.jpg' };
+      const mockAcceptLanguage = 'en';
+      const mockResult = {
+        id: 'user-id',
+        avatarUrl: 'http://example.com/avatar.jpg',
+      };
+
+      jest.spyOn(usersService, 'uploadAvatar').mockResolvedValue(mockResult);
+
+      const result = await controller.uploadAvatar(
+        { user: mockUser },
+        mockAcceptLanguage,
+        mockFile,
+      );
+
+      expect(usersService.uploadAvatar).toHaveBeenCalledWith(
+        mockUser.id,
+        mockFile,
+        mockAcceptLanguage,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('updateName', () => {
+    it('should update user name successfully', async () => {
+      const mockUser = {
+        id: 'user-id',
+        email: 'test@example.com',
+        name: 'Test User',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        avatarUrl: null,
+        provider: 'local',
+        providerId: null,
+        isEmailConfirmed: false,
+        refreshTokens: [],
+      };
+      const updateNameDto = { name: 'New Name' };
+      const mockAcceptLanguage = 'en';
+      const mockResult = { id: 'user-id', name: 'New Name' };
+
+      jest.spyOn(usersService, 'updateName').mockResolvedValue(mockResult);
+
+      const result = await controller.updateName(
+        { user: mockUser },
+        updateNameDto,
+        mockAcceptLanguage,
+      );
+
+      expect(usersService.updateName).toHaveBeenCalledWith(
+        mockUser.id,
+        updateNameDto,
+        mockAcceptLanguage,
+      );
+      expect(result).toEqual(mockResult);
     });
   });
 });

@@ -16,6 +16,68 @@ fly auth signup  # If you haven't signed up
 fly auth login   # If you already have an account
 ```
 
+## Environment Variables Management
+
+### Local Development
+- Use `.env` file for local development (gitignored)
+- Never commit sensitive data to git
+
+### Production Environment
+1. Create a `.env.production` file locally (gitignored) with your production values:
+```bash
+# Database
+DATABASE_URL=postgres://username:password@host:port/database
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# Application
+PROJECT_NAME=your_project_name
+NODE_ENV=production
+# Add other environment variables as needed
+```
+
+2. Set secrets in Fly.io:
+```bash
+# Set all secrets at once from .env.production
+fly secrets import .env.production
+
+# Or set them individually
+fly secrets set CLOUDINARY_CLOUD_NAME="your_cloud_name"
+fly secrets set CLOUDINARY_API_KEY="your_api_key"
+fly secrets set CLOUDINARY_API_SECRET="your_api_secret"
+fly secrets set PROJECT_NAME="your_project_name"
+```
+
+3. Verify secrets:
+```bash
+fly secrets list
+```
+
+4. Update secrets:
+```bash
+# Update individual secret
+fly secrets set KEY="new_value"
+
+# Update multiple secrets
+fly secrets import .env.production
+```
+
+5. Remove secrets:
+```bash
+fly secrets unset KEY
+```
+
+### Best Practices
+1. Never commit sensitive data to git
+2. Use different values for development and production
+3. Regularly rotate sensitive credentials
+4. Use strong, unique passwords
+5. Keep your `.env.production` file secure and backed up
+6. Document all required environment variables in README.md
+
 ## Step 1: Create a Fly.io Application
 
 1. Initialize your application:

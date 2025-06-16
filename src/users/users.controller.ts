@@ -23,6 +23,7 @@ import { User } from './entities/user.entity';
 import { UserResponseDto } from './dto/user-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from '../config/multer.config';
+import { UpdateNameDto } from './dto/update-name.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -71,11 +72,11 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'User profile updated',
-    type: UserResponseDto,
+    type: User,
   })
   async updateName(
     @Request() req: { user: User },
-    @Body() updateNameDto: any,
+    @Body() updateNameDto: UpdateNameDto,
     @Headers('accept-language') acceptLanguage?: string,
   ) {
     return this.usersService.updateName(

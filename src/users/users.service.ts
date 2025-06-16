@@ -1,14 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { MoreThan } from 'typeorm';
+import { UpdateNameDto } from './dto/update-name.dto';
+import { I18nService } from 'nestjs-i18n';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly i18n: I18nService,
   ) {}
 
   async findOne(id: string): Promise<User | null> {
@@ -66,11 +69,23 @@ export class UsersService {
   }
 
   async updateName(
-    _userId: string,
-    _updateNameDto: any,
-    _acceptLanguage?: string,
-  ) {
-    // To be implemented
-    return {};
+    userId: string,
+    updateNameDto: UpdateNameDto,
+    acceptLanguage?: string,
+  ): Promise<User> {
+    const user = await this.findOne(userId);
+
+    if (!user) {
+      throw new NotFoundException({
+        status: 404,
+        code: 'USER.NOT_FOUND',
+        message: this.i18n.translate('errors.user.not_found', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
+    await this.update(userId, { name: updateNameDto.name });
+    return this.findOne(userId);
   }
 }

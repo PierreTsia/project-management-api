@@ -142,7 +142,7 @@ describe('UsersController', () => {
       };
       const updateNameDto = { name: 'New Name' };
       const mockAcceptLanguage = 'en';
-      const mockResult = { id: 'user-id', name: 'New Name' };
+      const mockResult = { ...mockUser, name: 'New Name' };
 
       jest.spyOn(usersService, 'updateName').mockResolvedValue(mockResult);
 

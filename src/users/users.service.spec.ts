@@ -3,6 +3,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
+import { UpdateNameDto } from './dto/update-name.dto';
+import { I18nService } from 'nestjs-i18n';
+import { NotFoundException } from '@nestjs/common';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -22,18 +25,28 @@ describe('UsersService', () => {
     providerId: null,
   };
 
+  const mockRepository = {
+    findOne: jest.fn(),
+    update: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
+  const mockI18nService = {
+    translate: jest.fn().mockReturnValue((key) => key),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         {
           provide: getRepositoryToken(User),
-          useValue: {
-            findOne: jest.fn(),
-            update: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-          },
+          useValue: mockRepository,
+        },
+        {
+          provide: I18nService,
+          useValue: mockI18nService,
         },
       ],
     }).compile();
@@ -227,6 +240,88 @@ describe('UsersService', () => {
       expect(result).toBeNull();
       expect(usersRepository.findOne).toHaveBeenCalledWith({
         where: { provider: 'google', providerId: 'nonexistent' },
+      });
+    });
+  });
+
+  describe('updateName', () => {
+    const updateNameDto: UpdateNameDto = { name: 'Updated Name' };
+    const userId = 'user-1';
+    const acceptLanguage = 'en';
+
+    it('should successfully update user name', async () => {
+      const updatedUser = { ...mockUser, name: updateNameDto.name };
+
+      // Setup mock responses for all findOne calls
+      // First call: in updateName to check if user exists
+      // Second call: in update method after update
+      // Third call: final findOne in updateName
+      mockRepository.findOne
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce(updatedUser)
+        .mockResolvedValueOnce(updatedUser);
+
+      // Mock update to return success
+      mockRepository.update.mockResolvedValueOnce({ affected: 1 });
+
+      const result = await service.updateName(
+        userId,
+        updateNameDto,
+        acceptLanguage,
+      );
+
+      expect(result).toEqual(updatedUser);
+      expect(mockRepository.findOne).toHaveBeenCalledTimes(3);
+      expect(mockRepository.findOne).toHaveBeenNthCalledWith(1, {
+        where: { id: userId },
+      });
+      expect(mockRepository.findOne).toHaveBeenNthCalledWith(2, {
+        where: { id: userId },
+      });
+      expect(mockRepository.findOne).toHaveBeenNthCalledWith(3, {
+        where: { id: userId },
+      });
+      expect(mockRepository.update).toHaveBeenCalledWith(userId, {
+        name: updateNameDto.name,
+      });
+    });
+
+    it('should throw NotFoundException when user is not found', async () => {
+      // Mock findOne to return null (user not found)
+      mockRepository.findOne.mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateName(userId, updateNameDto, acceptLanguage),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { id: userId },
+      });
+      expect(mockRepository.update).not.toHaveBeenCalled();
+      expect(mockI18nService.translate).toHaveBeenCalledWith(
+        'errors.user.not_found',
+        {
+          lang: acceptLanguage,
+        },
+      );
+    });
+
+    it('should throw error when update fails', async () => {
+      // Mock findOne to return a user
+      mockRepository.findOne.mockResolvedValueOnce(mockUser);
+      // Mock update to throw an error
+      const error = new Error('Database error');
+      mockRepository.update.mockRejectedValueOnce(error);
+
+      await expect(
+        service.updateName(userId, updateNameDto, acceptLanguage),
+      ).rejects.toThrow(error);
+
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { id: userId },
+      });
+      expect(mockRepository.update).toHaveBeenCalledWith(userId, {
+        name: updateNameDto.name,
       });
     });
   });

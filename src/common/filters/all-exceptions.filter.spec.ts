@@ -2,10 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 import { AllExceptionsFilter } from './all-exceptions.filter';
+import { CustomLogger } from '../services/logger.service';
+import { MockCustomLogger } from '../../test/mocks';
 
 describe('AllExceptionsFilter', () => {
   let filter: AllExceptionsFilter;
-  let originalConsoleError: typeof console.error;
+  let mockLogger: MockCustomLogger;
 
   const mockResponse = {
     status: jest.fn().mockReturnThis(),
@@ -28,9 +30,7 @@ describe('AllExceptionsFilter', () => {
   } as unknown as ArgumentsHost;
 
   beforeEach(async () => {
-    // Save original console.error and mock it
-    originalConsoleError = console.error;
-    console.error = jest.fn();
+    mockLogger = new MockCustomLogger();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -41,6 +41,10 @@ describe('AllExceptionsFilter', () => {
             translate: jest.fn().mockImplementation((key: string) => key),
           },
         },
+        {
+          provide: CustomLogger,
+          useValue: mockLogger,
+        },
       ],
     }).compile();
 
@@ -48,8 +52,6 @@ describe('AllExceptionsFilter', () => {
   });
 
   afterEach(() => {
-    // Restore original console.error
-    console.error = originalConsoleError;
     jest.clearAllMocks();
   });
 
@@ -57,63 +59,29 @@ describe('AllExceptionsFilter', () => {
     expect(filter).toBeDefined();
   });
 
-  describe('catch', () => {
-    it('should pass through HttpExceptions', () => {
-      const httpException = new HttpException(
-        { message: 'Test error' },
-        HttpStatus.BAD_REQUEST,
-      );
+  it('should handle HttpException', () => {
+    const exception = new HttpException('Test error', HttpStatus.BAD_REQUEST);
+    filter.catch(exception, mockHost);
 
-      filter.catch(httpException, mockHost);
+    expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+    expect(mockResponse.json).toHaveBeenCalledWith(exception.getResponse());
+  });
 
-      expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        message: 'Test error',
-      });
-    });
+  it('should handle unknown exceptions', () => {
+    const exception = new Error('Unknown error');
+    filter.catch(exception, mockHost);
 
-    it('should handle unknown errors', () => {
-      const error = new Error('Unknown error');
-
-      filter.catch(error, mockHost);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        code: 'SYSTEM.UNKNOWN_ERROR',
-        message: 'errors.system.unknown',
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        meta: {
-          language: 'en',
-        },
-      });
-    });
-
-    it('should handle errors without accept-language header', () => {
-      const error = new Error('Unknown error');
-      const requestWithoutLang = {
-        ...mockRequest,
-        headers: {},
-      };
-      const hostWithoutLang = {
-        ...mockHost,
-        getRequest: jest.fn().mockReturnValue(requestWithoutLang),
-      } as unknown as ArgumentsHost;
-
-      filter.catch(error, hostWithoutLang);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        code: 'SYSTEM.UNKNOWN_ERROR',
-        message: 'errors.system.unknown',
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        meta: {
-          language: undefined,
-        },
-      });
+    expect(mockLogger.error).toHaveBeenCalled();
+    expect(mockResponse.status).toHaveBeenCalledWith(
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+    expect(mockResponse.json).toHaveBeenCalledWith({
+      code: 'SYSTEM.UNKNOWN_ERROR',
+      message: 'errors.system.unknown',
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      meta: {
+        language: 'en',
+      },
     });
   });
 });

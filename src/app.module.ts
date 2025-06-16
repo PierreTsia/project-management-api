@@ -16,6 +16,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { LoggerModule } from './common/services/logger.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     UsersModule,
     AuthModule,
     CloudinaryModule,
+    LoggerModule,
   ],
   controllers: [AppController],
   providers: [

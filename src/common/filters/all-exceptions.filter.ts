@@ -7,10 +7,16 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { I18nService } from 'nestjs-i18n';
+import { CustomLogger } from '../services/logger.service';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  constructor(private readonly i18n: I18nService) {}
+  constructor(
+    private readonly i18n: I18nService,
+    private readonly logger: CustomLogger,
+  ) {
+    this.logger.setContext('AllExceptionsFilter');
+  }
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -26,12 +32,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     // Handle only unknown/generic errors
-    console.error('Exception caught by global filter:', {
-      exception,
-      path: request.url,
-      method: request.method,
-      body: request.body,
-    });
+    this.logger.error(
+      `Exception caught by global filter: ${JSON.stringify({
+        path: request.url,
+        method: request.method,
+        body: request.body,
+      })}`,
+      exception instanceof Error ? exception.stack : undefined,
+    );
 
     return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       code: 'SYSTEM.UNKNOWN_ERROR',

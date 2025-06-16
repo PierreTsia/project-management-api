@@ -2,5 +2,10 @@
   "http": {
     "409": "Cet email est déjà enregistré",
     "404": "Ressource non trouvée"
+  },
+  "cloudinary": {
+    "invalid_file": "Format ou taille de fichier invalide. Veuillez télécharger une image JPEG, PNG ou GIF de moins de 5MB.",
+    "upload_failed": "Échec du téléchargement de l'image. Veuillez réessayer.",
+    "delete_failed": "Échec de la suppression de l'image. Veuillez réessayer."
   }
 } 

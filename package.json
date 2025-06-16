@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm -- migration:generate -d src/config/typeorm.config.ts",
-    "migration:run": "npm run typeorm -- migration:run -d src/config/typeorm.config.ts",
+    "migration:run": "npm run typeorm -- migration:run -d dist/config/typeorm.config.js",
     "migration:revert": "npm run typeorm -- migration:revert -d src/config/typeorm.config.ts"
   },
   "lint-staged": {
@@ -65,7 +65,9 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.24",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@flydotio/dockerfile": "^0.7.10",
@@ -91,10 +93,8 @@
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.0",
     "ts-loader": "^9.4.3",
-    "ts-node": "^10.9.1",
     "tsc-files": "^1.1.4",
-    "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.1.3"
+    "tsconfig-paths": "^4.2.0"
   },
   "jest": {
     "moduleFileExtensions": [

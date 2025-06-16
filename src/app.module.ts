@@ -30,7 +30,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
-      synchronize: process.env.NODE_ENV !== 'production', // Don't use in production!
+      synchronize: false /* process.env.NODE_ENV !== 'production' */, // Don't use in production!
     }),
     I18nModule.forRoot({
       fallbackLanguage: 'en',

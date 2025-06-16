@@ -11,7 +11,13 @@ import * as fs from 'fs';
 import { extractPublicId } from 'cloudinary-build-url';
 
 jest.mock('cloudinary');
-jest.mock('fs');
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  promises: {
+    access: jest.fn().mockResolvedValue(undefined),
+  },
+  unlink: jest.fn((path, callback) => callback(null)),
+}));
 jest.mock('cloudinary-build-url', () => ({
   extractPublicId: jest.fn((url: string) => {
     if (url.includes('cloudinary.com')) {
@@ -165,6 +171,21 @@ describe('CloudinaryService', () => {
       );
     });
 
+    it('should throw BadRequestException when file is not accessible', async () => {
+      (fs.promises.access as jest.Mock).mockRejectedValueOnce(
+        new Error('File not accessible'),
+      );
+
+      await expect(
+        service.uploadImage(mockFile, mockUserId, mockAcceptLanguage),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.invalid_file',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
     it('should throw InternalServerErrorException when upload fails', async () => {
       (cloudinary.uploader.upload as jest.Mock).mockRejectedValue(
         new Error('Upload failed'),
@@ -189,9 +210,6 @@ describe('CloudinaryService', () => {
 
       (cloudinary.uploader.upload as jest.Mock).mockResolvedValue(
         mockUploadResult,
-      );
-      (fs.unlink as unknown as jest.Mock).mockImplementation((path, callback) =>
-        callback(null),
       );
 
       await service.uploadImage(mockFile, mockUserId, mockAcceptLanguage);

@@ -6,10 +6,13 @@ import { I18nService } from 'nestjs-i18n';
 import { RefreshTokenService } from './refresh-token.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { User } from '../users/entities/user.entity';
+import { MockCustomLogger } from '../test/mocks';
+import { CustomLogger } from '../common/services/logger.service';
 
 describe('RefreshTokenService', () => {
   let service: RefreshTokenService;
   let refreshTokenRepository: Repository<RefreshToken>;
+  let mockLogger: MockCustomLogger;
 
   const mockUser: User = {
     id: 'user-1',
@@ -47,6 +50,8 @@ describe('RefreshTokenService', () => {
   };
 
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RefreshTokenService,
@@ -64,6 +69,10 @@ describe('RefreshTokenService', () => {
           useValue: {
             translate: jest.fn().mockImplementation((key: string) => key),
           },
+        },
+        {
+          provide: CustomLogger,
+          useValue: mockLogger,
         },
       ],
     }).compile();
@@ -83,7 +92,7 @@ describe('RefreshTokenService', () => {
   });
 
   describe('validateRefreshToken', () => {
-    it('should return refresh token if valid', async () => {
+    it('should return refresh token if valid and log success', async () => {
       (refreshTokenRepository.findOne as jest.Mock).mockResolvedValue(
         mockRefreshToken,
       );
@@ -95,9 +104,12 @@ describe('RefreshTokenService', () => {
         where: { token: 'valid-token' },
         relations: ['user'],
       });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Valid refresh token used: valid-token for user ${mockUser.id}`,
+      );
     });
 
-    it('should throw UnauthorizedException if token not found', async () => {
+    it('should throw UnauthorizedException and log warning if token not found', async () => {
       (refreshTokenRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       await expect(
@@ -107,9 +119,12 @@ describe('RefreshTokenService', () => {
         where: { token: 'invalid-token' },
         relations: ['user'],
       });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Invalid refresh token attempted: invalid-token',
+      );
     });
 
-    it('should throw UnauthorizedException if token is revoked', async () => {
+    it('should throw UnauthorizedException and log warning if token is revoked', async () => {
       (refreshTokenRepository.findOne as jest.Mock).mockResolvedValue(
         mockRevokedToken,
       );
@@ -117,9 +132,12 @@ describe('RefreshTokenService', () => {
       await expect(
         service.validateRefreshToken('revoked-token'),
       ).rejects.toThrow(UnauthorizedException);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Revoked refresh token attempted: revoked-token for user ${mockUser.id}`,
+      );
     });
 
-    it('should throw UnauthorizedException if token is expired', async () => {
+    it('should throw UnauthorizedException and log warning if token is expired', async () => {
       (refreshTokenRepository.findOne as jest.Mock).mockResolvedValue(
         mockExpiredToken,
       );
@@ -127,22 +145,31 @@ describe('RefreshTokenService', () => {
       await expect(
         service.validateRefreshToken('expired-token'),
       ).rejects.toThrow(UnauthorizedException);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Expired refresh token attempted: expired-token for user ${mockUser.id}`,
+      );
     });
   });
 
   describe('revokeRefreshToken', () => {
-    it('should update token with revokedAt timestamp', async () => {
+    it('should update token with revokedAt timestamp and log success', async () => {
       await service.revokeRefreshToken('valid-token');
 
       expect(refreshTokenRepository.update).toHaveBeenCalledWith(
         { token: 'valid-token' },
         { revokedAt: expect.any(Date) },
       );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Revoking refresh token: valid-token',
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'Refresh token revoked successfully: valid-token',
+      );
     });
   });
 
   describe('createRefreshToken', () => {
-    it('should create and save new refresh token', async () => {
+    it('should create and save new refresh token with logging', async () => {
       const userId = 'user-1';
       const token = 'new-token';
       const expiresIn = 3600; // 1 hour
@@ -167,6 +194,14 @@ describe('RefreshTokenService', () => {
       expect(refreshTokenRepository.create).toHaveBeenCalledWith(expectedToken);
       expect(refreshTokenRepository.save).toHaveBeenCalledWith(expectedToken);
       expect(result).toEqual(expect.objectContaining(expectedToken));
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Creating refresh token for user ${userId} with expiry ${expiresIn}s`,
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `Refresh token created successfully for user ${userId}`,
+        ),
+      );
     });
   });
 });

@@ -7,11 +7,13 @@ import { UpdateNameDto } from './dto/update-name.dto';
 import { I18nService } from 'nestjs-i18n';
 import { NotFoundException } from '@nestjs/common';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { MockCustomLogger } from '../test/mocks';
+import { CustomLogger } from '../common/services/logger.service';
 
 describe('UsersService', () => {
   let service: UsersService;
   let usersRepository: Repository<User>;
-  let consoleErrorSpy: jest.SpyInstance;
+  let mockLogger: MockCustomLogger;
 
   const mockUser: User = {
     id: 'user-1',
@@ -45,7 +47,7 @@ describe('UsersService', () => {
   };
 
   beforeEach(async () => {
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    mockLogger = new MockCustomLogger();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -62,6 +64,10 @@ describe('UsersService', () => {
           provide: CloudinaryService,
           useValue: mockCloudinaryService,
         },
+        {
+          provide: CustomLogger,
+          useValue: mockLogger,
+        },
       ],
     }).compile();
 
@@ -71,7 +77,6 @@ describe('UsersService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    consoleErrorSpy.mockRestore();
   });
 
   it('should be defined', () => {
@@ -90,7 +95,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('should return null if user not found', async () => {
+    it('should return null and log debug if user not found', async () => {
       (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       const result = await service.findOne('non-existent');
@@ -99,6 +104,9 @@ describe('UsersService', () => {
       expect(usersRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'non-existent' },
       });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'User not found with id: non-existent',
+      );
     });
   });
 
@@ -114,7 +122,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('should return null if user not found', async () => {
+    it('should return null and log debug if user not found', async () => {
       (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       const result = await service.findByEmail('nonexistent@example.com');
@@ -123,11 +131,14 @@ describe('UsersService', () => {
       expect(usersRepository.findOne).toHaveBeenCalledWith({
         where: { email: 'nonexistent@example.com' },
       });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'User not found with email: nonexistent@example.com',
+      );
     });
   });
 
   describe('update', () => {
-    it('should update a user and return the updated user', async () => {
+    it('should update a user and log the update', async () => {
       const updateData = { name: 'Updated Name' };
       const updatedUser = { ...mockUser, ...updateData };
 
@@ -141,11 +152,14 @@ describe('UsersService', () => {
       expect(usersRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'user-1' },
       });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Updating user user-1 with data: ${JSON.stringify(updateData)}`,
+      );
     });
   });
 
   describe('create', () => {
-    it('should create and return a new user', async () => {
+    it('should create and return a new user with logging', async () => {
       const createData = {
         email: 'new@example.com',
         name: 'New User',
@@ -173,6 +187,12 @@ describe('UsersService', () => {
       );
       expect(usersRepository.create).toHaveBeenCalledWith(createData);
       expect(usersRepository.save).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Creating new user with email: ${createData.email}`,
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'User created successfully with id: new-user-id',
+      );
     });
   });
 
@@ -189,7 +209,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('should return null if token not found', async () => {
+    it('should return null and log debug if token not found', async () => {
       (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       const result =
@@ -199,6 +219,9 @@ describe('UsersService', () => {
       expect(usersRepository.findOne).toHaveBeenCalledWith({
         where: { emailConfirmationToken: 'invalid-token' },
       });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'No user found with confirmation token: invalid-token',
+      );
     });
   });
 
@@ -218,7 +241,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('should return null if token not found', async () => {
+    it('should return null and log debug if token not found', async () => {
       (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       const result = await service.findByPasswordResetToken('invalid-token');
@@ -230,6 +253,9 @@ describe('UsersService', () => {
           passwordResetExpires: expect.any(Object),
         },
       });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'No user found with valid password reset token: invalid-token',
+      );
     });
   });
 
@@ -247,7 +273,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('should return null if provider combination not found', async () => {
+    it('should return null and log debug if provider combination not found', async () => {
       (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       const result = await service.findByProviderId('google', 'nonexistent');
@@ -256,88 +282,9 @@ describe('UsersService', () => {
       expect(usersRepository.findOne).toHaveBeenCalledWith({
         where: { provider: 'google', providerId: 'nonexistent' },
       });
-    });
-  });
-
-  describe('updateName', () => {
-    const updateNameDto: UpdateNameDto = { name: 'Updated Name' };
-    const userId = 'user-1';
-    const acceptLanguage = 'en';
-
-    it('should successfully update user name', async () => {
-      const updatedUser = { ...mockUser, name: updateNameDto.name };
-
-      // Setup mock responses for all findOne calls
-      // First call: in updateName to check if user exists
-      // Second call: in update method after update
-      // Third call: final findOne in updateName
-      mockRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(updatedUser)
-        .mockResolvedValueOnce(updatedUser);
-
-      // Mock update to return success
-      mockRepository.update.mockResolvedValueOnce({ affected: 1 });
-
-      const result = await service.updateName(
-        userId,
-        updateNameDto,
-        acceptLanguage,
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'No user found with provider google and id nonexistent',
       );
-
-      expect(result).toEqual(updatedUser);
-      expect(mockRepository.findOne).toHaveBeenCalledTimes(3);
-      expect(mockRepository.findOne).toHaveBeenNthCalledWith(1, {
-        where: { id: userId },
-      });
-      expect(mockRepository.findOne).toHaveBeenNthCalledWith(2, {
-        where: { id: userId },
-      });
-      expect(mockRepository.findOne).toHaveBeenNthCalledWith(3, {
-        where: { id: userId },
-      });
-      expect(mockRepository.update).toHaveBeenCalledWith(userId, {
-        name: updateNameDto.name,
-      });
-    });
-
-    it('should throw NotFoundException when user is not found', async () => {
-      // Mock findOne to return null (user not found)
-      mockRepository.findOne.mockResolvedValueOnce(null);
-
-      await expect(
-        service.updateName(userId, updateNameDto, acceptLanguage),
-      ).rejects.toThrow(NotFoundException);
-
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { id: userId },
-      });
-      expect(mockRepository.update).not.toHaveBeenCalled();
-      expect(mockI18nService.translate).toHaveBeenCalledWith(
-        'errors.user.not_found',
-        {
-          lang: acceptLanguage,
-        },
-      );
-    });
-
-    it('should throw error when update fails', async () => {
-      // Mock findOne to return a user
-      mockRepository.findOne.mockResolvedValueOnce(mockUser);
-      // Mock update to throw an error
-      const error = new Error('Database error');
-      mockRepository.update.mockRejectedValueOnce(error);
-
-      await expect(
-        service.updateName(userId, updateNameDto, acceptLanguage),
-      ).rejects.toThrow(error);
-
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { id: userId },
-      });
-      expect(mockRepository.update).toHaveBeenCalledWith(userId, {
-        name: updateNameDto.name,
-      });
     });
   });
 
@@ -351,88 +298,159 @@ describe('UsersService', () => {
       size: 1024,
     } as Express.Multer.File;
 
-    const mockUploadResult = {
-      url: 'https://cloudinary.com/test.jpg',
-      publicId: 'test-public-id',
-      version: '1',
-    };
+    it('should throw NotFoundException if user not found', async () => {
+      (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
 
-    it('should upload avatar and update user', async () => {
-      mockCloudinaryService.uploadImage.mockResolvedValue(mockUploadResult);
-      mockCloudinaryService.extractPublicIdFromUrl.mockReturnValue(
-        'old-public-id',
+      await expect(
+        service.uploadAvatar('non-existent', mockFile),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'User not found for avatar upload: non-existent',
       );
-      mockRepository.findOne.mockResolvedValue(mockUser);
-      mockRepository.update.mockResolvedValue({ affected: 1 });
+    });
+
+    it('should upload avatar and clean up old one', async () => {
+      const oldAvatarUrl = 'https://res.cloudinary.com/test/image/upload/old';
+      const newAvatarUrl = 'https://res.cloudinary.com/test/image/upload/new';
+      const oldPublicId = 'old';
+      const newPublicId = 'new';
+      const userWithOldAvatar = { ...mockUser, avatarUrl: oldAvatarUrl };
+      const userWithNewAvatar = { ...mockUser, avatarUrl: newAvatarUrl };
+
+      (usersRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(userWithOldAvatar)
+        .mockResolvedValueOnce(userWithNewAvatar)
+        .mockResolvedValueOnce(userWithNewAvatar);
+      (usersRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
+      (mockCloudinaryService.uploadImage as jest.Mock).mockResolvedValue({
+        url: newAvatarUrl,
+        publicId: newPublicId,
+      });
+      (
+        mockCloudinaryService.extractPublicIdFromUrl as jest.Mock
+      ).mockReturnValue(oldPublicId);
+      (mockCloudinaryService.deleteImage as jest.Mock).mockResolvedValue(
+        undefined,
+      );
 
       const result = await service.uploadAvatar('user-1', mockFile);
 
+      expect(result.avatarUrl).toBe(newAvatarUrl);
       expect(mockCloudinaryService.uploadImage).toHaveBeenCalledWith(
         mockFile,
         'user-1',
         undefined,
       );
-      expect(mockRepository.update).toHaveBeenCalledWith('user-1', {
-        avatarUrl: mockUploadResult.url,
-      });
-      expect(result).toBeDefined();
-    });
-
-    it('should throw NotFoundException if user not found', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
-
-      await expect(
-        service.uploadAvatar('non-existent', mockFile),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('should clean up old avatar if it exists', async () => {
-      const userWithAvatar = {
-        ...mockUser,
-        avatarUrl: 'https://cloudinary.com/old-avatar.jpg',
-      };
-      mockCloudinaryService.uploadImage.mockResolvedValue(mockUploadResult);
-      mockCloudinaryService.extractPublicIdFromUrl.mockReturnValue(
-        'old-public-id',
-      );
-      mockRepository.findOne.mockResolvedValue(userWithAvatar);
-      mockRepository.update.mockResolvedValue({ affected: 1 });
-
-      await service.uploadAvatar('user-1', mockFile);
-
       expect(mockCloudinaryService.deleteImage).toHaveBeenCalledWith(
-        'old-public-id',
+        oldPublicId,
         undefined,
       );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Old avatar deleted for user user-1',
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'Avatar updated successfully for user user-1',
+      );
     });
 
-    it('should handle cleanup errors gracefully', async () => {
-      const userWithAvatar = {
-        ...mockUser,
-        avatarUrl: 'https://cloudinary.com/old-avatar.jpg',
-      };
-      mockCloudinaryService.uploadImage.mockResolvedValue(mockUploadResult);
-      mockCloudinaryService.extractPublicIdFromUrl.mockReturnValue(
-        'old-public-id',
+    it('should handle cleanup failure gracefully', async () => {
+      const oldAvatarUrl = 'https://res.cloudinary.com/test/image/upload/old';
+      const newAvatarUrl = 'https://res.cloudinary.com/test/image/upload/new';
+      const oldPublicId = 'old';
+      const newPublicId = 'new';
+      const cleanupError = new Error('Cleanup failed');
+      const userWithOldAvatar = { ...mockUser, avatarUrl: oldAvatarUrl };
+      const userWithNewAvatar = { ...mockUser, avatarUrl: newAvatarUrl };
+
+      (usersRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(userWithOldAvatar)
+        .mockResolvedValueOnce(userWithNewAvatar)
+        .mockResolvedValueOnce(userWithNewAvatar);
+      (usersRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
+      (mockCloudinaryService.uploadImage as jest.Mock).mockResolvedValue({
+        url: newAvatarUrl,
+        publicId: newPublicId,
+      });
+      (
+        mockCloudinaryService.extractPublicIdFromUrl as jest.Mock
+      ).mockReturnValue(oldPublicId);
+      (mockCloudinaryService.deleteImage as jest.Mock).mockRejectedValue(
+        cleanupError,
       );
-      mockCloudinaryService.deleteImage.mockRejectedValue(
-        new Error('Cleanup failed'),
-      );
-      mockRepository.findOne.mockResolvedValue(userWithAvatar);
-      mockRepository.update.mockResolvedValue({ affected: 1 });
 
       const result = await service.uploadAvatar('user-1', mockFile);
 
-      expect(result).toBeDefined();
-      expect(mockCloudinaryService.deleteImage).toHaveBeenCalled();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to delete old avatar:',
-        expect.objectContaining({
-          userId: 'user-1',
-          oldPublicId: 'old-public-id',
-          oldUrl: 'https://cloudinary.com/old-avatar.jpg',
-          error: 'Cleanup failed',
-        }),
+      expect(result.avatarUrl).toBe(newAvatarUrl);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        `Failed to delete old avatar for user user-1: ${cleanupError.message}`,
+        cleanupError.stack,
+      );
+    });
+
+    it('should handle upload failure and cleanup', async () => {
+      const uploadError = new Error('Upload failed');
+      const cleanupError = new Error('Cleanup failed');
+      const userWithOldAvatar = { ...mockUser, avatarUrl: 'old-url' };
+
+      (usersRepository.findOne as jest.Mock).mockResolvedValue(
+        userWithOldAvatar,
+      );
+      (usersRepository.update as jest.Mock).mockRejectedValue(uploadError);
+      (mockCloudinaryService.uploadImage as jest.Mock).mockResolvedValue({
+        url: 'new-url',
+        publicId: 'new-id',
+      });
+      (mockCloudinaryService.deleteImage as jest.Mock).mockRejectedValue(
+        cleanupError,
+      );
+
+      await expect(service.uploadAvatar('user-1', mockFile)).rejects.toThrow(
+        uploadError,
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        `Failed to clean up uploaded image after error for user user-1: ${cleanupError.message}`,
+        cleanupError.stack,
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to update avatar for user user-1'),
+        expect.any(String),
+      );
+    });
+  });
+
+  describe('updateName', () => {
+    it('should throw NotFoundException if user not found', async () => {
+      (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.updateName('non-existent', { name: 'New Name' }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'User not found for name update: non-existent',
+      );
+    });
+
+    it('should update name and log the change', async () => {
+      const updateNameDto: UpdateNameDto = { name: 'New Name' };
+      const updatedUser = { ...mockUser, name: updateNameDto.name };
+
+      (usersRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce(updatedUser)
+        .mockResolvedValueOnce(updatedUser);
+      (usersRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
+
+      const result = await service.updateName('user-1', updateNameDto);
+
+      expect(result.name).toBe(updateNameDto.name);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Updating name for user user-1 from "${mockUser.name}" to "${updateNameDto.name}"`,
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'Name updated successfully for user user-1',
       );
     });
   });

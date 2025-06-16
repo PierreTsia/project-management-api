@@ -14,6 +14,8 @@ import { RefreshTokenService } from './refresh-token.service';
 import { EmailService } from '../email/email.service';
 import { I18nService } from 'nestjs-i18n';
 import { User } from '../users/entities/user.entity';
+import { MockCustomLogger } from '../test/mocks';
+import { CustomLogger } from '../common/services/logger.service';
 
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
@@ -26,6 +28,7 @@ describe('AuthService', () => {
   let usersService: UsersService;
   let emailService: EmailService;
   let originalConsoleError: typeof console.error;
+  let mockLogger: MockCustomLogger;
 
   const mockUser: User = {
     id: '1',
@@ -45,6 +48,8 @@ describe('AuthService', () => {
     // Save original console.error and mock it
     originalConsoleError = console.error;
     console.error = jest.fn();
+
+    mockLogger = new MockCustomLogger();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -107,6 +112,10 @@ describe('AuthService', () => {
             sendPasswordReset: jest.fn().mockResolvedValue(undefined),
           },
         },
+        {
+          provide: CustomLogger,
+          useValue: mockLogger,
+        },
       ],
     }).compile();
 
@@ -144,6 +153,9 @@ describe('AuthService', () => {
         accessToken: 'access-token',
         refreshToken: expect.any(String),
       });
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `User logged in successfully: ${confirmedUser.email}`,
+      );
     });
 
     it('should throw UnauthorizedException for invalid credentials', async () => {
@@ -153,6 +165,9 @@ describe('AuthService', () => {
 
       await expect(service.login(loginDto)).rejects.toThrow(
         UnauthorizedException,
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Invalid password attempt for user: ${loginDto.email}`,
       );
     });
 
@@ -189,6 +204,9 @@ describe('AuthService', () => {
           code: 'AUTH.INVALID_CREDENTIALS',
         },
       });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Login attempt with non-existent email: nonexistent@example.com`,
+      );
     });
   });
 
@@ -217,6 +235,9 @@ describe('AuthService', () => {
         emailConfirmationToken: expect.any(String),
       });
       expect(emailService.sendEmailConfirmation).toHaveBeenCalled();
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `New user registered: ${registerDto.email}`,
+      );
     });
 
     it('should throw ConflictException if email already exists', async () => {
@@ -230,6 +251,9 @@ describe('AuthService', () => {
 
       await expect(service.register(registerDto)).rejects.toThrow(
         ConflictException,
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Registration attempt with existing email: ${registerDto.email}`,
       );
     });
   });
@@ -251,6 +275,9 @@ describe('AuthService', () => {
         emailConfirmationToken: null,
         emailConfirmationExpires: null,
       });
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Email confirmed for user: ${mockUser.email}`,
+      );
     });
 
     it('should throw NotFoundException for invalid token', async () => {
@@ -261,6 +288,9 @@ describe('AuthService', () => {
 
       await expect(service.confirmEmail(confirmEmailDto)).rejects.toThrow(
         NotFoundException,
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        `Invalid email confirmation token attempt: ${confirmEmailDto.token}`,
       );
     });
   });
@@ -342,6 +372,9 @@ describe('AuthService', () => {
         email: mockUser.email,
         id: mockUser.id,
       });
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Tokens refreshed for user: ${mockUser.email}`,
+      );
     });
 
     it('should handle invalid token format', async () => {
@@ -476,6 +509,9 @@ describe('AuthService', () => {
         avatarUrl: providerData.avatarUrl,
         isEmailConfirmed: true,
       });
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Creating new user from ${providerData.provider} OAuth: ${providerData.email}`,
+      );
     });
 
     it('should find existing user by provider ID', async () => {
@@ -518,6 +554,9 @@ describe('AuthService', () => {
         providerId: 'google123',
         avatarUrl: providerData.avatarUrl,
       });
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Linking existing user to ${providerData.provider} OAuth: ${providerData.email}`,
+      );
     });
 
     it('should throw error when user creation fails', async () => {
@@ -583,6 +622,9 @@ describe('AuthService', () => {
       });
       expect(refreshTokenService.revokeRefreshToken).toHaveBeenCalledWith(
         refreshToken,
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'User logged out successfully',
       );
     });
 

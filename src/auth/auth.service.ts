@@ -23,6 +23,7 @@ import { ConfirmEmailDto } from './dto/confirm-email.dto';
 import { ResendConfirmationDto } from './dto/resend-confirmation.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { User } from 'src/users/entities/user.entity';
+import { CustomLogger } from '../common/services/logger.service';
 
 @Injectable()
 export class AuthService {
@@ -33,7 +34,10 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
-  ) {}
+    private readonly logger: CustomLogger,
+  ) {
+    this.logger.setContext('AuthService');
+  }
 
   private async verifyPassword(
     plainPassword: string,
@@ -64,6 +68,7 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(email);
 
     if (existingUser) {
+      this.logger.warn(`Registration attempt with existing email: ${email}`);
       throw new ConflictException({
         status: 409,
         code: 'AUTH.EMAIL_EXISTS',
@@ -88,6 +93,8 @@ export class AuthService {
       emailConfirmationToken: confirmationToken,
     });
 
+    this.logger.log(`New user registered: ${email}`);
+
     // Send confirmation email
     await this.emailService.sendEmailConfirmation(
       email,
@@ -109,6 +116,7 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
 
     if (!user) {
+      this.logger.warn(`Login attempt with non-existent email: ${email}`);
       throw new UnauthorizedException({
         status: 401,
         code: 'AUTH.INVALID_CREDENTIALS',
@@ -119,6 +127,7 @@ export class AuthService {
     // Verify password
     const isPasswordValid = await this.verifyPassword(password, user.password);
     if (!isPasswordValid) {
+      this.logger.warn(`Invalid password attempt for user: ${email}`);
       throw new UnauthorizedException({
         status: 401,
         code: 'AUTH.INVALID_CREDENTIALS',
@@ -128,6 +137,7 @@ export class AuthService {
 
     // Check if email is confirmed
     if (!user.isEmailConfirmed) {
+      this.logger.warn(`Login attempt with unconfirmed email: ${email}`);
       throw new UnauthorizedException({
         status: 401,
         code: 'AUTH.EMAIL_NOT_CONFIRMED',
@@ -140,6 +150,8 @@ export class AuthService {
       email: user.email,
       id: user.id,
     });
+
+    this.logger.log(`User logged in successfully: ${email}`);
 
     // Remove password from user object
     const { password: _, ...userWithoutPassword } = user;
@@ -159,6 +171,10 @@ export class AuthService {
     try {
       payload = await this.refreshTokenService.validateRefreshToken(cleanToken);
     } catch (error) {
+      this.logger.error(
+        `Failed to validate refresh token: ${error.message}`,
+        error.stack,
+      );
       throw new UnauthorizedException({
         status: 401,
         code: 'AUTH.INVALID_REFRESH_TOKEN',
@@ -169,6 +185,7 @@ export class AuthService {
     }
 
     if (!payload) {
+      this.logger.warn('Invalid refresh token attempt');
       throw new UnauthorizedException({
         status: 401,
         code: 'AUTH.INVALID_REFRESH_TOKEN',
@@ -180,6 +197,9 @@ export class AuthService {
 
     const user = await this.usersService.findOne(payload.user.id);
     if (!user) {
+      this.logger.warn(
+        `User not found during token refresh: ${payload.user.id}`,
+      );
       throw new UnauthorizedException({
         status: 401,
         code: 'AUTH.USER_NOT_FOUND',
@@ -199,6 +219,8 @@ export class AuthService {
     // Revoke the old refresh token
     await this.refreshTokenService.revokeRefreshToken(cleanToken);
 
+    this.logger.log(`Tokens refreshed for user: ${user.email}`);
+
     // Remove password from user object
     const { password: _, ...userWithoutPassword } = user;
 
@@ -211,12 +233,14 @@ export class AuthService {
 
   async logout(refreshToken: string) {
     await this.refreshTokenService.revokeRefreshToken(refreshToken);
+    this.logger.log('User logged out successfully');
     return { message: this.i18n.translate('auth.messages.logout_success') };
   }
 
   async confirmEmail({ token }: ConfirmEmailDto) {
     const user = await this.usersService.findByEmailConfirmationToken(token);
     if (!user) {
+      this.logger.warn(`Invalid email confirmation token attempt: ${token}`);
       throw new NotFoundException(
         this.i18n.translate('auth.errors.invalid_token'),
       );
@@ -227,6 +251,7 @@ export class AuthService {
       user.emailConfirmationExpires &&
       user.emailConfirmationExpires < currentDate
     ) {
+      this.logger.warn(`Expired email confirmation token: ${token}`);
       throw new UnauthorizedException(
         this.i18n.translate('auth.errors.token_expired'),
       );
@@ -238,6 +263,8 @@ export class AuthService {
       emailConfirmationExpires: null,
     });
 
+    this.logger.log(`Email confirmed for user: ${user.email}`);
+
     return { message: this.i18n.translate('auth.messages.email_confirmed') };
   }
 
@@ -245,6 +272,9 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       // Don't reveal if email exists
+      this.logger.warn(
+        `Password reset requested for non-existent email: ${email}`,
+      );
       return {
         message: this.i18n.translate('auth.messages.reset_link_sent'),
       };
@@ -260,6 +290,8 @@ export class AuthService {
 
     await this.emailService.sendPasswordReset(user.email, resetToken);
 
+    this.logger.log(`Password reset email sent to: ${email}`);
+
     return {
       message: this.i18n.translate('auth.messages.reset_link_sent'),
     };
@@ -268,18 +300,28 @@ export class AuthService {
   async resetPassword({ token, password }: ResetPasswordDto) {
     const user = await this.usersService.findByPasswordResetToken(token);
     if (!user) {
+      this.logger.warn(`Invalid password reset token attempt: ${token}`);
       throw new NotFoundException(
         this.i18n.translate('auth.errors.invalid_token'),
       );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const currentDate = new Date();
+    if (user.passwordResetExpires && user.passwordResetExpires < currentDate) {
+      this.logger.warn(`Expired password reset token: ${token}`);
+      throw new UnauthorizedException(
+        this.i18n.translate('auth.errors.token_expired'),
+      );
+    }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
     await this.usersService.update(user.id, {
       password: hashedPassword,
       passwordResetToken: null,
       passwordResetExpires: null,
     });
+
+    this.logger.log(`Password reset successful for user: ${user.email}`);
 
     return {
       message: this.i18n.translate('auth.messages.password_reset_success'),
@@ -288,15 +330,20 @@ export class AuthService {
 
   async resendConfirmation({ email }: ResendConfirmationDto) {
     const user = await this.usersService.findByEmail(email);
-
     if (!user) {
       // Don't reveal if email exists or not
+      this.logger.warn(
+        `Confirmation resend requested for non-existent email: ${email}`,
+      );
       return {
         message: this.i18n.translate('auth.messages.confirmation_email_sent'),
       };
     }
 
     if (user.isEmailConfirmed) {
+      this.logger.warn(
+        `Confirmation resend requested for already confirmed email: ${email}`,
+      );
       throw new ConflictException(
         this.i18n.translate('auth.errors.already_confirmed'),
       );
@@ -313,6 +360,8 @@ export class AuthService {
 
     await this.emailService.sendEmailConfirmation(email, confirmationToken);
 
+    this.logger.log(`Confirmation email resent to: ${email}`);
+
     return {
       message: this.i18n.translate('auth.messages.confirmation_email_sent'),
     };
@@ -325,6 +374,9 @@ export class AuthService {
   ) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
+      this.logger.warn(
+        `Password update attempted for non-existent user: ${email}`,
+      );
       throw new UnauthorizedException({
         code: 'AUTH.USER_NOT_FOUND',
         message: this.i18n.translate('errors.auth.user_not_found', {
@@ -338,6 +390,9 @@ export class AuthService {
       : false;
 
     if (!isPasswordValid) {
+      this.logger.warn(
+        `Invalid current password during password update for user: ${email}`,
+      );
       throw new UnauthorizedException({
         code: 'AUTH.INVALID_CREDENTIALS',
         message: this.i18n.translate('auth.errors.invalid_credentials', {
@@ -361,6 +416,8 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(updatePasswordDto.newPassword, 10);
     await this.usersService.update(user.id, { password: hashedPassword });
+
+    this.logger.log(`Password updated successfully for user: ${email}`);
 
     return {
       message: this.i18n.translate('auth.messages.password_updated', {
@@ -395,6 +452,9 @@ export class AuthService {
       user = await this.usersService.findByEmail(email);
       if (user) {
         if (!user.provider || !user.providerId) {
+          this.logger.log(
+            `Linking existing user to ${provider} OAuth: ${email}`,
+          );
           user = await this.usersService.update(user.id, {
             provider,
             providerId,
@@ -405,6 +465,7 @@ export class AuthService {
         return user;
       }
 
+      this.logger.log(`Creating new user from ${provider} OAuth: ${email}`);
       user = await this.usersService.create({
         email,
         name,
@@ -416,7 +477,10 @@ export class AuthService {
 
       return user;
     } catch (error) {
-      console.error(`Failed to find or create user for ${email}`, error);
+      this.logger.error(
+        `Failed to find or create user for ${email}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

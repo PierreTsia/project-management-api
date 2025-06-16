@@ -37,6 +37,9 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/i18n ./i18n
 COPY --from=builder /app/src/email/templates ./dist/email/templates
 
+# Create uploads directory
+RUN mkdir -p uploads && chmod 777 uploads
+
 # Expose the port your app runs on
 EXPOSE 3000
 

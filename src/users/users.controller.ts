@@ -64,7 +64,16 @@ export class UsersController {
     @Headers('accept-language') acceptLanguage: string,
     @UploadedFile() file: any,
   ): Promise<Partial<User>> {
-    return this.usersService.uploadAvatar(req.user.id, file, acceptLanguage);
+    try {
+      const result = await this.usersService.uploadAvatar(
+        req.user.id,
+        file,
+        acceptLanguage,
+      );
+      return result;
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Patch('profile')

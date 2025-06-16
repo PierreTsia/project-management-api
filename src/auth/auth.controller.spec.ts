@@ -136,6 +136,8 @@ describe('AuthController', () => {
   afterEach(async () => {
     if (app) {
       await app.close();
+      jest.clearAllMocks();
+      jest.resetAllMocks();
     }
   });
 

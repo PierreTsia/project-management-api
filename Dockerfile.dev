@@ -15,6 +15,9 @@ RUN pnpm install
 # Copy email templates
 COPY src/email/templates ./src/email/templates
 
+# Create uploads directory
+RUN mkdir -p uploads && chmod 777 uploads
+
 # Expose the port your app runs on
 EXPOSE 3000
 

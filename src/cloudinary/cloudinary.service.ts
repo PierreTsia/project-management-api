@@ -20,14 +20,21 @@ export class CloudinaryService {
     private readonly configService: ConfigService,
     private readonly i18n: I18nService,
   ) {
+    const cloudName = this.configService.get('CLOUDINARY_CLOUD_NAME');
+    const apiKey = this.configService.get('CLOUDINARY_API_KEY');
+    const apiSecret = this.configService.get('CLOUDINARY_API_SECRET');
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new Error('Missing Cloudinary credentials');
+    }
+
     cloudinary.config({
-      cloud_name: this.configService.get('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get('CLOUDINARY_API_SECRET'),
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
     });
 
     this.projectName = this.configService.get('PROJECT_NAME') || 'default';
-
     this.folder =
       this.configService.get('NODE_ENV') === 'production'
         ? `${this.projectName}/prod/avatars`
@@ -76,6 +83,19 @@ export class CloudinaryService {
       const timestamp = Date.now();
       const publicId = `${this.folder}/${userId}/avatar-${timestamp}`;
 
+      // Check if file exists and is readable
+      try {
+        await fs.promises.access(file.path, fs.constants.R_OK);
+      } catch (err) {
+        throw new BadRequestException({
+          status: 400,
+          code: 'CLOUDINARY.INVALID_FILE',
+          message: this.i18n.translate('errors.cloudinary.invalid_file', {
+            lang: acceptLanguage,
+          }),
+        });
+      }
+
       const result = await cloudinary.uploader.upload(file.path, {
         public_id: publicId,
         resource_type: 'auto',
@@ -101,11 +121,7 @@ export class CloudinaryService {
     } finally {
       // Clean up the temporary file
       if (file.path) {
-        fs.unlink(file.path, (err) => {
-          if (err) {
-            console.error('Failed to delete temporary file:', err);
-          }
-        });
+        fs.unlink(file.path, () => {});
       }
     }
   }

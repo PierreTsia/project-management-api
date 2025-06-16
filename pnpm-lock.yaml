@@ -95,9 +95,15 @@ dependencies:
   rxjs:
     specifier: ^7.8.1
     version: 7.8.2
+  ts-node:
+    specifier: ^10.9.2
+    version: 10.9.2(@types/node@20.19.0)(typescript@5.8.3)
   typeorm:
     specifier: ^0.3.24
     version: 0.3.24(pg@8.16.0)(reflect-metadata@0.2.2)(ts-node@10.9.2)
+  typescript:
+    specifier: ^5.8.3
+    version: 5.8.3
   uuid:
     specifier: ^11.1.0
     version: 11.1.0
@@ -172,18 +178,12 @@ devDependencies:
   ts-loader:
     specifier: ^9.4.3
     version: 9.5.2(typescript@5.8.3)(webpack@5.99.9)
-  ts-node:
-    specifier: ^10.9.1
-    version: 10.9.2(@types/node@20.19.0)(typescript@5.8.3)
   tsc-files:
     specifier: ^1.1.4
     version: 1.1.4(typescript@5.8.3)
   tsconfig-paths:
     specifier: ^4.2.0
     version: 4.2.0
-  typescript:
-    specifier: ^5.1.3
-    version: 5.8.3
 
 packages:
 

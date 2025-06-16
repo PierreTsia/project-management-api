@@ -4,10 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import * as cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { I18nValidationPipe } from 'nestjs-i18n';
+import { CustomLogger } from './common/services/logger.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  const logger = await app.resolve(CustomLogger);
+  logger.setContext('Bootstrap');
 
   const corsOptions = {
     origin: configService.get<string>('CORS_ORIGIN'),
@@ -41,8 +44,8 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT') ?? 3000;
   await app.listen(port, '0.0.0.0');
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
-  console.log(
+  logger.log(`🚀 Application is running on: http://localhost:${port}`);
+  logger.log(
     `📚 API Documentation available at http://localhost:${port}/api/docs`,
   );
 }

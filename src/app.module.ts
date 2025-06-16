@@ -17,6 +17,7 @@ import { AuthModule } from './auth/auth.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
+import { CustomLogger } from './common/services/logger.service';
 
 @Module({
   imports: [
@@ -51,8 +52,9 @@ import { LoggerModule } from './common/services/logger.module';
     AppService,
     {
       provide: APP_FILTER,
-      useFactory: (i18n) => new AllExceptionsFilter(i18n),
-      inject: [I18nService],
+      useFactory: (i18n: I18nService, logger: CustomLogger) =>
+        new AllExceptionsFilter(i18n, logger),
+      inject: [I18nService, CustomLogger],
     },
     {
       provide: APP_FILTER,

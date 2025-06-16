@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Run database migrations
-        run: flyctl postgres connect -a project-management-api-db < src/migrations/1750086594012-AddUserBio.ts
+        run: flyctl postgres connect -a project-management-api-purple-water-3067-db < src/migrations/1750086594012-AddUserBio.ts
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - name: Deploy app

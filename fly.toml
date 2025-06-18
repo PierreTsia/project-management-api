@@ -23,4 +23,4 @@ primary_region = 'cdg'
 
 # Automatically run DB migrations before each deploy
 [deploy]
-  release_command = "pnpm run migration:run"
+  release_command = "pnpm run migrate:prod"

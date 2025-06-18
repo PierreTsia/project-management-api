@@ -1,0 +1,77 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 5%
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+
+ignore:
+  # Configuration files
+  - "src/config/**"
+  - "src/main.ts"
+  - "src/app.module.ts"
+  - "src/app.controller.ts"
+  - "src/app.service.ts"
+  
+  # Migration files
+  - "src/migrations/**"
+  
+  # Scripts
+  - "src/scripts/**"
+  
+  # Module files (just imports/exports)
+  - "**/*.module.ts"
+  
+  # Entity files (mostly decorators)
+  - "**/*.entity.ts"
+  
+  # DTO files (mostly validation decorators)
+  - "**/dto/**"
+  
+  # Constants and enums
+  - "**/constants.ts"
+  - "**/*.enum.ts"
+  
+  # Guards and strategies (hard to test)
+  - "src/auth/guards/google-auth.guard.ts"
+  - "src/auth/strategies/google.strategy.ts"
+  - "src/auth/strategies/jwt.strategy.ts"
+  
+  # Test files
+  - "**/*.spec.ts"
+  - "**/*.test.ts"
+  - "test/**"
+  
+  # Mock files
+  - "src/test/**"
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      subroutine: no
+
+coverage:
+  precision: 2
+  round: down
+  range: "80...100"
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 5%
+    patch:
+      default:
+        target: 80%
+        threshold: 5% 

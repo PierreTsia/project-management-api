@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
-import { MoreThan } from 'typeorm';
+import { MoreThan, LessThan } from 'typeorm';
 import { UpdateNameDto } from './dto/update-name.dto';
 import { I18nService } from 'nestjs-i18n';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -200,5 +200,21 @@ export class UsersService {
     const updatedUser = await this.findOne(userId);
     this.logger.log(`Name updated successfully for user ${userId}`);
     return updatedUser;
+  }
+
+  async deleteExpiredUnconfirmedAccounts(
+    expirationDate: Date,
+  ): Promise<number> {
+    this.logger.debug(
+      `Deleting expired unconfirmed accounts before ${expirationDate}`,
+    );
+
+    const result = await this.usersRepository.delete({
+      isEmailConfirmed: false,
+      emailConfirmationExpires: LessThan(expirationDate),
+    });
+
+    this.logger.log(`Deleted ${result.affected} expired unconfirmed accounts`);
+    return result.affected || 0;
   }
 }

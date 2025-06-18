@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -13,6 +14,7 @@ import { RefreshTokenService } from './refresh-token.service';
 import { User } from '../users/entities/user.entity';
 import { EmailModule } from '../email/email.module';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { CleanupService } from './cleanup.service';
 
 @Module({
   imports: [
@@ -24,6 +26,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
         limit: 3,
       },
     ]),
+    ScheduleModule.forRoot(),
     UsersModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -38,7 +41,13 @@ import { GoogleStrategy } from './strategies/google.strategy';
     EmailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, RefreshTokenService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    RefreshTokenService,
+    CleanupService,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}

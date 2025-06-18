@@ -454,4 +454,46 @@ describe('UsersService', () => {
       );
     });
   });
+
+  describe('deleteExpiredUnconfirmedAccounts', () => {
+    it('should delete expired unconfirmed accounts and return count', async () => {
+      const expirationDate = new Date('2024-01-01');
+      const deletedCount = 3;
+
+      (usersRepository.delete as jest.Mock).mockResolvedValue({
+        affected: deletedCount,
+      });
+
+      const result =
+        await service.deleteExpiredUnconfirmedAccounts(expirationDate);
+
+      expect(result).toBe(deletedCount);
+      expect(usersRepository.delete).toHaveBeenCalledWith({
+        isEmailConfirmed: false,
+        emailConfirmationExpires: expect.any(Object), // LessThan operator
+      });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Deleting expired unconfirmed accounts before ${expirationDate}`,
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Deleted ${deletedCount} expired unconfirmed accounts`,
+      );
+    });
+
+    it('should return 0 when no accounts are deleted', async () => {
+      const expirationDate = new Date('2024-01-01');
+
+      (usersRepository.delete as jest.Mock).mockResolvedValue({
+        affected: 0,
+      });
+
+      const result =
+        await service.deleteExpiredUnconfirmedAccounts(expirationDate);
+
+      expect(result).toBe(0);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'Deleted 0 expired unconfirmed accounts',
+      );
+    });
+  });
 });

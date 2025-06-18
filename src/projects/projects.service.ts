@@ -75,7 +75,7 @@ export class ProjectsService {
     ownerId: string,
     acceptLanguage?: string,
   ): Promise<Project> {
-    await this.findOne(id, ownerId, acceptLanguage);
+    await this.validateProjectOwnership(id, ownerId, acceptLanguage);
 
     this.logger.debug(
       `Updating project ${id} with data: ${JSON.stringify(updateProjectDto)}`,
@@ -93,7 +93,11 @@ export class ProjectsService {
     ownerId: string,
     acceptLanguage?: string,
   ): Promise<void> {
-    const project = await this.findOne(id, ownerId, acceptLanguage);
+    const project = await this.validateProjectOwnership(
+      id,
+      ownerId,
+      acceptLanguage,
+    );
 
     this.logger.debug(`Deleting project ${id} for user ${ownerId}`);
     await this.projectsRepository.remove(project);
@@ -105,7 +109,7 @@ export class ProjectsService {
     ownerId: string,
     acceptLanguage?: string,
   ): Promise<Project> {
-    await this.findOne(id, ownerId, acceptLanguage);
+    await this.validateProjectOwnership(id, ownerId, acceptLanguage);
 
     this.logger.debug(`Archiving project ${id} for user ${ownerId}`);
     await this.projectsRepository.update(id, {
@@ -122,7 +126,7 @@ export class ProjectsService {
     ownerId: string,
     acceptLanguage?: string,
   ): Promise<Project> {
-    await this.findOne(id, ownerId, acceptLanguage);
+    await this.validateProjectOwnership(id, ownerId, acceptLanguage);
 
     this.logger.debug(`Activating project ${id} for user ${ownerId}`);
     await this.projectsRepository.update(id, { status: ProjectStatus.ACTIVE });
@@ -130,5 +134,29 @@ export class ProjectsService {
 
     this.logger.log(`Project ${id} activated successfully`);
     return activatedProject;
+  }
+
+  private async validateProjectOwnership(
+    id: string,
+    ownerId: string,
+    acceptLanguage?: string,
+  ): Promise<Project> {
+    const project = await this.projectsRepository.findOne({
+      where: { id, ownerId },
+      relations: ['owner'],
+    });
+
+    if (!project) {
+      this.logger.warn(`Project not found with id: ${id} for user ${ownerId}`);
+      throw new NotFoundException({
+        status: 404,
+        code: 'PROJECT.NOT_FOUND',
+        message: this.i18n.translate('errors.project.not_found', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
+    return project;
   }
 }

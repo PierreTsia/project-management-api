@@ -17,8 +17,8 @@ export class CreateProjectsTable1750278808373 implements MigrationInterface {
         "description" text,
         "status" "public"."project_status_enum" NOT NULL DEFAULT 'ACTIVE',
         "owner_id" uuid NOT NULL,
-        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_projects_id" PRIMARY KEY ("id")
       )`,
     );
@@ -36,13 +36,13 @@ export class CreateProjectsTable1750278808373 implements MigrationInterface {
       `CREATE INDEX "IDX_projects_status" ON "projects" ("status")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_projects_created_at" ON "projects" ("created_at")`,
+      `CREATE INDEX "IDX_projects_createdAt" ON "projects" ("createdAt")`,
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop indexes
-    await queryRunner.query(`DROP INDEX "IDX_projects_created_at"`);
+    await queryRunner.query(`DROP INDEX "IDX_projects_createdAt"`);
     await queryRunner.query(`DROP INDEX "IDX_projects_status"`);
     await queryRunner.query(`DROP INDEX "IDX_projects_owner_id"`);
 

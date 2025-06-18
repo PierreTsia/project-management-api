@@ -511,15 +511,15 @@ export class PaginationHelper {
 **Value:** Core project management functionality
 
 **Definition of Done:**
-- [ ] Create `Project` entity with all required fields (id, name, description, status, createdAt, updatedAt, ownerId)
-- [ ] Create `ProjectService` with basic CRUD operations (create, findOne, findAll, update, delete)
-- [ ] Create `ProjectsController` with REST endpoints (POST /projects, GET /projects, GET /projects/:id, PUT /projects/:id, DELETE /projects/:id)
-- [ ] Create DTOs for project operations (CreateProjectDto, UpdateProjectDto, ProjectResponseDto)
-- [ ] Add validation using class-validator decorators
-- [ ] Write unit tests for service methods (minimum 80% coverage)
-- [ ] Write e2e tests for controller endpoints
-- [ ] Add migration for projects table
-- [ ] Test all endpoints manually with Postman/curl
+- [x] Create `Project` entity with all required fields (id, name, description, status, createdAt, updatedAt, ownerId)
+- [x] Create `ProjectService` with basic CRUD operations (create, findOne, findAll, update, delete)
+- [x] Create `ProjectsController` with REST endpoints (POST /projects, GET /projects, GET /projects/:id, PUT /projects/:id, DELETE /projects/:id)
+- [x] Create DTOs for project operations (CreateProjectDto, UpdateProjectDto, ProjectResponseDto)
+- [x] Add validation using class-validator decorators
+- [x] Write unit tests for service methods (minimum 80% coverage)
+- [x] Write e2e tests for controller endpoints
+- [x] Add migration for projects table
+- [x] Test all endpoints manually with Postman/curl
 
 **Acceptance Criteria:**
 - User can create a new project with name and description

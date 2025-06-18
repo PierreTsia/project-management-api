@@ -33,6 +33,7 @@ export class CreateInitialSchema1750000000000 implements MigrationInterface {
         "token" character varying NOT NULL,
         "expiresAt" TIMESTAMP NOT NULL,
         "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "revokedAt" TIMESTAMP,
         "userId" uuid,
         CONSTRAINT "UQ_4542dd0f38b0b4c4b8c4c4c4c4c" UNIQUE ("token"),
         CONSTRAINT "PK_refresh_tokens_id" PRIMARY KEY ("id")

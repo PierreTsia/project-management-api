@@ -34,6 +34,9 @@ export class User {
   @Column({ nullable: true })
   dob?: Date;
 
+  @Column({ nullable: true })
+  phone?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

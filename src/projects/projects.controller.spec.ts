@@ -1,0 +1,295 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { ProjectsController } from './projects.controller';
+import { ProjectsService } from './projects.service';
+import { Project, ProjectStatus } from './entities/project.entity';
+import { ProjectResponseDto } from './dto/project-response.dto';
+import { CreateProjectDto } from './dto/create-project.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
+import { User } from '../users/entities/user.entity';
+
+describe('ProjectsController', () => {
+  let controller: ProjectsController;
+  let projectsService: ProjectsService;
+
+  const mockUser: User = {
+    id: 'user-1',
+    email: 'test@example.com',
+    name: 'Test User',
+    password: 'hashedPassword',
+    isEmailConfirmed: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    refreshTokens: [],
+    avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=default',
+    provider: null,
+    providerId: null,
+  };
+
+  const mockProject: Project = {
+    id: 'project-1',
+    name: 'Test Project',
+    description: 'Test Description',
+    status: ProjectStatus.ACTIVE,
+    ownerId: 'user-1',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    owner: mockUser,
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [ProjectsController],
+      providers: [
+        {
+          provide: ProjectsService,
+          useValue: {
+            create: jest.fn(),
+            findAll: jest.fn(),
+            findOne: jest.fn(),
+            update: jest.fn(),
+            remove: jest.fn(),
+            archive: jest.fn(),
+            activate: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    controller = module.get<ProjectsController>(ProjectsController);
+    projectsService = module.get<ProjectsService>(ProjectsService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+
+  describe('create', () => {
+    it('should create a new project successfully', async () => {
+      const createProjectDto: CreateProjectDto = {
+        name: 'New Project',
+        description: 'New Description',
+      };
+
+      (projectsService.create as jest.Mock).mockResolvedValue(mockProject);
+
+      const result = await controller.create(
+        { user: mockUser },
+        createProjectDto,
+      );
+
+      expect(result).toBeInstanceOf(ProjectResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: mockProject.id,
+          name: mockProject.name,
+          description: mockProject.description,
+          status: mockProject.status,
+          ownerId: mockProject.ownerId,
+        }),
+      );
+      expect(projectsService.create).toHaveBeenCalledWith(
+        createProjectDto,
+        mockUser.id,
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const createProjectDto: CreateProjectDto = {
+        name: 'New Project',
+        description: 'New Description',
+      };
+
+      (projectsService.create as jest.Mock).mockResolvedValue(mockProject);
+
+      const result = await controller.create(
+        { user: mockUser },
+        createProjectDto,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(ProjectResponseDto);
+      expect(projectsService.create).toHaveBeenCalledWith(
+        createProjectDto,
+        mockUser.id,
+      );
+    });
+  });
+
+  describe('findAll', () => {
+    it('should return all projects for the current user', async () => {
+      const projects = [mockProject];
+
+      (projectsService.findAll as jest.Mock).mockResolvedValue(projects);
+
+      const result = await controller.findAll({ user: mockUser });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(ProjectResponseDto);
+      expect(result[0]).toEqual(
+        expect.objectContaining({
+          id: mockProject.id,
+          name: mockProject.name,
+          description: mockProject.description,
+          status: mockProject.status,
+          ownerId: mockProject.ownerId,
+        }),
+      );
+      expect(projectsService.findAll).toHaveBeenCalledWith(mockUser.id);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a specific project by ID', async () => {
+      const projectId = 'project-1';
+
+      (projectsService.findOne as jest.Mock).mockResolvedValue(mockProject);
+
+      const result = await controller.findOne(
+        { user: mockUser },
+        projectId,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(ProjectResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: mockProject.id,
+          name: mockProject.name,
+          description: mockProject.description,
+          status: mockProject.status,
+          ownerId: mockProject.ownerId,
+        }),
+      );
+      expect(projectsService.findOne).toHaveBeenCalledWith(
+        projectId,
+        mockUser.id,
+        'en-US',
+      );
+    });
+  });
+
+  describe('update', () => {
+    it('should update a project successfully', async () => {
+      const projectId = 'project-1';
+      const updateProjectDto: UpdateProjectDto = {
+        name: 'Updated Project',
+        description: 'Updated Description',
+      };
+
+      const updatedProject = { ...mockProject, ...updateProjectDto };
+
+      (projectsService.update as jest.Mock).mockResolvedValue(updatedProject);
+
+      const result = await controller.update(
+        { user: mockUser },
+        projectId,
+        updateProjectDto,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(ProjectResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: updatedProject.id,
+          name: updatedProject.name,
+          description: updatedProject.description,
+          status: updatedProject.status,
+          ownerId: updatedProject.ownerId,
+        }),
+      );
+      expect(projectsService.update).toHaveBeenCalledWith(
+        projectId,
+        updateProjectDto,
+        mockUser.id,
+        'en-US',
+      );
+    });
+  });
+
+  describe('remove', () => {
+    it('should remove a project successfully', async () => {
+      const projectId = 'project-1';
+
+      (projectsService.remove as jest.Mock).mockResolvedValue(undefined);
+
+      await controller.remove({ user: mockUser }, projectId, 'en-US');
+
+      expect(projectsService.remove).toHaveBeenCalledWith(
+        projectId,
+        mockUser.id,
+        'en-US',
+      );
+    });
+  });
+
+  describe('archive', () => {
+    it('should archive a project successfully', async () => {
+      const projectId = 'project-1';
+      const archivedProject = {
+        ...mockProject,
+        status: ProjectStatus.ARCHIVED,
+      };
+
+      (projectsService.archive as jest.Mock).mockResolvedValue(archivedProject);
+
+      const result = await controller.archive(
+        { user: mockUser },
+        projectId,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(ProjectResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: archivedProject.id,
+          name: archivedProject.name,
+          description: archivedProject.description,
+          status: archivedProject.status,
+          ownerId: archivedProject.ownerId,
+        }),
+      );
+      expect(projectsService.archive).toHaveBeenCalledWith(
+        projectId,
+        mockUser.id,
+        'en-US',
+      );
+    });
+  });
+
+  describe('activate', () => {
+    it('should activate a project successfully', async () => {
+      const projectId = 'project-1';
+      const activatedProject = { ...mockProject, status: ProjectStatus.ACTIVE };
+
+      (projectsService.activate as jest.Mock).mockResolvedValue(
+        activatedProject,
+      );
+
+      const result = await controller.activate(
+        { user: mockUser },
+        projectId,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(ProjectResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: activatedProject.id,
+          name: activatedProject.name,
+          description: activatedProject.description,
+          status: activatedProject.status,
+          ownerId: activatedProject.ownerId,
+        }),
+      );
+      expect(projectsService.activate).toHaveBeenCalledWith(
+        projectId,
+        mockUser.id,
+        'en-US',
+      );
+    });
+  });
+});

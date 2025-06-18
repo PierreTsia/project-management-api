@@ -7,5 +7,8 @@
     "invalid_file": "Invalid file format or size. Please upload a JPEG, PNG, or GIF image under 5MB.",
     "upload_failed": "Failed to upload image. Please try again.",
     "delete_failed": "Failed to delete image. Please try again."
+  },
+  "project": {
+    "not_found": "Project not found"
   }
 }

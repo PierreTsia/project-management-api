@@ -1,0 +1,79 @@
+name: Deploy Review App
+on:
+  # Run this workflow on every PR event. Existing review apps will be updated when the PR is updated.
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  # Set these to your Fly.io organization and preferred region.
+  FLY_REGION: iad
+  FLY_ORG: personal
+
+jobs:
+  review_app:
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    # Only run one deployment at a time per PR.
+    concurrency:
+      group: pr-${{ github.event.number }}
+
+    steps:
+      - name: Get code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Deploy PR app to Fly.io
+        id: deploy
+        uses: superfly/fly-pr-review-apps@1.2.1
+        with:
+          name: pr-${{ github.event.number }}-project-management-api
+          postgres: my-shared-db
+          secrets: |
+            JWT_SECRET=review-app-jwt-secret-key-2024
+            JWT_REFRESH_SECRET=review-app-jwt-refresh-secret-key-2024
+            PROJECT_NAME=project-management
+            FRONTEND_URL=https://review-app-frontend.example.com
+            GOOGLE_CLIENT_ID=review-app-google-client-id
+            GOOGLE_CLIENT_SECRET=review-app-google-client-secret
+            GOOGLE_CALLBACK_URL=https://pr-${{ github.event.number }}-project-management-api.fly.dev/auth/google/callback
+            SMTP_HOST=smtp.gmail.com
+            SMTP_PORT=587
+            SMTP_USER=review-app@example.com
+            SMTP_PASS=review-app-email-pass
+            SMTP_FROM_EMAIL=review-app@example.com
+            CLOUDINARY_CLOUD_NAME=review-app-cloud
+            CLOUDINARY_API_KEY=review-app-api-key
+            CLOUDINARY_API_SECRET=review-app-api-secret
+
+      - name: Get deployment URL
+        run: echo "DEPLOYMENT_URL=${{ steps.deploy.outputs.url }}" >> $GITHUB_ENV 

@@ -14,6 +14,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validationSchema } from './config/validation.schema';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { ProjectsModule } from './projects/projects.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
@@ -32,7 +33,7 @@ import { CustomLogger } from './common/services/logger.service';
       type: 'postgres',
       url: process.env.DATABASE_URL,
       autoLoadEntities: true,
-      synchronize: false /* process.env.NODE_ENV !== 'production' */, // Don't use in production!
+      synchronize: false,
     }),
     I18nModule.forRoot({
       fallbackLanguage: 'en',
@@ -44,6 +45,7 @@ import { CustomLogger } from './common/services/logger.service';
     }),
     UsersModule,
     AuthModule,
+    ProjectsModule,
     CloudinaryModule,
     LoggerModule,
   ],

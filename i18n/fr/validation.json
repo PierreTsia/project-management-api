@@ -4,6 +4,9 @@
   "required_field": "Ce champ est obligatoire",
   "invalid_email": "Veuillez entrer une adresse email valide",
   "password_too_short": "Le mot de passe doit contenir au moins 8 caractères",
-  "name_too_short": "Le nom doit contenir au moins 1 caractère",
+  "name_too_short": "Le nom doit contenir au moins 2 caractères",
+  "name_too_long": "Le nom doit contenir au maximum 100 caractères",
+  "description_too_long": "La description doit contenir au maximum 1000 caractères",
+  "invalid_status": "Valeur de statut invalide",
   "password_format": "Le mot de passe doit contenir au moins une majuscule, un chiffre et un caractère spécial"
 } 

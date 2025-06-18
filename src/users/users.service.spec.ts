@@ -34,6 +34,7 @@ describe('UsersService', () => {
     update: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    delete: jest.fn(),
   };
 
   const mockI18nService = {

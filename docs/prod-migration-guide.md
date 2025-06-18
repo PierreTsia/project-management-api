@@ -1,103 +1,129 @@
-# Production Database Migration Guide (for Dummies)
+# Database Schema Changes: Step-by-Step Guide
 
-## Goal
-Never break production with a schema change. Always use migrations. No surprises.
-
----
-
-## 1. Make Your Entity Changes Locally
-Edit your `.entity.ts` files as needed.
-- Local dev uses `synchronize: true` so you don't care about migrations here.
-- **IMPORTANT**: If you want to generate a migration, you need to either:
-  - Comment out `synchronize: true` in your dev config, or
-  - Make sure your changes are not already synced to your local DB
+## Overview
+Since `synchronize: false` is always used (both locally and in production), **ALL** schema changes must go through migrations. This ensures consistency and prevents data loss.
 
 ---
 
-## 2. Generate a Migration (Inside the Container)
+## When You Change the Database Schema
 
-**a. Make sure your local Postgres is running:**
+### Step 1: Make Your Entity Changes Locally
+1. Edit your `.entity.ts` files as needed
+2. **DO NOT** change `synchronize` to `true` - keep it `false`
+
+### Step 2: Generate a Migration
 ```bash
+# Make sure your local DB is running
 docker-compose up -d
+
+# Generate migration from inside the container
+docker-compose exec api pnpm run migration:generate src/migrations/YourMigrationName
 ```
 
-**b. Generate the migration (from inside the API container):**
+**What this does:**
+- Compares your current entities with the actual database schema
+- Creates a new file in `src/migrations/` with the differences
+- If you get "No changes in database schema were found", your local DB is already in sync
+
+### Step 3: Review the Generated Migration
+1. Open the new file in `src/migrations/`
+2. Check both `up()` and `down()` methods
+3. Make sure it only does what you expect (add/drop columns, tables, etc.)
+4. **If the migration looks wrong, delete it and fix your entities first**
+
+### Step 4: Test the Migration Locally
 ```bash
-docker exec -it project-management-api-api-1 sh -c "pnpm run migration:generate src/migrations/YourMigrationName"
+# Build the project (compiles migration to dist/)
+pnpm build
+
+# Run the migration locally
+docker-compose exec api pnpm run migrate:prod
 ```
-- This uses your local DB to figure out what's changed.
-- It creates a file in `src/migrations/`.
-- If you get "No changes in database schema were found", it means your local DB is already in sync with your entities.
 
----
+**Expected result:** "Running migrations... Migrations completed successfully"
 
-## 3. Review the Migration File
-Open the new file in `src/migrations/`.
-- Make sure it only does what you expect (add/drop columns, tables, etc).
-- Check both `up()` and `down()` methods.
-
----
-
-## 4. Build Your Project
-```bash
-pnpm run build
-```
-- This compiles your migration to `dist/migrations/`.
-- Also compiles your TypeORM config to `dist/config/`.
-
----
-
-## 5. Commit and Push
+### Step 5: Commit and Push
 ```bash
 git add src/migrations/ dist/migrations/
-git commit -m "Add migration for X"
+git commit -m "Add migration for [describe your changes]"
 git push
 ```
 
----
-
-## 6. Deploy to Fly.io
+### Step 6: Deploy to Production
 ```bash
 fly deploy
 ```
-- Fly will **automatically run the migration** before starting the new app version (thanks to `release_command` in `fly.toml`).
-- The migration runs using the compiled JS files from `dist/`.
+
+**What happens during deployment:**
+1. Fly.io builds your app
+2. **Before starting the new version**, Fly runs: `pnpm run migrate:prod`
+3. If migration succeeds → new app starts
+4. If migration fails → deployment aborts, old app keeps running
 
 ---
 
-## 7. If the Migration Fails on Fly Deploy
-- The deploy will abort.
-- Your prod DB is safe.
-- Common issues:
-  - Missing TypeScript dependencies in production (need `ts-node` and `typescript` in `dependencies`, not `devDependencies`)
-  - Wrong path to TypeORM config (should use `dist/config/typeorm.config.js` in production)
-  - Migration already applied
-- Fix the issue locally, repeat steps 2–6.
+## If Something Goes Wrong
+
+### Migration Fails Locally
+- Check your entity changes
+- Verify the migration file makes sense
+- Delete the migration file and regenerate if needed
+
+### Migration Fails in Production
+- **Your production database is safe** (deployment aborts)
+- Check Fly.io logs: `fly logs`
+- Fix the issue locally, then repeat steps 2-6
+
+### Common Issues
+1. **Missing dependencies**: Make sure `dotenv` is in `dependencies` (not `devDependencies`)
+2. **Wrong paths**: Migration script uses `dist/scripts/migrate.js` in production
+3. **Already applied**: Migration was already run on the database
+4. **SSL issues**: Migration script automatically handles SSL for production databases
 
 ---
 
-## 8. Never Use `synchronize: true` in Production
-- Only use it in dev.
-- In prod, all schema changes must go through migrations.
-- Your `package.json` should have different migration commands for dev and prod:
-  ```json
-  "scripts": {
-    "migration:generate": "npm run typeorm -- migration:generate -d src/config/typeorm.config.ts",
-    "migration:run": "npm run typeorm -- migration:run -d dist/config/typeorm.config.js"
-  }
-  ```
+## Migration Commands Reference
+
+```bash
+# Generate migration
+docker-compose exec api pnpm run migration:generate src/migrations/YourMigrationName
+
+# Run migrations locally
+docker-compose exec api pnpm run migrate:prod
+
+# Run migrations in production (happens automatically during fly deploy)
+pnpm run migrate:prod
+
+# Revert last migration (if needed)
+docker-compose exec api pnpm run migration:revert
+```
+
+---
+
+## File Locations
+- **Migration source**: `src/migrations/`
+- **Compiled migrations**: `dist/migrations/`
+- **Migration script**: `src/scripts/migrate.ts` → `dist/scripts/migrate.js`
+- **TypeORM config**: `src/config/typeorm.config.ts` → `dist/config/typeorm.config.js`
+
+---
+
+## Best Practices
+1. **Always test migrations locally first**
+2. **Never use `synchronize: true`** (you already have this right!)
+3. **One migration per change** - don't bundle multiple schema changes
+4. **Review generated migrations** before committing
+5. **Use descriptive migration names** (e.g., `AddUserProfileTable`, `AddEmailVerifiedColumn`)
 
 ---
 
 ## TL;DR
-1. Change entities.
-2. `docker exec -it project-management-api-api-1 sh -c "pnpm run migration:generate src/migrations/Whatever"`
-3. Check the file.
-4. `pnpm run build`
-5. Commit & push.
-6. `fly deploy`
-7. If deploy fails, fix migration and repeat.
+1. Change entities
+2. `docker-compose exec api pnpm run migration:generate src/migrations/Whatever`
+3. Review the file
+4. `pnpm build`
+5. `docker-compose exec api pnpm run migrate:prod` (test locally)
+6. Commit & push
+7. `fly deploy` (runs migration automatically)
 
----
-
-**No more surprises in production.** 
+**Result: Safe, predictable schema changes in production.** 🎯 

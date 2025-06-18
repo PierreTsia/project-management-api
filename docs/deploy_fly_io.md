@@ -1,6 +1,6 @@
 # Deploying Project Management API on Fly.io
 
-This guide will walk you through deploying your NestJS application and PostgreSQL database on Fly.io.
+This guide covers deploying your NestJS application with PostgreSQL database on Fly.io, including automatic migrations.
 
 ## Prerequisites
 
@@ -20,6 +20,7 @@ fly auth login   # If you already have an account
 
 ### Local Development
 - Use `.env` file for local development (gitignored)
+- Use `.env.production` for production values (gitignored)
 - Never commit sensitive data to git
 
 ### Production Environment
@@ -91,8 +92,9 @@ fly launch
    - Choose "No" for PostgreSQL (we'll set it up separately)
    - Choose "No" for Redis (if not needed)
 
-## Step 2: Set Up Managed PostgreSQL
+## Step 2: Set Up PostgreSQL Database
 
+### Option A: Fly.io Managed PostgreSQL (Recommended)
 1. Create a new PostgreSQL database:
 ```bash
 fly postgres create
@@ -105,40 +107,53 @@ fly postgres create
 
 3. Attach the database to your app:
 ```bash
-fly postgres attach <your-database-name>
+fly postgres attach <your-database-name> --app <your-app-name>
 ```
+
+### Option B: Unmanaged Fly Postgres (Current Setup)
+1. Create a new PostgreSQL cluster:
+```bash
+fly postgres create
+```
+
+2. Attach to your app:
+```bash
+fly postgres attach <your-database-name> --app <your-app-name>
+```
+
+**Note:** Unmanaged Postgres uses internal `.flycast` DNS and is not accessible from external services like GitHub Actions.
 
 ## Step 3: Configure Your Application
 
-1. Create a `fly.toml` file in your project root:
+Your `fly.toml` should look like this:
 ```toml
 app = "your-app-name"
-primary_region = "your-region"
+primary_region = "cdg"
 
 [build]
-  dockerfile = "Dockerfile"
-
-[env]
-  PORT = "3000"
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = false
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ["app"]
 
 [[vm]]
-  cpu_kind = "shared"
+  memory = '1gb'
+  cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 1024
+
+# Automatically run DB migrations before each deploy
+[deploy]
+  release_command = "pnpm run migrate:prod"
 ```
 
-2. Update your environment variables:
-```bash
-fly secrets set DATABASE_URL="postgres://username:password@host:port/database"
-```
+**Key points:**
+- `release_command = "pnpm run migrate:prod"` runs migrations before each deployment
+- If migrations fail, deployment aborts and old app keeps running
+- This ensures database schema is always up to date
 
 ## Step 4: Deploy Your Application
 
@@ -157,7 +172,34 @@ fly status
 fly logs
 ```
 
-## Step 5: Scale Your Application (Optional)
+**What happens during deployment:**
+1. Fly.io builds your Docker image
+2. **Before starting the new version**, Fly runs the release command
+3. The release command runs: `pnpm run migrate:prod`
+4. If migrations succeed → new app starts
+5. If migrations fail → deployment aborts, old app keeps running
+
+## Step 5: Database Migrations
+
+### Automatic Migrations (Recommended)
+Migrations run automatically during deployment via the `release_command` in `fly.toml`.
+
+### Manual Migrations (if needed)
+```bash
+# SSH into your app and run migrations manually
+fly ssh console -s your-app-name
+pnpm run migrate:prod
+```
+
+### Migration Troubleshooting
+If migrations fail during deployment:
+1. Check logs: `fly logs`
+2. Common issues:
+   - Missing dependencies (ensure `dotenv` is in `dependencies`)
+   - Wrong file paths (migration script uses `dist/scripts/migrate.js`)
+   - SSL configuration (handled automatically for production databases)
+
+## Step 6: Scale Your Application (Optional)
 
 1. Scale your application:
 ```bash
@@ -187,6 +229,7 @@ fly scale memory 1024
 
 2. Common issues:
    - Database connection issues: Verify DATABASE_URL
+   - Migration failures: Check migration logs in deployment
    - Memory issues: Scale up memory
    - Port conflicts: Check internal_port in fly.toml
 
@@ -234,6 +277,7 @@ fly postgres backup restore <backup-id>
 3. Regularly update dependencies
 4. Monitor your application logs
 5. Use the latest PostgreSQL version
+6. Database is not publicly accessible (uses internal Fly.io network)
 
 ## Cost Optimization
 
@@ -247,3 +291,4 @@ fly postgres backup restore <backup-id>
 - [Fly.io Documentation](https://fly.io/docs/)
 - [Fly.io Status Page](https://status.fly.io/)
 - [Fly.io Community](https://community.fly.io/)
+- [Database Migration Guide](./prod-migration-guide.md)

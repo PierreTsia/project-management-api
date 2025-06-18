@@ -7,5 +7,8 @@
     "invalid_file": "Format ou taille de fichier invalide. Veuillez télécharger une image JPEG, PNG ou GIF de moins de 5MB.",
     "upload_failed": "Échec du téléchargement de l'image. Veuillez réessayer.",
     "delete_failed": "Échec de la suppression de l'image. Veuillez réessayer."
+  },
+  "project": {
+    "not_found": "Projet non trouvé"
   }
 } 

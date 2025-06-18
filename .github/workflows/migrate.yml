@@ -29,7 +29,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       
+      - name: Build
+        run: pnpm build
+      
       - name: Run migrations
-        run: docker-compose exec api pnpm run migrate:prod
+        run: pnpm run migrate:prod
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }} 

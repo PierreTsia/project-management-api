@@ -538,13 +538,13 @@ export class PaginationHelper {
 **Value:** Foundation for role-based access control
 
 **Definition of Done:**
-- [ ] Create `ProjectRole` enum with OWNER, ADMIN, WRITE, READ values
-- [ ] Create `ProjectContributor` entity with role field and relationships
-- [ ] Create `IProjectPermissionService` interface
-- [ ] Create basic `ProjectPermissionService` implementation (skeleton only)
-- [ ] Add migration for project_contributors table
-- [ ] Write unit tests for enum and interface
-- [ ] Verify TypeORM relationships work correctly
+- [x] Create `ProjectRole` enum with OWNER, ADMIN, WRITE, READ values
+- [x] Create `ProjectContributor` entity with role field and relationships
+- [x] Create `IProjectPermissionService` interface
+- [x] Create basic `ProjectPermissionService` implementation (skeleton only)
+- [x] Add migration for project_contributors table
+- [x] Write unit tests for enum and interface
+- [x] Verify TypeORM relationships work correctly
 
 **Acceptance Criteria:**
 - ProjectRole enum is properly defined and exported

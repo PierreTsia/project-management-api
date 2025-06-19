@@ -7,6 +7,11 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectResponseDto } from './dto/project-response.dto';
 import { ProjectStatus } from './entities/project.entity';
 import { I18nService } from 'nestjs-i18n';
+import { AddContributorDto } from './dto/add-contributor.dto';
+import { UpdateContributorRoleDto } from './dto/update-contributor-role.dto';
+import { ContributorResponseDto } from './dto/contributor-response.dto';
+import { UserResponseDto } from '../users/dto/user-response.dto';
+import { ProjectRole } from './enums/project-role.enum';
 
 describe('ProjectsController', () => {
   let controller: ProjectsController;
@@ -36,6 +41,26 @@ describe('ProjectsController', () => {
     owner: mockUser,
   };
 
+  const mockContributor = {
+    id: 'contributor-1',
+    userId: 'user-2',
+    role: ProjectRole.WRITE,
+    joinedAt: new Date(),
+    projectId: 'project-1',
+    user: {
+      id: 'user-2',
+      email: 'contributor@example.com',
+      name: 'Contributor User',
+      bio: null,
+      dob: null,
+      phone: null,
+      avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=default',
+      isEmailConfirmed: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProjectsController],
@@ -50,6 +75,10 @@ describe('ProjectsController', () => {
             remove: jest.fn(),
             archive: jest.fn(),
             activate: jest.fn(),
+            getContributors: jest.fn(),
+            addContributor: jest.fn(),
+            updateContributorRole: jest.fn(),
+            removeContributor: jest.fn(),
           },
         },
         {
@@ -302,6 +331,247 @@ describe('ProjectsController', () => {
         projectId,
         mockUser.id,
         'en-US',
+      );
+    });
+  });
+
+  describe('getContributors', () => {
+    it('should return all contributors for a project', async () => {
+      const projectId = 'project-1';
+      const contributors = [mockContributor];
+
+      (projectsService.getContributors as jest.Mock).mockResolvedValue(
+        contributors,
+      );
+
+      const result = await controller.getContributors(
+        { user: mockUser },
+        projectId,
+        'en-US',
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(ContributorResponseDto);
+      expect(result[0]).toEqual(
+        expect.objectContaining({
+          id: mockContributor.id,
+          userId: mockContributor.userId,
+          role: mockContributor.role,
+          joinedAt: mockContributor.joinedAt,
+          user: expect.any(UserResponseDto),
+        }),
+      );
+      expect(projectsService.getContributors).toHaveBeenCalledWith(
+        projectId,
+        'en-US',
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const projectId = 'project-1';
+      const contributors = [mockContributor];
+
+      (projectsService.getContributors as jest.Mock).mockResolvedValue(
+        contributors,
+      );
+
+      const result = await controller.getContributors(
+        { user: mockUser },
+        projectId,
+        'fr-FR',
+      );
+
+      expect(result).toHaveLength(1);
+      expect(projectsService.getContributors).toHaveBeenCalledWith(
+        projectId,
+        'fr-FR',
+      );
+    });
+  });
+
+  describe('addContributor', () => {
+    it('should add a contributor to a project successfully', async () => {
+      const projectId = 'project-1';
+      const addContributorDto: AddContributorDto = {
+        email: 'newcontributor@example.com',
+        role: ProjectRole.READ,
+      };
+
+      (projectsService.addContributor as jest.Mock).mockResolvedValue(
+        mockContributor,
+      );
+
+      const result = await controller.addContributor(
+        { user: mockUser },
+        projectId,
+        addContributorDto,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(ContributorResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: mockContributor.id,
+          userId: mockContributor.userId,
+          role: mockContributor.role,
+          joinedAt: mockContributor.joinedAt,
+          user: expect.any(UserResponseDto),
+        }),
+      );
+      expect(projectsService.addContributor).toHaveBeenCalledWith(
+        projectId,
+        addContributorDto,
+        mockUser.id,
+        'en-US',
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const projectId = 'project-1';
+      const addContributorDto: AddContributorDto = {
+        email: 'newcontributor@example.com',
+        role: ProjectRole.READ,
+      };
+
+      (projectsService.addContributor as jest.Mock).mockResolvedValue(
+        mockContributor,
+      );
+
+      const result = await controller.addContributor(
+        { user: mockUser },
+        projectId,
+        addContributorDto,
+        'fr-FR',
+      );
+
+      expect(result).toBeInstanceOf(ContributorResponseDto);
+      expect(projectsService.addContributor).toHaveBeenCalledWith(
+        projectId,
+        addContributorDto,
+        mockUser.id,
+        'fr-FR',
+      );
+    });
+  });
+
+  describe('updateContributorRole', () => {
+    it('should update a contributor role successfully', async () => {
+      const projectId = 'project-1';
+      const contributorId = 'contributor-1';
+      const updateRoleDto: UpdateContributorRoleDto = {
+        role: ProjectRole.ADMIN,
+      };
+
+      const updatedContributor = {
+        ...mockContributor,
+        role: ProjectRole.ADMIN,
+      };
+
+      (projectsService.updateContributorRole as jest.Mock).mockResolvedValue(
+        updatedContributor,
+      );
+
+      const result = await controller.updateContributorRole(
+        { user: mockUser },
+        projectId,
+        contributorId,
+        updateRoleDto,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(ContributorResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: updatedContributor.id,
+          userId: updatedContributor.userId,
+          role: updatedContributor.role,
+          joinedAt: updatedContributor.joinedAt,
+          user: expect.any(UserResponseDto),
+        }),
+      );
+      expect(projectsService.updateContributorRole).toHaveBeenCalledWith(
+        projectId,
+        contributorId,
+        updateRoleDto,
+        mockUser.id,
+        'en-US',
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const projectId = 'project-1';
+      const contributorId = 'contributor-1';
+      const updateRoleDto: UpdateContributorRoleDto = {
+        role: ProjectRole.ADMIN,
+      };
+
+      (projectsService.updateContributorRole as jest.Mock).mockResolvedValue(
+        mockContributor,
+      );
+
+      const result = await controller.updateContributorRole(
+        { user: mockUser },
+        projectId,
+        contributorId,
+        updateRoleDto,
+        'fr-FR',
+      );
+
+      expect(result).toBeInstanceOf(ContributorResponseDto);
+      expect(projectsService.updateContributorRole).toHaveBeenCalledWith(
+        projectId,
+        contributorId,
+        updateRoleDto,
+        mockUser.id,
+        'fr-FR',
+      );
+    });
+  });
+
+  describe('removeContributor', () => {
+    it('should remove a contributor from a project successfully', async () => {
+      const projectId = 'project-1';
+      const contributorId = 'contributor-1';
+
+      (projectsService.removeContributor as jest.Mock).mockResolvedValue(
+        undefined,
+      );
+
+      await controller.removeContributor(
+        { user: mockUser },
+        projectId,
+        contributorId,
+        'en-US',
+      );
+
+      expect(projectsService.removeContributor).toHaveBeenCalledWith(
+        projectId,
+        contributorId,
+        mockUser.id,
+        'en-US',
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const projectId = 'project-1';
+      const contributorId = 'contributor-1';
+
+      (projectsService.removeContributor as jest.Mock).mockResolvedValue(
+        undefined,
+      );
+
+      await controller.removeContributor(
+        { user: mockUser },
+        projectId,
+        contributorId,
+        'fr-FR',
+      );
+
+      expect(projectsService.removeContributor).toHaveBeenCalledWith(
+        projectId,
+        contributorId,
+        mockUser.id,
+        'fr-FR',
       );
     });
   });

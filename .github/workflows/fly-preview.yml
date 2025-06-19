@@ -59,6 +59,7 @@ jobs:
           name: pr-${{ github.event.number }}-project-management-api
           postgres: my-shared-db
           secrets: |
+            DATABASE_URL=postgresql://my-shared-db.flycast:5432/project_management
             JWT_SECRET=review-app-jwt-secret-key-2024
             JWT_REFRESH_SECRET=review-app-jwt-refresh-secret-key-2024
             PROJECT_NAME=project-management
@@ -74,10 +75,6 @@ jobs:
             CLOUDINARY_CLOUD_NAME=review-app-cloud
             CLOUDINARY_API_KEY=review-app-api-key
             CLOUDINARY_API_SECRET=review-app-api-secret
-
-      - name: Set DATABASE_URL manually
-        run: |
-          fly secrets set DATABASE_URL="postgresql://my-shared-db.flycast" -a pr-${{ github.event.number }}-project-management-api
 
       - name: Get deployment URL
         run: echo "DEPLOYMENT_URL=${{ steps.deploy.outputs.url }}" >> $GITHUB_ENV 

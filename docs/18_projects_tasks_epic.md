@@ -543,7 +543,7 @@ export class PaginationHelper {
 - [x] Create `IProjectPermissionService` interface
 - [x] Create basic `ProjectPermissionService` implementation (skeleton only)
 - [x] Add migration for project_contributors table
-- [ ] Write unit tests for enum and interface
+- [x] Write unit tests for enum and interface
 - [x] Verify TypeORM relationships work correctly
 
 **Acceptance Criteria:**

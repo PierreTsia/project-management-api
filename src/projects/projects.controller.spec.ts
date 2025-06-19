@@ -6,6 +6,7 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectResponseDto } from './dto/project-response.dto';
 import { ProjectStatus } from './entities/project.entity';
+import { I18nService } from 'nestjs-i18n';
 
 describe('ProjectsController', () => {
   let controller: ProjectsController;
@@ -56,6 +57,12 @@ describe('ProjectsController', () => {
           useValue: {
             hasProjectPermission: jest.fn(),
             getUserProjectRole: jest.fn(),
+          },
+        },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: jest.fn(),
           },
         },
       ],

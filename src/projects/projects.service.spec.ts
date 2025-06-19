@@ -3,17 +3,35 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectsService } from './projects.service';
 import { Project, ProjectStatus } from './entities/project.entity';
+import { ProjectContributor } from './entities/project-contributor.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { I18nService } from 'nestjs-i18n';
 import { NotFoundException } from '@nestjs/common';
-import { MockCustomLogger } from '../test/mocks';
 import { CustomLogger } from '../common/services/logger.service';
+import { MockCustomLogger } from '../test/mocks/logger.mock';
 
 describe('ProjectsService', () => {
   let service: ProjectsService;
   let projectsRepository: Repository<Project>;
-  let mockLogger: MockCustomLogger;
+
+  const mockRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    find: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+  };
+
+  const mockContributorRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
+  const mockI18nService = {
+    translate: jest.fn(),
+  };
 
   const mockProject: Project = {
     id: 'project-1',
@@ -27,29 +45,15 @@ describe('ProjectsService', () => {
       id: 'user-1',
       email: 'test@example.com',
       name: 'Test User',
-      password: 'hashedPassword',
       isEmailConfirmed: true,
+      avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=test',
+      refreshTokens: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      refreshTokens: [],
-      avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=default',
-      provider: null,
-      providerId: null,
     },
   };
 
-  const mockRepository = {
-    findOne: jest.fn(),
-    find: jest.fn(),
-    create: jest.fn(),
-    save: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
-  };
-
-  const mockI18nService = {
-    translate: jest.fn().mockReturnValue('Project not found'),
-  };
+  let mockLogger: MockCustomLogger;
 
   beforeEach(async () => {
     mockLogger = new MockCustomLogger();
@@ -60,6 +64,10 @@ describe('ProjectsService', () => {
         {
           provide: getRepositoryToken(Project),
           useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(ProjectContributor),
+          useValue: mockContributorRepository,
         },
         {
           provide: I18nService,

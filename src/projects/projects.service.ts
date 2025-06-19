@@ -186,6 +186,7 @@ export class ProjectsService {
     projectId: string,
     _acceptLanguage?: string,
   ): Promise<ProjectContributor[]> {
+    this.logger.debug(`Getting contributors for project ${projectId}`);
     const contributors = await this.projectContributorRepository.find({
       where: { projectId },
       relations: ['user'],
@@ -205,6 +206,26 @@ export class ProjectsService {
     currentUserId: string,
     acceptLanguage?: string,
   ): Promise<ProjectContributor> {
+    // Check that the project exists
+    const project = await this.projectsRepository.findOne({
+      where: { id: projectId },
+      relations: ['owner'],
+    });
+    if (!project) {
+      this.logger.warn(`Project not found with id: ${projectId}`);
+      throw new NotFoundException({
+        status: 404,
+        code: 'PROJECT.NOT_FOUND',
+        message: this.i18n.translate('errors.project.not_found', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
+    this.logger.debug(
+      `Adding contributor ${addContributorDto.email} to project ${projectId} with role ${addContributorDto.role}`,
+    );
+
     // Find the user by email
     const user = await this.usersService.findByEmail(addContributorDto.email);
     if (!user) {
@@ -265,6 +286,25 @@ export class ProjectsService {
     currentUserId: string,
     acceptLanguage?: string,
   ): Promise<ProjectContributor> {
+    this.logger.debug(
+      `Updating contributor ${contributorId} role to ${updateRoleDto.role} in project ${projectId}`,
+    );
+
+    // Check that the project exists
+    const project = await this.projectsRepository.findOne({
+      where: { id: projectId },
+    });
+    if (!project) {
+      this.logger.warn(`Project not found with id: ${projectId}`);
+      throw new NotFoundException({
+        status: 404,
+        code: 'PROJECT.NOT_FOUND',
+        message: this.i18n.translate('errors.project.not_found', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
     const contributor = await this.projectContributorRepository.findOne({
       where: { id: contributorId, projectId },
       relations: ['user'],
@@ -323,6 +363,25 @@ export class ProjectsService {
     currentUserId: string,
     acceptLanguage?: string,
   ): Promise<void> {
+    this.logger.debug(
+      `Removing contributor ${contributorId} from project ${projectId}`,
+    );
+
+    // Check that the project exists
+    const project = await this.projectsRepository.findOne({
+      where: { id: projectId },
+    });
+    if (!project) {
+      this.logger.warn(`Project not found with id: ${projectId}`);
+      throw new NotFoundException({
+        status: 404,
+        code: 'PROJECT.NOT_FOUND',
+        message: this.i18n.translate('errors.project.not_found', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+
     const contributor = await this.projectContributorRepository.findOne({
       where: { id: contributorId, projectId },
     });

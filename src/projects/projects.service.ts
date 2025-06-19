@@ -2,16 +2,20 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project, ProjectStatus } from './entities/project.entity';
+import { ProjectContributor } from './entities/project-contributor.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { I18nService } from 'nestjs-i18n';
 import { CustomLogger } from '../common/services/logger.service';
+import { ProjectRole } from './enums/project-role.enum';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     @InjectRepository(Project)
     private readonly projectsRepository: Repository<Project>,
+    @InjectRepository(ProjectContributor)
+    private readonly projectContributorRepository: Repository<ProjectContributor>,
     private readonly i18n: I18nService,
     private readonly logger: CustomLogger,
   ) {
@@ -33,6 +37,16 @@ export class ProjectsService {
     });
 
     const savedProject = await this.projectsRepository.save(project);
+
+    // Create contributor record with OWNER role
+    const contributor = this.projectContributorRepository.create({
+      userId: ownerId,
+      projectId: savedProject.id,
+      role: ProjectRole.OWNER,
+    });
+
+    await this.projectContributorRepository.save(contributor);
+
     this.logger.log(`Project created successfully with id: ${savedProject.id}`);
     return savedProject;
   }

@@ -200,13 +200,10 @@ export class ProjectsService {
     return contributors;
   }
 
-  async addContributor(
+  private async ensureProjectExists(
     projectId: string,
-    addContributorDto: AddContributorDto,
-    currentUserId: string,
     acceptLanguage?: string,
-  ): Promise<ProjectContributor> {
-    // Check that the project exists
+  ): Promise<Project> {
     const project = await this.projectsRepository.findOne({
       where: { id: projectId },
       relations: ['owner'],
@@ -221,6 +218,16 @@ export class ProjectsService {
         }),
       });
     }
+    return project;
+  }
+
+  async addContributor(
+    projectId: string,
+    addContributorDto: AddContributorDto,
+    acceptLanguage?: string,
+  ): Promise<ProjectContributor> {
+    // Check that the project exists
+    await this.ensureProjectExists(projectId, acceptLanguage);
 
     this.logger.debug(
       `Adding contributor ${addContributorDto.email} to project ${projectId} with role ${addContributorDto.role}`,
@@ -283,7 +290,6 @@ export class ProjectsService {
     projectId: string,
     contributorId: string,
     updateRoleDto: UpdateContributorRoleDto,
-    currentUserId: string,
     acceptLanguage?: string,
   ): Promise<ProjectContributor> {
     this.logger.debug(
@@ -291,19 +297,7 @@ export class ProjectsService {
     );
 
     // Check that the project exists
-    const project = await this.projectsRepository.findOne({
-      where: { id: projectId },
-    });
-    if (!project) {
-      this.logger.warn(`Project not found with id: ${projectId}`);
-      throw new NotFoundException({
-        status: 404,
-        code: 'PROJECT.NOT_FOUND',
-        message: this.i18n.translate('errors.project.not_found', {
-          lang: acceptLanguage,
-        }),
-      });
-    }
+    await this.ensureProjectExists(projectId, acceptLanguage);
 
     const contributor = await this.projectContributorRepository.findOne({
       where: { id: contributorId, projectId },
@@ -360,7 +354,6 @@ export class ProjectsService {
   async removeContributor(
     projectId: string,
     contributorId: string,
-    currentUserId: string,
     acceptLanguage?: string,
   ): Promise<void> {
     this.logger.debug(
@@ -368,19 +361,7 @@ export class ProjectsService {
     );
 
     // Check that the project exists
-    const project = await this.projectsRepository.findOne({
-      where: { id: projectId },
-    });
-    if (!project) {
-      this.logger.warn(`Project not found with id: ${projectId}`);
-      throw new NotFoundException({
-        status: 404,
-        code: 'PROJECT.NOT_FOUND',
-        message: this.i18n.translate('errors.project.not_found', {
-          lang: acceptLanguage,
-        }),
-      });
-    }
+    await this.ensureProjectExists(projectId, acceptLanguage);
 
     const contributor = await this.projectContributorRepository.findOne({
       where: { id: contributorId, projectId },

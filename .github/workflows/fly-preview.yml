@@ -59,7 +59,6 @@ jobs:
           name: pr-${{ github.event.number }}-project-management-api
           postgres: my-shared-db
           secrets: |
-            DATABASE_URL=postgresql://postgres:postgres@my-shared-db.flycast:5432/postgres?sslmode=disable
             JWT_SECRET=review-app-jwt-secret-key-2024
             JWT_REFRESH_SECRET=review-app-jwt-refresh-secret-key-2024
             PROJECT_NAME=project-management

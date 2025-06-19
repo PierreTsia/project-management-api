@@ -4,7 +4,6 @@
 
 A robust REST API for project management, built with NestJS and TypeScript.
 
-<!-- PR Test: This comment is added to test PR deployment pipeline -->
 
 ## Features
 

@@ -561,13 +561,13 @@ export class PaginationHelper {
 **Value:** Project ownership and basic access control
 
 **Definition of Done:**
-- [ ] Implement project creation with automatic owner assignment
-- [ ] Create `ProjectContributor` record when project is created
-- [ ] Implement `ProjectPermissionService.hasProjectPermission()` method
+- [x] Implement project creation with automatic owner assignment
+- [x] Create `ProjectContributor` record when project is created
+- [x] Implement `ProjectPermissionService.hasProjectPermission()` method
 - [ ] Add owner-only endpoints (DELETE project, manage contributors)
-- [ ] Create `ProjectPermissionGuard` (basic implementation)
-- [ ] Add `@RequireProjectRole()` decorator
-- [ ] Write unit tests for permission service
+- [x] Create `ProjectPermissionGuard` (basic implementation)
+- [x] Add `@RequireProjectRole()` decorator
+- [x] Write unit tests for permission service
 - [ ] Write e2e tests for owner-only operations
 
 **Acceptance Criteria:**

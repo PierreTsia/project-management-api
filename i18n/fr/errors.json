@@ -9,6 +9,14 @@
     "delete_failed": "Échec de la suppression de l'image. Veuillez réessayer."
   },
   "project": {
-    "not_found": "Projet non trouvé"
+    "not_found": "Projet non trouvé",
+    "user_or_project_not_found": "Utilisateur ou projet non trouvé",
+    "insufficient_permission": "Vous n'avez pas les permissions {role} pour ce projet",
+    "user_not_found": "Utilisateur non trouvé",
+    "contributor_already_exists": "L'utilisateur est déjà contributeur de ce projet",
+    "contributor_not_found": "Contributeur non trouvé",
+    "cannot_remove_owner": "Impossible de supprimer le propriétaire du projet",
+    "cannot_change_owner_role": "Impossible de modifier le rôle du propriétaire du projet",
+    "cannot_remove_last_admin": "Impossible de supprimer le dernier administrateur du projet"
   }
 } 

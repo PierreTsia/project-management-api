@@ -8,5 +8,6 @@
   "name_too_long": "Le nom doit contenir au maximum 100 caractères",
   "description_too_long": "La description doit contenir au maximum 1000 caractères",
   "invalid_status": "Valeur de statut invalide",
+  "invalid_role": "Valeur de rôle invalide",
   "password_format": "Le mot de passe doit contenir au moins une majuscule, un chiffre et un caractère spécial"
 } 

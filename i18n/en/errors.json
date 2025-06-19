@@ -11,6 +11,12 @@
   "project": {
     "not_found": "Project not found",
     "user_or_project_not_found": "User or project not found",
-    "insufficient_permission": "You do not have {role} permission for this project"
+    "insufficient_permission": "You do not have {role} permission for this project",
+    "user_not_found": "User not found",
+    "contributor_already_exists": "User is already a contributor to this project",
+    "contributor_not_found": "Contributor not found",
+    "cannot_remove_owner": "Cannot remove the project owner",
+    "cannot_change_owner_role": "Cannot change the project owner's role",
+    "cannot_remove_last_admin": "Cannot remove the last admin from the project"
   }
 }

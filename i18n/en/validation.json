@@ -8,5 +8,6 @@
   "name_too_long": "Name must be at most 100 characters long",
   "description_too_long": "Description must be at most 1000 characters long",
   "invalid_status": "Invalid status value",
+  "invalid_role": "Invalid role value",
   "password_format": "Password must contain at least one uppercase letter, one number, and one special character"
 } 

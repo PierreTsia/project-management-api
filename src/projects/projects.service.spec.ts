@@ -10,6 +10,7 @@ import { I18nService } from 'nestjs-i18n';
 import { NotFoundException } from '@nestjs/common';
 import { CustomLogger } from '../common/services/logger.service';
 import { MockCustomLogger } from '../test/mocks/logger.mock';
+import { UsersService } from '../users/users.service';
 
 describe('ProjectsService', () => {
   let service: ProjectsService;
@@ -31,6 +32,10 @@ describe('ProjectsService', () => {
 
   const mockI18nService = {
     translate: jest.fn(),
+  };
+
+  const mockUsersService = {
+    findByEmail: jest.fn(),
   };
 
   const mockProject: Project = {
@@ -76,6 +81,10 @@ describe('ProjectsService', () => {
         {
           provide: CustomLogger,
           useValue: mockLogger,
+        },
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
         },
       ],
     }).compile();

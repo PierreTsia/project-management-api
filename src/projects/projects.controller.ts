@@ -25,11 +25,15 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { AddContributorDto } from './dto/add-contributor.dto';
+import { UpdateContributorRoleDto } from './dto/update-contributor-role.dto';
 import { ProjectResponseDto } from './dto/project-response.dto';
+import { ContributorResponseDto } from './dto/contributor-response.dto';
 import { User } from '../users/entities/user.entity';
 import { ProjectRole } from './enums/project-role.enum';
 import { ProjectPermissionGuard } from './guards/project-permission.guard';
 import { RequireProjectRole } from './decorators/require-project-role.decorator';
+import { UserResponseDto } from '../users/dto/user-response.dto';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -256,5 +260,187 @@ export class ProjectsController {
       acceptLanguage,
     );
     return new ProjectResponseDto(project);
+  }
+
+  @Get(':id/contributors')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.READ)
+  @ApiOperation({ summary: 'Get all contributors for a project' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns all contributors for the project',
+    type: [ContributorResponseDto],
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async getContributors(
+    @Request() req: { user: User },
+    @Param('id') id: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ContributorResponseDto[]> {
+    const contributors = await this.projectsService.getContributors(
+      id,
+      acceptLanguage,
+    );
+    return contributors.map(
+      (contributor) =>
+        new ContributorResponseDto({
+          id: contributor.id,
+          userId: contributor.userId,
+          role: contributor.role,
+          joinedAt: contributor.joinedAt,
+          user: new UserResponseDto(contributor.user),
+        }),
+    );
+  }
+
+  @Post(':id/contributors')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.ADMIN)
+  @ApiOperation({ summary: 'Add a contributor to a project' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
+  @ApiResponse({
+    status: 201,
+    description: 'Contributor added successfully',
+    type: ContributorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error or user already contributor',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found or user not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async addContributor(
+    @Request() req: { user: User },
+    @Param('id') id: string,
+    @Body() addContributorDto: AddContributorDto,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ContributorResponseDto> {
+    const contributor = await this.projectsService.addContributor(
+      id,
+      addContributorDto,
+      req.user.id,
+      acceptLanguage,
+    );
+    return new ContributorResponseDto({
+      id: contributor.id,
+      userId: contributor.userId,
+      role: contributor.role,
+      joinedAt: contributor.joinedAt,
+      user: new UserResponseDto(contributor.user),
+    });
+  }
+
+  @Put(':id/contributors/:contributorId/role')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.ADMIN)
+  @ApiOperation({ summary: 'Update a contributor role' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
+  @ApiParam({ name: 'contributorId', description: 'Contributor ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Contributor role updated successfully',
+    type: ContributorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error or cannot change owner role',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found or contributor not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async updateContributorRole(
+    @Request() req: { user: User },
+    @Param('id') id: string,
+    @Param('contributorId') contributorId: string,
+    @Body() updateRoleDto: UpdateContributorRoleDto,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<ContributorResponseDto> {
+    const contributor = await this.projectsService.updateContributorRole(
+      id,
+      contributorId,
+      updateRoleDto,
+      req.user.id,
+      acceptLanguage,
+    );
+
+    return new ContributorResponseDto({
+      id: contributor.id,
+      userId: contributor.userId,
+      role: contributor.role,
+      joinedAt: contributor.joinedAt,
+      user: new UserResponseDto(contributor.user),
+    });
+  }
+
+  @Delete(':id/contributors/:contributorId')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a contributor from a project' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
+  @ApiParam({ name: 'contributorId', description: 'Contributor ID' })
+  @ApiResponse({
+    status: 204,
+    description: 'Contributor removed successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - cannot remove owner or last admin',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found or contributor not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async removeContributor(
+    @Request() req: { user: User },
+    @Param('id') id: string,
+    @Param('contributorId') contributorId: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<void> {
+    await this.projectsService.removeContributor(
+      id,
+      contributorId,
+      req.user.id,
+      acceptLanguage,
+    );
   }
 }

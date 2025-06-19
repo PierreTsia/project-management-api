@@ -9,6 +9,8 @@
     "delete_failed": "Failed to delete image. Please try again."
   },
   "project": {
-    "not_found": "Project not found"
+    "not_found": "Project not found",
+    "user_or_project_not_found": "User or project not found",
+    "insufficient_permission": "You do not have {role} permission for this project"
   }
 }

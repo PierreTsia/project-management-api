@@ -9,6 +9,8 @@
     "delete_failed": "Échec de la suppression de l'image. Veuillez réessayer."
   },
   "project": {
-    "not_found": "Projet non trouvé"
+    "not_found": "Projet non trouvé",
+    "user_or_project_not_found": "Utilisateur ou projet non trouvé",
+    "insufficient_permission": "Vous n'avez pas les permissions {role} pour ce projet"
   }
 } 

@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { I18nService } from 'nestjs-i18n';
 import { ProjectPermissionService } from '../services/project-permission.service';
 import { ProjectRole } from '../enums/project-role.enum';
 import { REQUIRE_PROJECT_ROLE_KEY } from '../decorators/require-project-role.decorator';
@@ -14,6 +15,7 @@ export class ProjectPermissionGuard implements CanActivate {
   constructor(
     private projectPermissionService: ProjectPermissionService,
     private reflector: Reflector,
+    private i18n: I18nService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -30,7 +32,9 @@ export class ProjectPermissionGuard implements CanActivate {
     }
 
     if (!user || !projectId) {
-      throw new ForbiddenException('User or project not found');
+      throw new ForbiddenException(
+        this.i18n.translate('errors.project.user_or_project_not_found'),
+      );
     }
 
     const hasPermission =
@@ -42,7 +46,9 @@ export class ProjectPermissionGuard implements CanActivate {
 
     if (!hasPermission) {
       throw new ForbiddenException(
-        `You do not have ${requiredRole} permission for this project`,
+        this.i18n.translate('errors.project.insufficient_permission', {
+          args: { role: requiredRole },
+        }),
       );
     }
 

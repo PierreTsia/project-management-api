@@ -340,7 +340,6 @@ export class ProjectsController {
     const contributor = await this.projectsService.addContributor(
       id,
       addContributorDto,
-      req.user.id,
       acceptLanguage,
     );
     return new ContributorResponseDto({
@@ -390,7 +389,6 @@ export class ProjectsController {
       id,
       contributorId,
       updateRoleDto,
-      req.user.id,
       acceptLanguage,
     );
 
@@ -439,7 +437,6 @@ export class ProjectsController {
     await this.projectsService.removeContributor(
       id,
       contributorId,
-      req.user.id,
       acceptLanguage,
     );
   }

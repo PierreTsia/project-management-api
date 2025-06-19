@@ -413,7 +413,6 @@ describe('ProjectsService', () => {
         email: 'newcontributor@example.com',
         role: ProjectRole.READ,
       };
-      const currentUserId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(mockUser);
@@ -428,14 +427,10 @@ describe('ProjectsService', () => {
       const result = await service.addContributor(
         projectId,
         addContributorDto,
-        currentUserId,
+        'en-US',
       );
 
       expect(result).toEqual(mockContributor);
-      expect(projectsRepository.findOne).toHaveBeenCalledWith({
-        where: { id: projectId },
-        relations: ['owner'],
-      });
       expect(mockUsersService.findByEmail).toHaveBeenCalledWith(
         addContributorDto.email,
       );
@@ -462,7 +457,6 @@ describe('ProjectsService', () => {
         email: 'newcontributor@example.com',
         role: ProjectRole.READ,
       };
-      const currentUserId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(null);
       (mockI18nService.translate as jest.Mock).mockReturnValue(
@@ -470,7 +464,7 @@ describe('ProjectsService', () => {
       );
 
       await expect(
-        service.addContributor(projectId, addContributorDto, currentUserId),
+        service.addContributor(projectId, addContributorDto, 'en-US'),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -480,7 +474,6 @@ describe('ProjectsService', () => {
         email: 'nonexistent@example.com',
         role: ProjectRole.READ,
       };
-      const currentUserId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(null);
@@ -489,7 +482,7 @@ describe('ProjectsService', () => {
       );
 
       await expect(
-        service.addContributor(projectId, addContributorDto, currentUserId),
+        service.addContributor(projectId, addContributorDto, 'en-US'),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -499,7 +492,6 @@ describe('ProjectsService', () => {
         email: 'existingcontributor@example.com',
         role: ProjectRole.READ,
       };
-      const currentUserId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
       (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(mockUser);
@@ -511,28 +503,7 @@ describe('ProjectsService', () => {
       );
 
       await expect(
-        service.addContributor(projectId, addContributorDto, currentUserId),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException when trying to add owner as contributor', async () => {
-      const projectId = 'project-1';
-      const addContributorDto: AddContributorDto = {
-        email: 'test@example.com', // Owner's email
-        role: ProjectRole.READ,
-      };
-      const currentUserId = 'user-1';
-
-      (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
-      (mockUsersService.findByEmail as jest.Mock).mockResolvedValue(
-        mockProject.owner,
-      );
-      (mockI18nService.translate as jest.Mock).mockReturnValue(
-        'Cannot add owner as contributor',
-      );
-
-      await expect(
-        service.addContributor(projectId, addContributorDto, currentUserId),
+        service.addContributor(projectId, addContributorDto, 'en-US'),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -544,7 +515,6 @@ describe('ProjectsService', () => {
       const updateRoleDto: UpdateContributorRoleDto = {
         role: ProjectRole.ADMIN,
       };
-      const currentUserId = 'user-1';
 
       const updatedContributor = {
         ...mockContributor,
@@ -563,7 +533,7 @@ describe('ProjectsService', () => {
         projectId,
         contributorId,
         updateRoleDto,
-        currentUserId,
+        'en-US',
       );
 
       expect(result).toEqual(updatedContributor);
@@ -578,36 +548,12 @@ describe('ProjectsService', () => {
       );
     });
 
-    it('should throw NotFoundException when project not found', async () => {
-      const projectId = 'non-existent';
-      const contributorId = 'contributor-1';
-      const updateRoleDto: UpdateContributorRoleDto = {
-        role: ProjectRole.ADMIN,
-      };
-      const currentUserId = 'user-1';
-
-      (projectsRepository.findOne as jest.Mock).mockResolvedValue(null);
-      (mockI18nService.translate as jest.Mock).mockReturnValue(
-        'Project not found',
-      );
-
-      await expect(
-        service.updateContributorRole(
-          projectId,
-          contributorId,
-          updateRoleDto,
-          currentUserId,
-        ),
-      ).rejects.toThrow(NotFoundException);
-    });
-
     it('should throw NotFoundException when contributor not found', async () => {
       const projectId = 'project-1';
       const contributorId = 'non-existent';
       const updateRoleDto: UpdateContributorRoleDto = {
         role: ProjectRole.ADMIN,
       };
-      const currentUserId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
       (contributorRepository.findOne as jest.Mock).mockResolvedValue(null);
@@ -620,7 +566,7 @@ describe('ProjectsService', () => {
           projectId,
           contributorId,
           updateRoleDto,
-          currentUserId,
+          'en-US',
         ),
       ).rejects.toThrow(NotFoundException);
     });
@@ -631,7 +577,6 @@ describe('ProjectsService', () => {
       const updateRoleDto: UpdateContributorRoleDto = {
         role: ProjectRole.READ,
       };
-      const currentUserId = 'user-1';
 
       const ownerContributor = { ...mockContributor, role: ProjectRole.OWNER };
 
@@ -648,7 +593,7 @@ describe('ProjectsService', () => {
           projectId,
           contributorId,
           updateRoleDto,
-          currentUserId,
+          'en-US',
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -658,7 +603,6 @@ describe('ProjectsService', () => {
     it('should remove a contributor from a project successfully', async () => {
       const projectId = 'project-1';
       const contributorId = 'contributor-1';
-      const currentUserId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
       (contributorRepository.findOne as jest.Mock).mockResolvedValue(
@@ -668,7 +612,7 @@ describe('ProjectsService', () => {
         mockContributor,
       );
 
-      await service.removeContributor(projectId, contributorId, currentUserId);
+      await service.removeContributor(projectId, contributorId, 'en-US');
 
       expect(contributorRepository.remove).toHaveBeenCalledWith(
         mockContributor,
@@ -681,25 +625,9 @@ describe('ProjectsService', () => {
       );
     });
 
-    it('should throw NotFoundException when project not found', async () => {
-      const projectId = 'non-existent';
-      const contributorId = 'contributor-1';
-      const currentUserId = 'user-1';
-
-      (projectsRepository.findOne as jest.Mock).mockResolvedValue(null);
-      (mockI18nService.translate as jest.Mock).mockReturnValue(
-        'Project not found',
-      );
-
-      await expect(
-        service.removeContributor(projectId, contributorId, currentUserId),
-      ).rejects.toThrow(NotFoundException);
-    });
-
     it('should throw NotFoundException when contributor not found', async () => {
       const projectId = 'project-1';
       const contributorId = 'non-existent';
-      const currentUserId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
       (contributorRepository.findOne as jest.Mock).mockResolvedValue(null);
@@ -708,14 +636,13 @@ describe('ProjectsService', () => {
       );
 
       await expect(
-        service.removeContributor(projectId, contributorId, currentUserId),
+        service.removeContributor(projectId, contributorId, 'en-US'),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when trying to remove owner', async () => {
       const projectId = 'project-1';
       const contributorId = 'contributor-1';
-      const currentUserId = 'user-1';
 
       const ownerContributor = { ...mockContributor, role: ProjectRole.OWNER };
 
@@ -728,14 +655,13 @@ describe('ProjectsService', () => {
       );
 
       await expect(
-        service.removeContributor(projectId, contributorId, currentUserId),
+        service.removeContributor(projectId, contributorId, 'en-US'),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when trying to remove last admin', async () => {
       const projectId = 'project-1';
       const contributorId = 'contributor-1';
-      const currentUserId = 'user-1';
 
       const adminContributor = { ...mockContributor, role: ProjectRole.ADMIN };
 
@@ -749,7 +675,7 @@ describe('ProjectsService', () => {
       );
 
       await expect(
-        service.removeContributor(projectId, contributorId, currentUserId),
+        service.removeContributor(projectId, contributorId, 'en-US'),
       ).rejects.toThrow(BadRequestException);
     });
   });

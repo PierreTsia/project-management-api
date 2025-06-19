@@ -421,7 +421,6 @@ describe('ProjectsController', () => {
       expect(projectsService.addContributor).toHaveBeenCalledWith(
         projectId,
         addContributorDto,
-        mockUser.id,
         'en-US',
       );
     });
@@ -448,7 +447,6 @@ describe('ProjectsController', () => {
       expect(projectsService.addContributor).toHaveBeenCalledWith(
         projectId,
         addContributorDto,
-        mockUser.id,
         'fr-FR',
       );
     });
@@ -493,7 +491,6 @@ describe('ProjectsController', () => {
         projectId,
         contributorId,
         updateRoleDto,
-        mockUser.id,
         'en-US',
       );
     });
@@ -522,7 +519,6 @@ describe('ProjectsController', () => {
         projectId,
         contributorId,
         updateRoleDto,
-        mockUser.id,
         'fr-FR',
       );
     });
@@ -547,7 +543,6 @@ describe('ProjectsController', () => {
       expect(projectsService.removeContributor).toHaveBeenCalledWith(
         projectId,
         contributorId,
-        mockUser.id,
         'en-US',
       );
     });
@@ -570,7 +565,6 @@ describe('ProjectsController', () => {
       expect(projectsService.removeContributor).toHaveBeenCalledWith(
         projectId,
         contributorId,
-        mockUser.id,
         'fr-FR',
       );
     });

@@ -1,31 +1,30 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
-import { Project, ProjectStatus } from './entities/project.entity';
-import { ProjectResponseDto } from './dto/project-response.dto';
+import { ProjectPermissionService } from './services/project-permission.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { User } from '../users/entities/user.entity';
+import { ProjectResponseDto } from './dto/project-response.dto';
+import { ProjectStatus } from './entities/project.entity';
 
 describe('ProjectsController', () => {
   let controller: ProjectsController;
   let projectsService: ProjectsService;
 
-  const mockUser: User = {
+  const mockUser = {
     id: 'user-1',
     email: 'test@example.com',
-    name: 'Test User',
-    password: 'hashedPassword',
+    name: 'John Doe',
+    firstName: 'John',
+    lastName: 'Doe',
     isEmailConfirmed: true,
+    avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=default',
+    refreshTokens: [],
     createdAt: new Date(),
     updatedAt: new Date(),
-    refreshTokens: [],
-    avatarUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=default',
-    provider: null,
-    providerId: null,
   };
 
-  const mockProject: Project = {
+  const mockProject = {
     id: 'project-1',
     name: 'Test Project',
     description: 'Test Description',
@@ -50,6 +49,13 @@ describe('ProjectsController', () => {
             remove: jest.fn(),
             archive: jest.fn(),
             activate: jest.fn(),
+          },
+        },
+        {
+          provide: ProjectPermissionService,
+          useValue: {
+            hasProjectPermission: jest.fn(),
+            getUserProjectRole: jest.fn(),
           },
         },
       ],

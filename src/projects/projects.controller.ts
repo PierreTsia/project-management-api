@@ -12,6 +12,7 @@ import {
   ClassSerializerInterceptor,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,12 +22,14 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { UseGuards } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectResponseDto } from './dto/project-response.dto';
 import { User } from '../users/entities/user.entity';
+import { ProjectRole } from './enums/project-role.enum';
+import { ProjectPermissionGuard } from './guards/project-permission.guard';
+import { RequireProjectRole } from './decorators/require-project-role.decorator';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -80,12 +83,18 @@ export class ProjectsController {
   }
 
   @Get(':id')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.READ)
   @ApiOperation({ summary: 'Get a specific project by ID' })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
     status: 200,
     description: 'Returns the project',
     type: ProjectResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
   })
   @ApiResponse({
     status: 404,
@@ -109,6 +118,8 @@ export class ProjectsController {
   }
 
   @Put(':id')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
   @ApiOperation({ summary: 'Update a project' })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
@@ -119,6 +130,10 @@ export class ProjectsController {
   @ApiResponse({
     status: 400,
     description: 'Bad request - validation error',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
   })
   @ApiResponse({
     status: 404,
@@ -144,12 +159,18 @@ export class ProjectsController {
   }
 
   @Delete(':id')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a project' })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
     status: 204,
     description: 'Project deleted successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
   })
   @ApiResponse({
     status: 404,
@@ -168,12 +189,18 @@ export class ProjectsController {
   }
 
   @Put(':id/archive')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.ADMIN)
   @ApiOperation({ summary: 'Archive a project' })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
     status: 200,
     description: 'Project archived successfully',
     type: ProjectResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
   })
   @ApiResponse({
     status: 404,
@@ -197,12 +224,18 @@ export class ProjectsController {
   }
 
   @Put(':id/activate')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.ADMIN)
   @ApiOperation({ summary: 'Activate an archived project' })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
     status: 200,
     description: 'Project activated successfully',
     type: ProjectResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
   })
   @ApiResponse({
     status: 404,

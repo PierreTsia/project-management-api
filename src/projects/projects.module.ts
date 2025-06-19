@@ -5,6 +5,7 @@ import { ProjectsController } from './projects.controller';
 import { Project } from './entities/project.entity';
 import { ProjectContributor } from './entities/project-contributor.entity';
 import { ProjectPermissionService } from './services/project-permission.service';
+import { ProjectPermissionGuard } from './guards/project-permission.guard';
 import { LoggerModule } from '../common/services/logger.module';
 
 @Module({
@@ -13,7 +14,11 @@ import { LoggerModule } from '../common/services/logger.module';
     LoggerModule,
   ],
   controllers: [ProjectsController],
-  providers: [ProjectsService, ProjectPermissionService],
+  providers: [
+    ProjectsService,
+    ProjectPermissionService,
+    ProjectPermissionGuard,
+  ],
   exports: [ProjectsService, ProjectPermissionService],
 })
 export class ProjectsModule {}

@@ -18,7 +18,7 @@ export class ProjectPermissionService implements IProjectPermissionService {
     _requiredRole: ProjectRole,
   ): Promise<boolean> {
     // TODO: Implement permission checking logic
-    // This will be implemented in Task 1.3
+    // This will be implemented in the next step
     return false;
   }
 
@@ -27,7 +27,7 @@ export class ProjectPermissionService implements IProjectPermissionService {
     _projectId: string,
   ): Promise<ProjectRole | null> {
     // TODO: Implement role retrieval logic
-    // This will be implemented in Task 1.3
+    // This will be implemented in the next step
     return null;
   }
 }

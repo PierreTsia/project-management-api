@@ -13,21 +13,41 @@ export class ProjectPermissionService implements IProjectPermissionService {
   ) {}
 
   async hasProjectPermission(
-    _userId: string,
-    _projectId: string,
-    _requiredRole: ProjectRole,
+    userId: string,
+    projectId: string,
+    requiredRole: ProjectRole,
   ): Promise<boolean> {
-    // TODO: Implement permission checking logic
-    // This will be implemented in the next step
-    return false;
+    const userRole = await this.getUserProjectRole(userId, projectId);
+
+    if (!userRole) {
+      return false;
+    }
+
+    // Define role hierarchy: OWNER > ADMIN > WRITE > READ
+    const roleHierarchy = {
+      [ProjectRole.OWNER]: 4,
+      [ProjectRole.ADMIN]: 3,
+      [ProjectRole.WRITE]: 2,
+      [ProjectRole.READ]: 1,
+    };
+
+    const userRoleLevel = roleHierarchy[userRole];
+    const requiredRoleLevel = roleHierarchy[requiredRole];
+
+    return userRoleLevel >= requiredRoleLevel;
   }
 
   async getUserProjectRole(
-    _userId: string,
-    _projectId: string,
+    userId: string,
+    projectId: string,
   ): Promise<ProjectRole | null> {
-    // TODO: Implement role retrieval logic
-    // This will be implemented in the next step
-    return null;
+    const contributor = await this.projectContributorRepository.findOne({
+      where: {
+        userId,
+        projectId,
+      },
+    });
+
+    return contributor?.role || null;
   }
 }

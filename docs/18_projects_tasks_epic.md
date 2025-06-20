@@ -639,15 +639,15 @@ export class PaginationHelper {
 **Value:** Team collaboration on tasks
 
 **Definition of Done:**
-- [ ] Create `Comment` entity with content, createdAt, updatedAt, taskId, userId
-- [ ] Create `CommentService` with CRUD operations
-- [ ] Create `CommentsController` with endpoints
-- [ ] Create DTOs for comment operations
-- [ ] Add validation for comment content
-- [ ] Write unit tests for comment service
-- [ ] Write e2e tests for comment endpoints
-- [ ] Add migration for comments table
-- [ ] Test comment creation on tasks
+- [x] Create `Comment` entity with content, createdAt, updatedAt, taskId, userId
+- [x] Create `CommentService` with CRUD operations
+- [x] Create `CommentsController` with endpoints
+- [x] Create DTOs for comment operations
+- [x] Add validation for comment content
+- [x] Write unit tests for comment service
+- [x] Write e2e tests for comment endpoints
+- [x] Add migration for comments table
+- [x] Test comment creation on tasks
 
 **Acceptance Criteria:**
 - Project contributors can add comments to tasks

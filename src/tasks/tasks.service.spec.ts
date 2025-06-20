@@ -4,12 +4,18 @@ import { TasksService } from './tasks.service';
 import { Task } from './entities/task.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { I18nService } from 'nestjs-i18n';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { CustomLogger } from '../common/services/logger.service';
 import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
 import { ProjectsService } from '../projects/projects.service';
+import { TaskStatusService } from './services/task-status.service';
 
 const mockRepository = {
   create: jest.fn(),
@@ -35,6 +41,10 @@ const mockProjectsService = {
   getContributors: jest.fn(),
 };
 
+const mockTaskStatusService = {
+  validateAndThrowIfInvalid: jest.fn(),
+};
+
 const mockTask: Task = {
   id: 'task-1',
   title: 'Test Task',
@@ -53,6 +63,7 @@ const mockTask: Task = {
 const mockContributors = [
   { userId: 'user-1', role: 'WRITE' },
   { userId: 'user-2', role: 'READ' },
+  { userId: 'user-3', role: 'ADMIN' },
 ];
 
 describe('TasksService', () => {
@@ -66,6 +77,7 @@ describe('TasksService', () => {
         { provide: I18nService, useValue: mockI18nService },
         { provide: CustomLogger, useValue: mockLogger },
         { provide: ProjectsService, useValue: mockProjectsService },
+        { provide: TaskStatusService, useValue: mockTaskStatusService },
       ],
     }).compile();
 
@@ -84,7 +96,7 @@ describe('TasksService', () => {
         description: 'New Task Description',
         priority: TaskPriority.HIGH,
         dueDate: '2025-02-01T00:00:00.000Z',
-        assigneeId: 'user-2',
+        assigneeId: 'user-1',
       };
       const projectId = 'project-1';
       const createdTask = { ...mockTask, ...createTaskDto, projectId };
@@ -171,6 +183,89 @@ describe('TasksService', () => {
         'User non-contributor is not a contributor to project project-1',
       );
     });
+
+    it('should throw BadRequestException when assignee has insufficient role (READ)', async () => {
+      const createTaskDto: CreateTaskDto = {
+        title: 'New Task',
+        description: 'New Task Description',
+        assigneeId: 'user-2', // READ role
+      };
+      const projectId = 'project-1';
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockI18nService.t as jest.Mock).mockReturnValue(
+        'User has insufficient role',
+      );
+
+      await expect(service.create(createTaskDto, projectId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        projectId,
+        undefined,
+      );
+      expect(mockI18nService.t).toHaveBeenCalledWith(
+        'errors.tasks.assignee_insufficient_role',
+        {
+          lang: undefined,
+          args: { assigneeId: 'user-2', projectId: 'project-1', role: 'READ' },
+        },
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'User user-2 has insufficient role (READ) to be assigned tasks in project project-1',
+      );
+    });
+
+    it('should allow assignment to users with WRITE role', async () => {
+      const createTaskDto: CreateTaskDto = {
+        title: 'New Task',
+        description: 'New Task Description',
+        assigneeId: 'user-1', // WRITE role
+      };
+      const projectId = 'project-1';
+      const createdTask = { ...mockTask, ...createTaskDto, projectId };
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
+      (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+
+      const result = await service.create(createTaskDto, projectId);
+
+      expect(result).toEqual(createdTask);
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        projectId,
+        undefined,
+      );
+    });
+
+    it('should allow assignment to users with ADMIN role', async () => {
+      const createTaskDto: CreateTaskDto = {
+        title: 'New Task',
+        description: 'New Task Description',
+        assigneeId: 'user-3', // ADMIN role
+      };
+      const projectId = 'project-1';
+      const createdTask = { ...mockTask, ...createTaskDto, projectId };
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
+      (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+
+      const result = await service.create(createTaskDto, projectId);
+
+      expect(result).toEqual(createdTask);
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        projectId,
+        undefined,
+      );
+    });
   });
 
   describe('findAll', () => {
@@ -248,7 +343,7 @@ describe('TasksService', () => {
     });
 
     it('should update task assignee successfully when assignee is a contributor', async () => {
-      const updateTaskDto: UpdateTaskDto = { assigneeId: 'user-2' };
+      const updateTaskDto: UpdateTaskDto = { assigneeId: 'user-1' };
       const mergedTask = { ...mockTask, ...updateTaskDto };
 
       (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
@@ -302,6 +397,36 @@ describe('TasksService', () => {
       );
     });
 
+    it('should throw BadRequestException when updating assignee to user with insufficient role (READ)', async () => {
+      const updateTaskDto: UpdateTaskDto = { assigneeId: 'user-2' }; // READ role
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockI18nService.t as jest.Mock).mockReturnValue(
+        'User has insufficient role',
+      );
+
+      await expect(
+        service.update('task-1', 'project-1', updateTaskDto, 'en-US'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        'project-1',
+        'en-US',
+      );
+      expect(mockI18nService.t).toHaveBeenCalledWith(
+        'errors.tasks.assignee_insufficient_role',
+        {
+          lang: 'en-US',
+          args: { assigneeId: 'user-2', projectId: 'project-1', role: 'READ' },
+        },
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'User user-2 has insufficient role (READ) to be assigned tasks in project project-1',
+      );
+    });
+
     it('should throw NotFoundException when updating a missing task', async () => {
       (mockRepository.findOne as jest.Mock).mockResolvedValue(null);
       (mockI18nService.t as jest.Mock).mockReturnValue('not found');
@@ -352,6 +477,122 @@ describe('TasksService', () => {
           args: { id: 'missing', projectId: 'project-1' },
         },
       );
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should update task status successfully when user is assignee', async () => {
+      const updateTaskStatusDto: UpdateTaskStatusDto = {
+        status: TaskStatus.IN_PROGRESS,
+      };
+      const userId = 'user-1';
+      const updatedTask = { ...mockTask, status: TaskStatus.IN_PROGRESS };
+
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
+      (
+        mockTaskStatusService.validateAndThrowIfInvalid as jest.Mock
+      ).mockReturnValue(undefined);
+      (mockRepository.save as jest.Mock).mockResolvedValue(updatedTask);
+
+      const result = await service.updateStatus(
+        'task-1',
+        'project-1',
+        updateTaskStatusDto,
+        userId,
+        'en-US',
+      );
+
+      expect(result).toEqual(updatedTask);
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'task-1', projectId: 'project-1' },
+      });
+      expect(
+        mockTaskStatusService.validateAndThrowIfInvalid,
+      ).toHaveBeenCalledWith(TaskStatus.TODO, TaskStatus.IN_PROGRESS);
+      expect(mockRepository.save).toHaveBeenCalledWith(updatedTask);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Updating status for task task-1 from project project-1 to IN_PROGRESS by user user-1',
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'Task task-1 status updated successfully from TODO to IN_PROGRESS',
+      );
+    });
+
+    it('should throw ForbiddenException when user is not the assignee', async () => {
+      const updateTaskStatusDto: UpdateTaskStatusDto = {
+        status: TaskStatus.IN_PROGRESS,
+      };
+      const userId = 'user-2'; // Different from assigneeId
+
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
+      (mockI18nService.t as jest.Mock).mockReturnValue(
+        'Only assignee can update status',
+      );
+
+      await expect(
+        service.updateStatus(
+          'task-1',
+          'project-1',
+          updateTaskStatusDto,
+          userId,
+          'en-US',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'User user-2 attempted to update status for task task-1 but is not the assignee (assignee: user-1)',
+      );
+      expect(mockI18nService.t).toHaveBeenCalledWith(
+        'errors.tasks.only_assignee_can_update_status',
+        {
+          lang: 'en-US',
+          args: { taskId: 'task-1' },
+        },
+      );
+    });
+
+    it('should throw NotFoundException when task not found', async () => {
+      const updateTaskStatusDto: UpdateTaskStatusDto = {
+        status: TaskStatus.IN_PROGRESS,
+      };
+      const userId = 'user-1';
+
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (mockI18nService.t as jest.Mock).mockReturnValue('not found');
+
+      await expect(
+        service.updateStatus(
+          'missing',
+          'project-1',
+          updateTaskStatusDto,
+          userId,
+          'en-US',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when status transition is invalid', async () => {
+      const updateTaskStatusDto: UpdateTaskStatusDto = {
+        status: TaskStatus.IN_PROGRESS,
+      };
+      const userId = 'user-1';
+
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
+      (
+        mockTaskStatusService.validateAndThrowIfInvalid as jest.Mock
+      ).mockImplementation(() => {
+        throw new BadRequestException('Invalid status transition');
+      });
+
+      await expect(
+        service.updateStatus(
+          'task-1',
+          'project-1',
+          updateTaskStatusDto,
+          userId,
+          'en-US',
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

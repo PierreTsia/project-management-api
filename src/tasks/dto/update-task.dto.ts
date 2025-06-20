@@ -9,7 +9,6 @@ import {
   IsUUID,
 } from 'class-validator';
 import { TaskPriority } from '../enums/task-priority.enum';
-import { TaskStatus } from '../enums/task-status.enum';
 
 export class UpdateTaskDto {
   @ApiProperty({
@@ -35,16 +34,6 @@ export class UpdateTaskDto {
   @IsString()
   @MaxLength(5000)
   description?: string;
-
-  @ApiProperty({
-    description: 'Task status',
-    example: TaskStatus.IN_PROGRESS,
-    enum: TaskStatus,
-    required: false,
-  })
-  @IsOptional()
-  @IsEnum(TaskStatus)
-  status?: TaskStatus;
 
   @ApiProperty({
     description: 'Task priority',

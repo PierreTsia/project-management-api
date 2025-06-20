@@ -52,6 +52,11 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Install Fly.io CLI
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          echo "$HOME/.fly/bin" >> $GITHUB_PATH
+
       - name: Ensure shared database is running
         if: github.event.action != 'closed'
         run: |

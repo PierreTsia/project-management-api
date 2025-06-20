@@ -659,29 +659,53 @@ export class PaginationHelper {
 
 ---
 
-#### Task 3.2: File Attachments
-**Estimated Time:** 2-3 hours  
-**Dependencies:** Task 2.1, Task 1.3  
-**Value:** File sharing and document management
+#### Task 3.2: File Attachments System
+**Estimated Time:** 3-4 hours  
+**Dependencies:** Task 2.1, Task 1.3, CloudinaryService  
+**Value:** File sharing and document management for both projects and tasks
 
 **Definition of Done:**
-- [ ] Create `Attachment` entity with filename, fileType, fileSize, uploadedAt, taskId, userId
-- [ ] Create `AttachmentService` with upload/download operations
-- [ ] Create `AttachmentsController` with file endpoints
-- [ ] Integrate with existing Cloudinary service
-- [ ] Add file validation (size, type limits)
-- [ ] Write unit tests for attachment service
-- [ ] Write e2e tests for file upload/download
-- [ ] Add migration for attachments table
-- [ ] Test file upload to tasks
+- [x] Create generic `Attachment` entity with polymorphic relationships (entityType: 'PROJECT' | 'TASK', entityId)
+- [x] Extend existing `CloudinaryService` with generic file upload methods
+- [x] Create `AttachmentsService` with upload/download/delete operations for both projects and tasks
+- [x] Create `AttachmentsController` with unified file endpoints
+- [x] Add file validation (size, type limits) - support common document types (PDF, DOC, images, etc.)
+- [x] Implement proper folder structure in Cloudinary (projects/attachments, tasks/attachments)
+- [x] Add permission checks (project contributors can upload, admins can delete any)
+- [x] Write unit tests for attachment service
+- [x] Write tests for file upload/download/delete
+- [x] Add migration for attachments table
+- [x] Test file upload to both projects and tasks
 
 **Acceptance Criteria:**
-- Users can upload files to tasks
-- File size and type restrictions are enforced
-- Files are stored in Cloudinary
-- Users can download attached files
-- Users can delete their own attachments
-- Project admins can delete any attachment
+- [x] Users can upload files to both projects and tasks
+- [x] File size and type restrictions are enforced (extend beyond just images)
+- [x] Files are stored in Cloudinary with proper folder organization
+- [x] Users can download attached files
+- [x] Users can delete their own attachments
+- [x] Project admins can delete any attachment
+- [x] Proper permission checks based on project roles
+- [x] Support for common file types: PDF, DOC, DOCX, TXT, images, etc.
+- [x] Clean file cleanup when attachments are deleted
+
+**Technical Design:**
+- **Entity**: Single `Attachment` entity with `entityType` and `entityId` for polymorphic relationships
+- **Service**: Extend existing `CloudinaryService` with `uploadFile()` method
+- **Folders**: `{projectName}/{env}/projects/{projectId}/attachments` and `{projectName}/{env}/tasks/{taskId}/attachments`
+- **File Types**: Extend beyond images to include documents, spreadsheets, etc.
+- **Size Limits**: Configurable per file type (e.g., 10MB for documents, 5MB for images)
+- **Permissions**: Inherit from project permission system
+
+**API Endpoints:**
+```
+POST /api/v1/projects/:projectId/attachments - Upload project attachment
+GET /api/v1/projects/:projectId/attachments - List project attachments
+DELETE /api/v1/projects/:projectId/attachments/:attachmentId - Delete project attachment
+
+POST /api/v1/projects/:projectId/tasks/:taskId/attachments - Upload task attachment
+GET /api/v1/projects/:projectId/tasks/:taskId/attachments - List task attachments
+DELETE /api/v1/projects/:projectId/tasks/:taskId/attachments/:attachmentId - Delete task attachment
+```
 
 ---
 

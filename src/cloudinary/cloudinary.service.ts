@@ -9,8 +9,44 @@ import { v2 as cloudinary } from 'cloudinary';
 import { extractPublicId } from 'cloudinary-build-url';
 import { I18nService } from 'nestjs-i18n';
 import { CustomLogger } from '../common/services/logger.service';
+import { AttachmentEntityType } from '../attachments/entities/attachment.entity';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
+
+// Supported file types for different categories
+const SUPPORTED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+const SUPPORTED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'text/csv',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/octet-stream', // Generic binary - we'll validate by extension
+];
+
+// Supported file extensions for validation fallback
+const SUPPORTED_EXTENSIONS = [
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.txt',
+  '.csv',
+  '.xls',
+  '.xlsx',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+];
 
 @Injectable()
 export class CloudinaryService {
@@ -46,15 +82,57 @@ export class CloudinaryService {
         : `${this.projectName}/dev/avatars`;
   }
 
-  async uploadImage(
+  async uploadFile(
     file: Express.Multer.File,
-    userId: string,
+    entityType: AttachmentEntityType,
+    entityId: string,
+    uploadedById: string,
     acceptLanguage?: string,
   ) {
     try {
       // Validate file type
-      const supportedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
-      if (!supportedMimeTypes.includes(file.mimetype)) {
+      const supportedTypes = [
+        ...SUPPORTED_IMAGE_TYPES,
+        ...SUPPORTED_DOCUMENT_TYPES,
+      ];
+
+      let isValidType = supportedTypes.includes(file.mimetype);
+
+      // If mimetype is generic (octet-stream), validate by file extension
+      if (file.mimetype === 'application/octet-stream') {
+        const fileExtension = this.getFileExtension(
+          file.originalname,
+        ).toLowerCase();
+        isValidType = SUPPORTED_EXTENSIONS.includes(fileExtension);
+      }
+
+      if (!isValidType) {
+        throw new BadRequestException({
+          status: 400,
+          code: 'CLOUDINARY.INVALID_FILE_TYPE',
+          message: this.i18n.translate('errors.cloudinary.invalid_file_type', {
+            lang: acceptLanguage,
+          }),
+        });
+      }
+
+      // Determine max file size based on file type
+      const maxSize = SUPPORTED_IMAGE_TYPES.includes(file.mimetype)
+        ? MAX_FILE_SIZE
+        : MAX_DOCUMENT_SIZE;
+
+      if (file.size > maxSize) {
+        throw new BadRequestException({
+          status: 400,
+          code: 'CLOUDINARY.FILE_TOO_LARGE',
+          message: this.i18n.translate('errors.cloudinary.file_too_large', {
+            lang: acceptLanguage,
+            args: { maxSize: Math.round(maxSize / (1024 * 1024)) },
+          }),
+        });
+      }
+
+      if (!file.buffer && !file.path) {
         throw new BadRequestException({
           status: 400,
           code: 'CLOUDINARY.INVALID_FILE',
@@ -64,8 +142,198 @@ export class CloudinaryService {
         });
       }
 
-      const maxSize = MAX_FILE_SIZE;
-      if (file.size > maxSize) {
+      const timestamp = Date.now();
+      const fileExtension = this.getFileExtension(file.originalname);
+      const publicId = `${this.getAttachmentFolder(entityType, entityId)}/${uploadedById}/file-${timestamp}${fileExtension}`;
+
+      let result;
+
+      if (file.buffer) {
+        // Upload from buffer (memory) - convert to base64
+        try {
+          const base64Data = file.buffer.toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${base64Data}`;
+
+          result = await cloudinary.uploader.upload(dataURI, {
+            public_id: publicId,
+            resource_type: 'auto',
+          });
+        } catch (error) {
+          this.logger.error(
+            `Failed to upload buffer to Cloudinary: ${JSON.stringify({
+              entityType,
+              entityId,
+              uploadedById,
+              fileSize: file?.size,
+              fileType: file?.mimetype,
+            })}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+          throw new InternalServerErrorException({
+            status: 500,
+            code: 'CLOUDINARY.UPLOAD_FAILED',
+            message: this.i18n.translate('errors.cloudinary.upload_failed', {
+              lang: acceptLanguage,
+            }),
+          });
+        }
+      } else if (file.path) {
+        // Check if file exists and is readable
+        try {
+          await fs.promises.access(file.path, fs.constants.R_OK);
+        } catch (err) {
+          throw new BadRequestException({
+            status: 400,
+            code: 'CLOUDINARY.INVALID_FILE',
+            message: this.i18n.translate('errors.cloudinary.invalid_file', {
+              lang: acceptLanguage,
+            }),
+          });
+        }
+
+        // Upload from file path
+        result = await cloudinary.uploader.upload(file.path, {
+          public_id: publicId,
+          resource_type: 'auto',
+        });
+      } else {
+        throw new BadRequestException({
+          status: 400,
+          code: 'CLOUDINARY.INVALID_FILE',
+          message: this.i18n.translate('errors.cloudinary.invalid_file', {
+            lang: acceptLanguage,
+          }),
+        });
+      }
+
+      return {
+        url: result.secure_url,
+        publicId: result.public_id,
+        version: result.version,
+      };
+    } catch (error: unknown) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Failed to upload file to Cloudinary: ${JSON.stringify({
+          entityType,
+          entityId,
+          uploadedById,
+          fileSize: file?.size,
+          fileType: file?.mimetype,
+        })}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      throw new InternalServerErrorException({
+        status: 500,
+        code: 'CLOUDINARY.UPLOAD_FAILED',
+        message: this.i18n.translate('errors.cloudinary.upload_failed', {
+          lang: acceptLanguage,
+        }),
+      });
+    } finally {
+      // Clean up the temporary file
+      if (file.path) {
+        fs.unlink(file.path, (err) => {
+          if (err) {
+            this.logger.warn(
+              `Failed to delete temporary file: ${JSON.stringify({
+                path: file.path,
+                error: err.message,
+              })}`,
+            );
+          }
+        });
+      }
+    }
+  }
+
+  private getAttachmentFolder(
+    entityType: AttachmentEntityType,
+    entityId: string,
+  ): string {
+    const env =
+      this.configService.get('NODE_ENV') === 'production' ? 'prod' : 'dev';
+    const baseFolder = `${this.projectName}/${env}`;
+
+    switch (entityType) {
+      case AttachmentEntityType.PROJECT:
+        return `${baseFolder}/projects/${entityId}/attachments`;
+      case AttachmentEntityType.TASK:
+        return `${baseFolder}/tasks/${entityId}/attachments`;
+      default:
+        throw new Error(`Unsupported entity type: ${entityType}`);
+    }
+  }
+
+  private getFileExtension(filename: string): string {
+    const lastDotIndex = filename.lastIndexOf('.');
+    return lastDotIndex > 0 ? filename.substring(lastDotIndex) : '';
+  }
+
+  async deleteImage(publicId: string, acceptLanguage?: string): Promise<void> {
+    try {
+      await cloudinary.uploader.destroy(publicId);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to delete image from Cloudinary: ${JSON.stringify({ publicId })}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      throw new InternalServerErrorException({
+        status: 500,
+        code: 'CLOUDINARY.DELETE_FAILED',
+        message: this.i18n.translate('errors.cloudinary.delete_failed', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
+  }
+
+  extractPublicIdFromUrl(url: string): string | null {
+    try {
+      return extractPublicId(url);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to extract publicId from URL: ${JSON.stringify({ url })}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Upload an image to Cloudinary for user avatars
+   * Only supports image files with 5MB size limit
+   * Uses avatar-specific folder structure
+   *
+   * @param file - The image file to upload (images only)
+   * @param userId - ID of the user uploading the avatar
+   * @param acceptLanguage - Language for error messages
+   * @returns Promise with upload result containing url, publicId, and version
+   */
+  async uploadAvatar(
+    file: Express.Multer.File,
+    userId: string,
+    acceptLanguage?: string,
+  ) {
+    try {
+      // Validate file type - only images allowed for avatars
+      if (!SUPPORTED_IMAGE_TYPES.includes(file.mimetype)) {
+        throw new BadRequestException({
+          status: 400,
+          code: 'CLOUDINARY.INVALID_FILE',
+          message: this.i18n.translate('errors.cloudinary.invalid_file', {
+            lang: acceptLanguage,
+          }),
+        });
+      }
+
+      // Check file size - 5MB limit for images
+      if (file.size > MAX_FILE_SIZE) {
         throw new BadRequestException({
           status: 400,
           code: 'CLOUDINARY.INVALID_FILE',
@@ -88,10 +356,55 @@ export class CloudinaryService {
       const timestamp = Date.now();
       const publicId = `${this.folder}/${userId}/avatar-${timestamp}`;
 
-      // Check if file exists and is readable
-      try {
-        await fs.promises.access(file.path, fs.constants.R_OK);
-      } catch (err) {
+      let result;
+
+      if (file.buffer) {
+        // Upload from buffer (memory) - convert to base64
+        try {
+          const base64Data = file.buffer.toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${base64Data}`;
+
+          result = await cloudinary.uploader.upload(dataURI, {
+            public_id: publicId,
+            resource_type: 'auto',
+          });
+        } catch (error) {
+          this.logger.error(
+            `Failed to upload buffer to Cloudinary: ${JSON.stringify({
+              userId,
+              fileSize: file?.size,
+              fileType: file?.mimetype,
+            })}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+          throw new InternalServerErrorException({
+            status: 500,
+            code: 'CLOUDINARY.UPLOAD_FAILED',
+            message: this.i18n.translate('errors.cloudinary.upload_failed', {
+              lang: acceptLanguage,
+            }),
+          });
+        }
+      } else if (file.path) {
+        // Check if file exists and is readable
+        try {
+          await fs.promises.access(file.path, fs.constants.R_OK);
+        } catch (err) {
+          throw new BadRequestException({
+            status: 400,
+            code: 'CLOUDINARY.INVALID_FILE',
+            message: this.i18n.translate('errors.cloudinary.invalid_file', {
+              lang: acceptLanguage,
+            }),
+          });
+        }
+
+        // Upload from file path
+        result = await cloudinary.uploader.upload(file.path, {
+          public_id: publicId,
+          resource_type: 'auto',
+        });
+      } else {
         throw new BadRequestException({
           status: 400,
           code: 'CLOUDINARY.INVALID_FILE',
@@ -100,11 +413,6 @@ export class CloudinaryService {
           }),
         });
       }
-
-      const result = await cloudinary.uploader.upload(file.path, {
-        public_id: publicId,
-        resource_type: 'auto',
-      });
 
       return {
         url: result.secure_url,
@@ -149,12 +457,12 @@ export class CloudinaryService {
     }
   }
 
-  async deleteImage(publicId: string, acceptLanguage?: string): Promise<void> {
+  async deleteFile(publicId: string, acceptLanguage?: string): Promise<void> {
     try {
       await cloudinary.uploader.destroy(publicId);
     } catch (error: unknown) {
       this.logger.error(
-        `Failed to delete image from Cloudinary: ${JSON.stringify({ publicId })}`,
+        `Failed to delete file from Cloudinary: ${JSON.stringify({ publicId })}`,
         error instanceof Error ? error.stack : undefined,
       );
 
@@ -165,18 +473,6 @@ export class CloudinaryService {
           lang: acceptLanguage,
         }),
       });
-    }
-  }
-
-  extractPublicIdFromUrl(url: string): string | null {
-    try {
-      return extractPublicId(url);
-    } catch (error: unknown) {
-      this.logger.error(
-        `Failed to extract publicId from URL: ${JSON.stringify({ url })}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      return null;
     }
   }
 }

@@ -52,12 +52,26 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Ensure shared database is running
+        if: github.event.action != 'closed'
+        run: |
+          echo "Checking if shared database is running..."
+          # Check if database is running, if not try to start it
+          if ! fly status -a red-cloud-4808 --json | jq -e '.Status == "running"' > /dev/null 2>&1; then
+            echo "Database is stopped, attempting to start it..."
+            fly pg restart -a red-cloud-4808 || echo "Failed to restart database, continuing anyway..."
+            # Wait a bit for database to start
+            sleep 30
+          else
+            echo "Database is already running"
+          fi
+
       - name: Deploy PR app to Fly.io
         id: deploy
         uses: superfly/fly-pr-review-apps@1.2.1
         with:
           name: pr-${{ github.event.number }}-project-management-api
-          postgres: my-shared-db
+          postgres: red-cloud-4808
           secrets: |
             JWT_SECRET=review-app-jwt-secret-key-2024
             JWT_REFRESH_SECRET=review-app-jwt-refresh-secret-key-2024

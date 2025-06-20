@@ -63,7 +63,7 @@ export class UpdateTaskDto {
   })
   @IsOptional()
   @IsDateString()
-  dueDate?: Date;
+  dueDate?: string;
 
   @ApiProperty({
     description: 'ID of the user this task is assigned to',

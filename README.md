@@ -138,14 +138,14 @@ When running the server, comprehensive API documentation is available at:
 
 ### Key Endpoints
 
-#### Authentication
+### Authentication
 - `POST /auth/register` - User registration
 - `POST /auth/login` - User login
 - `POST /auth/refresh` - Refresh access token
 - `POST /auth/forgot-password` - Password reset request
 - `GET /auth/google` - Google OAuth login
 
-#### Projects
+### Projects
 - `GET /projects` - List user's projects
 - `POST /projects` - Create new project
 - `GET /projects/:id` - Get project details
@@ -156,7 +156,7 @@ When running the server, comprehensive API documentation is available at:
 - `GET /projects/:id/contributors` - List project contributors
 - `POST /projects/:id/contributors` - Add contributor
 
-#### Tasks
+### Tasks
 - `GET /projects/:projectId/tasks` - List project tasks
 - `POST /projects/:projectId/tasks` - Create new task
 - `GET /projects/:projectId/tasks/:taskId` - Get task details
@@ -165,7 +165,7 @@ When running the server, comprehensive API documentation is available at:
 - `PUT /projects/:projectId/tasks/:taskId/status` - Update task status (assignee only)
 - `PUT /projects/:projectId/tasks/:taskId/assign` - Assign task to user
 
-#### Users
+### Users
 - `GET /users/whoami` - Get current user profile
 - `POST /users/avatar` - Upload user avatar
 

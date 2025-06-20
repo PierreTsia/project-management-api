@@ -18,5 +18,9 @@
     "cannot_remove_owner": "Impossible de supprimer le propriétaire du projet",
     "cannot_change_owner_role": "Impossible de modifier le rôle du propriétaire du projet",
     "cannot_remove_last_admin": "Impossible de supprimer le dernier administrateur du projet"
+  },
+  "tasks": {
+    "task_not_found": "La tâche avec l'ID {id} n'a pas été trouvée dans le projet {projectId}",
+    "assignee_not_contributor": "L'utilisateur {assigneeId} n'est pas un contributeur du projet {projectId}"
   }
 } 

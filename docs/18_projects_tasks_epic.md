@@ -588,15 +588,15 @@ export class PaginationHelper {
 **Value:** Core task management functionality
 
 **Definition of Done:**
-- [ ] Create `Task` entity with all required fields (id, title, description, status, priority, dueDate, createdAt, updatedAt, projectId, assigneeId)
-- [ ] Create `TaskService` with basic CRUD operations
-- [ ] Create `TasksController` with REST endpoints
-- [ ] Create DTOs for task operations (CreateTaskDto, UpdateTaskDto, TaskResponseDto)
-- [ ] Add validation for task fields
-- [ ] Write unit tests for service methods
-- [ ] Write e2e tests for controller endpoints
-- [ ] Add migration for tasks table
-- [ ] Test task creation within projects
+- [x] Create `Task` entity with all required fields (id, title, description, status, priority, dueDate, createdAt, updatedAt, projectId, assigneeId)
+- [x] Create `TaskService` with basic CRUD operations
+- [x] Create `TasksController` with REST endpoints
+- [x] Create DTOs for task operations (CreateTaskDto, UpdateTaskDto, TaskResponseDto)
+- [x] Add validation for task fields
+- [x] Write unit tests for service methods
+- [x] Write e2e tests for controller endpoints
+- [x] Add migration for tasks table
+- [x] Test task creation within projects
 
 **Acceptance Criteria:**
 - User can create tasks within a project

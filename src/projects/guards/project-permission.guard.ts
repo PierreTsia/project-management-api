@@ -21,7 +21,7 @@ export class ProjectPermissionGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    const projectId = request.params.id; // Using 'id' as the parameter name
+    const projectId = request.params.id || request.params.projectId; // Handle both parameter names
     const requiredRole = this.reflector.get<ProjectRole>(
       REQUIRE_PROJECT_ROLE_KEY,
       context.getHandler(),

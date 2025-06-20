@@ -18,8 +18,12 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
+  ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ProjectPermissionGuard } from '../projects/guards/project-permission.guard';
+import { RequireProjectRole } from '../projects/decorators/require-project-role.decorator';
+import { ProjectRole } from '../projects/enums/project-role.enum';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -34,11 +38,30 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
   @ApiOperation({ summary: 'Create a new task in a project' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiResponse({
     status: 201,
     description: 'Task created successfully',
     type: TaskResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
   })
   async create(
     @Param('projectId') projectId: string,
@@ -49,11 +72,26 @@ export class TasksController {
   }
 
   @Get()
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.READ)
   @ApiOperation({ summary: 'Get all tasks for a project' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiResponse({
     status: 200,
     description: 'Returns all tasks for the project',
     type: [TaskResponseDto],
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
   })
   async findAll(
     @Param('projectId') projectId: string,
@@ -63,11 +101,27 @@ export class TasksController {
   }
 
   @Get(':taskId')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.READ)
   @ApiOperation({ summary: 'Get a specific task by ID' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiParam({ name: 'taskId', description: 'Task ID' })
   @ApiResponse({
     status: 200,
     description: 'Returns the task',
     type: TaskResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project or task not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
   })
   async findOne(
     @Param('projectId') projectId: string,
@@ -83,11 +137,31 @@ export class TasksController {
   }
 
   @Put(':taskId')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
   @ApiOperation({ summary: 'Update a task' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiParam({ name: 'taskId', description: 'Task ID' })
   @ApiResponse({
     status: 200,
     description: 'Task updated successfully',
     type: TaskResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project or task not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
   })
   async update(
     @Param('projectId') projectId: string,
@@ -105,9 +179,25 @@ export class TasksController {
   }
 
   @Delete(':taskId')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a task' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiParam({ name: 'taskId', description: 'Task ID' })
   @ApiResponse({ status: 204, description: 'Task deleted successfully' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project or task not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
   async remove(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,

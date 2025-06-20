@@ -6,6 +6,11 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
+import { ProjectPermissionGuard } from '../projects/guards/project-permission.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Reflector } from '@nestjs/core';
+import { ProjectRole } from '../projects/enums/project-role.enum';
+import { REQUIRE_PROJECT_ROLE_KEY } from '../projects/decorators/require-project-role.decorator';
 
 describe('TasksController', () => {
   let controller: TasksController;
@@ -39,7 +44,12 @@ describe('TasksController', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ProjectPermissionGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<TasksController>(TasksController);
     tasksService = module.get<TasksService>(TasksService);
@@ -202,9 +212,13 @@ describe('TasksController', () => {
     it('should handle accept-language header', async () => {
       const projectId = 'project-1';
       const taskId = 'task-1';
-      const updateTaskDto: UpdateTaskDto = { title: 'Updated Task' };
+      const updateTaskDto: UpdateTaskDto = {
+        title: 'Updated Task',
+      };
 
-      (tasksService.update as jest.Mock).mockResolvedValue(mockTask);
+      const updatedTask = { ...mockTask, ...updateTaskDto };
+
+      (tasksService.update as jest.Mock).mockResolvedValue(updatedTask);
 
       const result = await controller.update(
         projectId,
@@ -252,6 +266,64 @@ describe('TasksController', () => {
         projectId,
         'fr-FR',
       );
+    });
+  });
+
+  describe('Guards and Decorators', () => {
+    let reflector: Reflector;
+
+    beforeAll(() => {
+      reflector = new Reflector();
+    });
+
+    it('should have JwtAuthGuard and ProjectPermissionGuard applied', () => {
+      const guards = reflector.getAllAndMerge<any[]>('__guards__', [
+        controller.create,
+        TasksController,
+      ]);
+      expect(guards).toHaveLength(2);
+      expect(guards.some((g) => g === JwtAuthGuard)).toBe(true);
+      expect(guards.some((g) => g === ProjectPermissionGuard)).toBe(true);
+    });
+
+    it('should require WRITE role for create', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.create,
+      );
+      expect(role).toBe(ProjectRole.WRITE);
+    });
+
+    it('should require READ role for findAll', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.findAll,
+      );
+      expect(role).toBe(ProjectRole.READ);
+    });
+
+    it('should require READ role for findOne', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.findOne,
+      );
+      expect(role).toBe(ProjectRole.READ);
+    });
+
+    it('should require WRITE role for update', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.update,
+      );
+      expect(role).toBe(ProjectRole.WRITE);
+    });
+
+    it('should require WRITE role for remove', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.remove,
+      );
+      expect(role).toBe(ProjectRole.WRITE);
     });
   });
 });

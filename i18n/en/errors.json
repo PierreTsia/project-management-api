@@ -21,6 +21,8 @@
   },
   "tasks": {
     "task_not_found": "Task with ID {id} not found in project {projectId}",
-    "assignee_not_contributor": "User {assigneeId} is not a contributor to project {projectId}"
+    "assignee_not_contributor": "User {assigneeId} is not a contributor to project {projectId}",
+    "only_assignee_can_update_status": "Only the task assignee can update the status of task {taskId}",
+    "assignee_insufficient_role": "User {assigneeId} has insufficient role ({role}) to be assigned tasks in project {projectId}. Requires WRITE role or higher."
   }
 }

@@ -52,12 +52,30 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Install Fly.io CLI
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          echo "$HOME/.fly/bin" >> $GITHUB_PATH
+
+      - name: Check PR preview database status
+        if: github.event.action != 'closed'
+        run: |
+          echo "Checking PR preview database status..."
+          
+          if fly status -a red-cloud-4808 --json | jq -e '.Status == "running"' > /dev/null 2>&1; then
+            echo "✅ PR preview database is running"
+          else
+            echo "⚠️  PR preview database is stopped"
+            echo "The PR app may fail to connect to the database"
+            echo "You may need to manually start it with: npm run preview-db:start"
+          fi
+
       - name: Deploy PR app to Fly.io
         id: deploy
         uses: superfly/fly-pr-review-apps@1.2.1
         with:
           name: pr-${{ github.event.number }}-project-management-api
-          postgres: my-shared-db
+          postgres: red-cloud-4808
           secrets: |
             JWT_SECRET=review-app-jwt-secret-key-2024
             JWT_REFRESH_SECRET=review-app-jwt-refresh-secret-key-2024

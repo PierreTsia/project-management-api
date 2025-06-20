@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,8 +10,10 @@ import { I18nService } from 'nestjs-i18n';
 import { Task } from './entities/task.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectsService } from '../projects/projects.service';
+import { TaskStatusService } from './services/task-status.service';
 
 @Injectable()
 export class TasksService {
@@ -20,6 +23,7 @@ export class TasksService {
     private readonly i18n: I18nService,
     private readonly logger: CustomLogger,
     private readonly projectsService: ProjectsService,
+    private readonly taskStatusService: TaskStatusService,
   ) {
     this.logger.setContext(TasksService.name);
   }
@@ -83,15 +87,6 @@ export class TasksService {
       )}`,
     );
 
-    // Validate assignee if being updated
-    if (updateTaskDto.assigneeId) {
-      await this.validateAssignee(
-        updateTaskDto.assigneeId,
-        projectId,
-        acceptLanguage,
-      );
-    }
-
     const task = await this.findOne(id, projectId, acceptLanguage);
     const updatedTask = this.taskRepository.merge(task, updateTaskDto);
     const savedTask = await this.taskRepository.save(updatedTask);
@@ -120,6 +115,74 @@ export class TasksService {
     this.logger.log(`Task ${id} deleted successfully`);
   }
 
+  async updateStatus(
+    id: string,
+    projectId: string,
+    updateTaskStatusDto: UpdateTaskStatusDto,
+    userId: string,
+    acceptLanguage?: string,
+  ): Promise<Task> {
+    this.logger.debug(
+      `Updating status for task ${id} from project ${projectId} to ${updateTaskStatusDto.status} by user ${userId}`,
+    );
+
+    const task = await this.findOne(id, projectId, acceptLanguage);
+
+    // Check if user is the assignee
+    if (task.assigneeId !== userId) {
+      this.logger.warn(
+        `User ${userId} attempted to update status for task ${id} but is not the assignee (assignee: ${task.assigneeId})`,
+      );
+      throw new ForbiddenException(
+        this.i18n.t('errors.tasks.only_assignee_can_update_status', {
+          lang: acceptLanguage,
+          args: { taskId: id },
+        }),
+      );
+    }
+
+    // Validate status transition
+    this.taskStatusService.validateAndThrowIfInvalid(
+      task.status,
+      updateTaskStatusDto.status,
+    );
+
+    // Store original status for logging
+    const originalStatus = task.status;
+
+    // Update the status
+    task.status = updateTaskStatusDto.status;
+    const savedTask = await this.taskRepository.save(task);
+
+    this.logger.log(
+      `Task ${id} status updated successfully from ${originalStatus} to ${updateTaskStatusDto.status}`,
+    );
+    return savedTask;
+  }
+
+  async assignTask(
+    id: string,
+    projectId: string,
+    assigneeId: string,
+    acceptLanguage?: string,
+  ): Promise<Task> {
+    this.logger.debug(
+      `Assigning task ${id} from project ${projectId} to user ${assigneeId}`,
+    );
+
+    const task = await this.findOne(id, projectId, acceptLanguage);
+
+    // Validate the new assignee
+    await this.validateAssignee(assigneeId, projectId, acceptLanguage);
+
+    // Update the assignee
+    task.assigneeId = assigneeId;
+    const savedTask = await this.taskRepository.save(task);
+
+    this.logger.log(`Task ${id} assigned successfully to user ${assigneeId}`);
+    return savedTask;
+  }
+
   private async validateAssignee(
     assigneeId: string,
     projectId: string,
@@ -131,11 +194,11 @@ export class TasksService {
         projectId,
         acceptLanguage,
       );
-      const isContributor = contributors.some(
+      const contributor = contributors.find(
         (contributor) => contributor.userId === assigneeId,
       );
 
-      if (!isContributor) {
+      if (!contributor) {
         this.logger.warn(
           `User ${assigneeId} is not a contributor to project ${projectId}`,
         );
@@ -143,6 +206,22 @@ export class TasksService {
           this.i18n.t('errors.tasks.assignee_not_contributor', {
             lang: acceptLanguage,
             args: { assigneeId, projectId },
+          }),
+        );
+      }
+
+      // Check if user has WRITE role or higher (WRITE, ADMIN, OWNER)
+      const hasWriteRole = ['WRITE', 'ADMIN', 'OWNER'].includes(
+        contributor.role,
+      );
+      if (!hasWriteRole) {
+        this.logger.warn(
+          `User ${assigneeId} has insufficient role (${contributor.role}) to be assigned tasks in project ${projectId}`,
+        );
+        throw new BadRequestException(
+          this.i18n.t('errors.tasks.assignee_insufficient_role', {
+            lang: acceptLanguage,
+            args: { assigneeId, projectId, role: contributor.role },
           }),
         );
       }

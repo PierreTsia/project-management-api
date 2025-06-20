@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   Headers,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,6 +28,8 @@ import { ProjectRole } from '../projects/enums/project-role.enum';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
+import { AssignTaskDto } from './dto/assign-task.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 
 @ApiTags('Tasks')
@@ -204,5 +207,91 @@ export class TasksController {
     @Headers('accept-language') acceptLanguage?: string,
   ): Promise<void> {
     await this.tasksService.remove(taskId, projectId, acceptLanguage);
+  }
+
+  @Put(':taskId/status')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
+  @ApiOperation({ summary: 'Update task status (assignee only)' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiParam({ name: 'taskId', description: 'Task ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task status updated successfully',
+    type: TaskResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error or invalid status transition',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - only assignee can update task status',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project or task not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async updateStatus(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Body() updateTaskStatusDto: UpdateTaskStatusDto,
+    @Request() req: any,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<TaskResponseDto> {
+    const task = await this.tasksService.updateStatus(
+      taskId,
+      projectId,
+      updateTaskStatusDto,
+      req.user.id,
+      acceptLanguage,
+    );
+    return new TaskResponseDto(task);
+  }
+
+  @Put(':taskId/assign')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
+  @ApiOperation({ summary: 'Assign task to a user' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiParam({ name: 'taskId', description: 'Task ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task assigned successfully',
+    type: TaskResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error or invalid assignee',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project or task not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async assignTask(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Body() assignTaskDto: AssignTaskDto,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<TaskResponseDto> {
+    const task = await this.tasksService.assignTask(
+      taskId,
+      projectId,
+      assignTaskDto.assigneeId,
+      acceptLanguage,
+    );
+    return new TaskResponseDto(task);
   }
 }

@@ -3,6 +3,8 @@ import { TasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
+import { AssignTaskDto } from './dto/assign-task.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
@@ -41,6 +43,8 @@ describe('TasksController', () => {
             findOne: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
+            updateStatus: jest.fn(),
+            assignTask: jest.fn(),
           },
         },
       ],
@@ -175,7 +179,6 @@ describe('TasksController', () => {
       const updateTaskDto: UpdateTaskDto = {
         title: 'Updated Task',
         description: 'Updated Description',
-        status: TaskStatus.IN_PROGRESS,
       };
 
       const updatedTask = { ...mockTask, ...updateTaskDto };
@@ -237,6 +240,79 @@ describe('TasksController', () => {
     });
   });
 
+  describe('updateStatus', () => {
+    it('should update task status successfully', async () => {
+      const projectId = 'project-1';
+      const taskId = 'task-1';
+      const updateTaskStatusDto: UpdateTaskStatusDto = {
+        status: TaskStatus.IN_PROGRESS,
+      };
+      const mockRequest = { user: { id: 'user-1' } };
+
+      const updatedTask = { ...mockTask, status: TaskStatus.IN_PROGRESS };
+
+      (tasksService.updateStatus as jest.Mock).mockResolvedValue(updatedTask);
+
+      const result = await controller.updateStatus(
+        projectId,
+        taskId,
+        updateTaskStatusDto,
+        mockRequest,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(TaskResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: updatedTask.id,
+          title: updatedTask.title,
+          description: updatedTask.description,
+          status: updatedTask.status,
+          priority: updatedTask.priority,
+          projectId: updatedTask.projectId,
+          assigneeId: updatedTask.assigneeId,
+        }),
+      );
+      expect(tasksService.updateStatus).toHaveBeenCalledWith(
+        taskId,
+        projectId,
+        updateTaskStatusDto,
+        'user-1',
+        'en-US',
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const projectId = 'project-1';
+      const taskId = 'task-1';
+      const updateTaskStatusDto: UpdateTaskStatusDto = {
+        status: TaskStatus.DONE,
+      };
+      const mockRequest = { user: { id: 'user-1' } };
+
+      const updatedTask = { ...mockTask, status: TaskStatus.DONE };
+
+      (tasksService.updateStatus as jest.Mock).mockResolvedValue(updatedTask);
+
+      const result = await controller.updateStatus(
+        projectId,
+        taskId,
+        updateTaskStatusDto,
+        mockRequest,
+        'fr-FR',
+      );
+
+      expect(result).toBeInstanceOf(TaskResponseDto);
+      expect(tasksService.updateStatus).toHaveBeenCalledWith(
+        taskId,
+        projectId,
+        updateTaskStatusDto,
+        'user-1',
+        'fr-FR',
+      );
+    });
+  });
+
   describe('remove', () => {
     it('should remove a task successfully', async () => {
       const projectId = 'project-1';
@@ -264,6 +340,73 @@ describe('TasksController', () => {
       expect(tasksService.remove).toHaveBeenCalledWith(
         taskId,
         projectId,
+        'fr-FR',
+      );
+    });
+  });
+
+  describe('assignTask', () => {
+    it('should assign task successfully', async () => {
+      const projectId = 'project-1';
+      const taskId = 'task-1';
+      const assignTaskDto: AssignTaskDto = {
+        assigneeId: 'user-2',
+      };
+
+      const assignedTask = { ...mockTask, assigneeId: 'user-2' };
+
+      (tasksService.assignTask as jest.Mock).mockResolvedValue(assignedTask);
+
+      const result = await controller.assignTask(
+        projectId,
+        taskId,
+        assignTaskDto,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(TaskResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: assignedTask.id,
+          title: assignedTask.title,
+          description: assignedTask.description,
+          status: assignedTask.status,
+          priority: assignedTask.priority,
+          projectId: assignedTask.projectId,
+          assigneeId: assignedTask.assigneeId,
+        }),
+      );
+      expect(tasksService.assignTask).toHaveBeenCalledWith(
+        taskId,
+        projectId,
+        assignTaskDto.assigneeId,
+        'en-US',
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const projectId = 'project-1';
+      const taskId = 'task-1';
+      const assignTaskDto: AssignTaskDto = {
+        assigneeId: 'user-3',
+      };
+
+      const assignedTask = { ...mockTask, assigneeId: 'user-3' };
+
+      (tasksService.assignTask as jest.Mock).mockResolvedValue(assignedTask);
+
+      const result = await controller.assignTask(
+        projectId,
+        taskId,
+        assignTaskDto,
+        'fr-FR',
+      );
+
+      expect(result).toBeInstanceOf(TaskResponseDto);
+      expect(tasksService.assignTask).toHaveBeenCalledWith(
+        taskId,
+        projectId,
+        assignTaskDto.assigneeId,
         'fr-FR',
       );
     });
@@ -322,6 +465,22 @@ describe('TasksController', () => {
       const role = reflector.get<ProjectRole>(
         REQUIRE_PROJECT_ROLE_KEY,
         controller.remove,
+      );
+      expect(role).toBe(ProjectRole.WRITE);
+    });
+
+    it('should require WRITE role for updateStatus', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.updateStatus,
+      );
+      expect(role).toBe(ProjectRole.WRITE);
+    });
+
+    it('should require WRITE role for assignTask', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.assignTask,
       );
       expect(role).toBe(ProjectRole.WRITE);
     });

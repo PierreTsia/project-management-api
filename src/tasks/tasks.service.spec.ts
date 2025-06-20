@@ -5,10 +5,11 @@ import { Task } from './entities/task.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { I18nService } from 'nestjs-i18n';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { CustomLogger } from '../common/services/logger.service';
 import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
+import { ProjectsService } from '../projects/projects.service';
 
 const mockRepository = {
   create: jest.fn(),
@@ -30,6 +31,10 @@ const mockLogger = {
   warn: jest.fn(),
 };
 
+const mockProjectsService = {
+  getContributors: jest.fn(),
+};
+
 const mockTask: Task = {
   id: 'task-1',
   title: 'Test Task',
@@ -45,6 +50,11 @@ const mockTask: Task = {
   assignee: undefined,
 };
 
+const mockContributors = [
+  { userId: 'user-1', role: 'WRITE' },
+  { userId: 'user-2', role: 'READ' },
+];
+
 describe('TasksService', () => {
   let service: TasksService;
 
@@ -55,6 +65,7 @@ describe('TasksService', () => {
         { provide: getRepositoryToken(Task), useValue: mockRepository },
         { provide: I18nService, useValue: mockI18nService },
         { provide: CustomLogger, useValue: mockLogger },
+        { provide: ProjectsService, useValue: mockProjectsService },
       ],
     }).compile();
 
@@ -77,6 +88,10 @@ describe('TasksService', () => {
       };
       const projectId = 'project-1';
       const createdTask = { ...mockTask, ...createTaskDto, projectId };
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
 
@@ -88,11 +103,72 @@ describe('TasksService', () => {
         projectId,
       });
       expect(mockRepository.save).toHaveBeenCalledWith(createdTask);
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        projectId,
+        undefined,
+      );
       expect(mockLogger.debug).toHaveBeenCalledWith(
         `Creating task "${createTaskDto.title}" for project ${projectId}`,
       );
       expect(mockLogger.log).toHaveBeenCalledWith(
         `Task created successfully with id: ${createdTask.id}`,
+      );
+    });
+
+    it('should create a task without assignee successfully', async () => {
+      const createTaskDto: CreateTaskDto = {
+        title: 'New Task',
+        description: 'New Task Description',
+      };
+      const projectId = 'project-1';
+      const createdTask = {
+        ...mockTask,
+        ...createTaskDto,
+        projectId,
+        assigneeId: undefined,
+      };
+
+      (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
+      (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+
+      const result = await service.create(createTaskDto, projectId);
+
+      expect(result).toEqual(createdTask);
+      expect(mockProjectsService.getContributors).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when assignee is not a project contributor', async () => {
+      const createTaskDto: CreateTaskDto = {
+        title: 'New Task',
+        description: 'New Task Description',
+        assigneeId: 'non-contributor',
+      };
+      const projectId = 'project-1';
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockI18nService.t as jest.Mock).mockReturnValue(
+        'User is not a contributor',
+      );
+
+      await expect(service.create(createTaskDto, projectId)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        projectId,
+        undefined,
+      );
+      expect(mockI18nService.t).toHaveBeenCalledWith(
+        'errors.tasks.assignee_not_contributor',
+        {
+          lang: undefined,
+          args: { assigneeId: 'non-contributor', projectId: 'project-1' },
+        },
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'User non-contributor is not a contributor to project project-1',
       );
     });
   });
@@ -170,6 +246,62 @@ describe('TasksService', () => {
         'Task task-1 updated successfully',
       );
     });
+
+    it('should update task assignee successfully when assignee is a contributor', async () => {
+      const updateTaskDto: UpdateTaskDto = { assigneeId: 'user-2' };
+      const mergedTask = { ...mockTask, ...updateTaskDto };
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
+      (mockRepository.merge as jest.Mock).mockReturnValue(mergedTask);
+      (mockRepository.save as jest.Mock).mockResolvedValue(mergedTask);
+
+      const result = await service.update(
+        'task-1',
+        'project-1',
+        updateTaskDto,
+        'en-US',
+      );
+
+      expect(result).toEqual(mergedTask);
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        'project-1',
+        'en-US',
+      );
+    });
+
+    it('should throw BadRequestException when updating assignee to non-contributor', async () => {
+      const updateTaskDto: UpdateTaskDto = { assigneeId: 'non-contributor' };
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockI18nService.t as jest.Mock).mockReturnValue(
+        'User is not a contributor',
+      );
+
+      await expect(
+        service.update('task-1', 'project-1', updateTaskDto, 'en-US'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        'project-1',
+        'en-US',
+      );
+      expect(mockI18nService.t).toHaveBeenCalledWith(
+        'errors.tasks.assignee_not_contributor',
+        {
+          lang: 'en-US',
+          args: { assigneeId: 'non-contributor', projectId: 'project-1' },
+        },
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'User non-contributor is not a contributor to project project-1',
+      );
+    });
+
     it('should throw NotFoundException when updating a missing task', async () => {
       (mockRepository.findOne as jest.Mock).mockResolvedValue(null);
       (mockI18nService.t as jest.Mock).mockReturnValue('not found');

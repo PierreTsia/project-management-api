@@ -20,6 +20,7 @@
     "cannot_remove_last_admin": "Impossible de supprimer le dernier administrateur du projet"
   },
   "tasks": {
-    "task_not_found": "La tâche avec l'ID {id} n'a pas été trouvée dans le projet {projectId}"
+    "task_not_found": "La tâche avec l'ID {id} n'a pas été trouvée dans le projet {projectId}",
+    "assignee_not_contributor": "L'utilisateur {assigneeId} n'est pas un contributeur du projet {projectId}"
   }
 } 

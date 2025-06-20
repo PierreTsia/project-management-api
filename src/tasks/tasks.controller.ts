@@ -32,6 +32,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { AssignTaskDto } from './dto/assign-task.dto';
 import { SearchTasksDto } from './dto/search-tasks.dto';
+import { SearchTasksResponseDto } from './dto/search-tasks-response.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 
 @ApiTags('Tasks')
@@ -113,18 +114,7 @@ export class TasksController {
   @ApiResponse({
     status: 200,
     description: 'Returns filtered and paginated tasks',
-    schema: {
-      type: 'object',
-      properties: {
-        tasks: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/TaskResponseDto' },
-        },
-        total: { type: 'number', example: 10 },
-        page: { type: 'number', example: 1 },
-        limit: { type: 'number', example: 20 },
-      },
-    },
+    type: SearchTasksResponseDto,
   })
   @ApiResponse({
     status: 400,
@@ -137,12 +127,7 @@ export class TasksController {
   async searchTasks(
     @Param('projectId') projectId: string,
     @Query() searchDto: SearchTasksDto,
-  ): Promise<{
-    tasks: TaskResponseDto[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
+  ): Promise<SearchTasksResponseDto> {
     const result = await this.tasksService.searchTasks(projectId, searchDto);
     return {
       tasks: result.tasks.map((task) => new TaskResponseDto(task)),

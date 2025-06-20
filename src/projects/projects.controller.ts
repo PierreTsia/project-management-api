@@ -36,6 +36,7 @@ import { ProjectPermissionGuard } from './guards/project-permission.guard';
 import { RequireProjectRole } from './decorators/require-project-role.decorator';
 import { UserResponseDto } from '../users/dto/user-response.dto';
 import { SearchProjectsDto } from './dto/search-projects.dto';
+import { SearchProjectsResponseDto } from './dto/search-projects-response.dto';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -93,18 +94,7 @@ export class ProjectsController {
   @ApiResponse({
     status: 200,
     description: 'Returns filtered and paginated projects',
-    schema: {
-      type: 'object',
-      properties: {
-        projects: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/ProjectResponseDto' },
-        },
-        total: { type: 'number', example: 10 },
-        page: { type: 'number', example: 1 },
-        limit: { type: 'number', example: 20 },
-      },
-    },
+    type: SearchProjectsResponseDto,
   })
   @ApiResponse({
     status: 400,
@@ -117,12 +107,7 @@ export class ProjectsController {
   async searchProjects(
     @Request() req: { user: User },
     @Query() searchDto: SearchProjectsDto,
-  ): Promise<{
-    projects: ProjectResponseDto[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
+  ): Promise<SearchProjectsResponseDto> {
     const result = await this.projectsService.searchProjects(
       req.user.id,
       searchDto,

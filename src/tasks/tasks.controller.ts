@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   ClassSerializerInterceptor,
@@ -30,6 +31,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { AssignTaskDto } from './dto/assign-task.dto';
+import { SearchTasksDto } from './dto/search-tasks.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 
 @ApiTags('Tasks')
@@ -101,6 +103,53 @@ export class TasksController {
   ): Promise<TaskResponseDto[]> {
     const tasks = await this.tasksService.findAll(projectId);
     return tasks.map((task) => new TaskResponseDto(task));
+  }
+
+  @Get('search')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.READ)
+  @ApiOperation({ summary: 'Search and filter tasks in a project' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns filtered and paginated tasks',
+    schema: {
+      type: 'object',
+      properties: {
+        tasks: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/TaskResponseDto' },
+        },
+        total: { type: 'number', example: 10 },
+        page: { type: 'number', example: 1 },
+        limit: { type: 'number', example: 20 },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async searchTasks(
+    @Param('projectId') projectId: string,
+    @Query() searchDto: SearchTasksDto,
+  ): Promise<{
+    tasks: TaskResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const result = await this.tasksService.searchTasks(projectId, searchDto);
+    return {
+      tasks: result.tasks.map((task) => new TaskResponseDto(task)),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+    };
   }
 
   @Get(':taskId')

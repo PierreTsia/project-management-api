@@ -7,6 +7,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ProjectStatus } from '../entities/project.entity';
 
 export class SearchProjectsDto {
@@ -38,6 +39,7 @@ export class SearchProjectsDto {
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
@@ -51,6 +53,7 @@ export class SearchProjectsDto {
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(100)

@@ -27,6 +27,7 @@ describe('ProjectsService', () => {
     findOne: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+    createQueryBuilder: jest.fn(),
   };
 
   const mockContributorRepository = {
@@ -37,6 +38,19 @@ describe('ProjectsService', () => {
     update: jest.fn(),
     remove: jest.fn(),
     count: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+
+  const mockQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getMany: jest.fn(),
+    getManyAndCount: jest.fn(),
   };
 
   const mockI18nService = {
@@ -175,22 +189,91 @@ describe('ProjectsService', () => {
   });
 
   describe('findAll', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
     it('should return all projects for a user', async () => {
-      const ownerId = 'user-1';
+      const userId = 'user-1';
       const projects = [mockProject];
 
+      // Mock the contributor query
+      const mockContributorQueryBuilder = {
+        ...mockQueryBuilder,
+        getMany: jest
+          .fn()
+          .mockResolvedValue([
+            { projectId: 'project-1' },
+            { projectId: 'project-2' },
+          ]),
+      };
+
+      // Mock the owned projects query
+      const mockOwnedProjectsQueryBuilder = {
+        ...mockQueryBuilder,
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'project-1' }, { id: 'project-3' }]),
+      };
+
+      (contributorRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockContributorQueryBuilder,
+      );
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValueOnce(
+        mockOwnedProjectsQueryBuilder,
+      );
       (projectsRepository.find as jest.Mock).mockResolvedValue(projects);
 
-      const result = await service.findAll(ownerId);
+      const result = await service.findAll(userId);
 
       expect(result).toEqual(projects);
+      expect(contributorRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'contributor',
+      );
+      expect(projectsRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'project',
+      );
       expect(projectsRepository.find).toHaveBeenCalledWith({
-        where: { ownerId },
+        where: { id: expect.anything() },
         order: { createdAt: 'DESC' },
       });
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Finding all projects for user ${ownerId}`,
+        `Finding all projects for user ${userId}`,
       );
+    });
+
+    it('should return empty array when user has no accessible projects', async () => {
+      const userId = 'user-1';
+
+      // Mock empty contributor query
+      const mockContributorQueryBuilder = {
+        ...mockQueryBuilder,
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+
+      // Mock empty owned projects query
+      const mockOwnedProjectsQueryBuilder = {
+        ...mockQueryBuilder,
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+
+      (contributorRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockContributorQueryBuilder,
+      );
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValueOnce(
+        mockOwnedProjectsQueryBuilder,
+      );
+      (projectsRepository.find as jest.Mock).mockClear();
+
+      const result = await service.findAll(userId);
+
+      expect(result).toEqual([]);
+      expect(contributorRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'contributor',
+      );
+      expect(projectsRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'project',
+      );
+      expect(projectsRepository.find).not.toHaveBeenCalled();
     });
   });
 
@@ -677,6 +760,110 @@ describe('ProjectsService', () => {
       await expect(
         service.removeContributor(projectId, contributorId, 'en-US'),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('searchProjects', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+    it('should search projects successfully with filters', async () => {
+      const userId = 'user-1';
+      const searchDto = {
+        query: 'test',
+        status: ProjectStatus.ACTIVE,
+        page: 1,
+        limit: 20,
+      };
+      const projects = [mockProject];
+
+      // Mock the contributor query
+      const mockContributorQueryBuilder = {
+        ...mockQueryBuilder,
+        getMany: jest
+          .fn()
+          .mockResolvedValue([
+            { projectId: 'project-1' },
+            { projectId: 'project-2' },
+          ]),
+      };
+
+      // Mock the owned projects query
+      const mockOwnedProjectsQueryBuilder = {
+        ...mockQueryBuilder,
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'project-1' }, { id: 'project-3' }]),
+      };
+
+      // Mock the search query
+      const mockSearchQueryBuilder = {
+        ...mockQueryBuilder,
+        getManyAndCount: jest.fn().mockResolvedValue([projects, 1]),
+      };
+
+      (contributorRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockContributorQueryBuilder,
+      );
+      (projectsRepository.createQueryBuilder as jest.Mock)
+        .mockReturnValueOnce(mockOwnedProjectsQueryBuilder)
+        .mockReturnValueOnce(mockSearchQueryBuilder);
+
+      const result = await service.searchProjects(userId, searchDto);
+
+      expect(result).toEqual({
+        projects,
+        total: 1,
+        page: 1,
+        limit: 20,
+      });
+      expect(contributorRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'contributor',
+      );
+      expect(projectsRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'project',
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Searching projects for user ${userId} with filters: ${JSON.stringify(searchDto)}`,
+      );
+    });
+
+    it('should return empty results when user has no accessible projects', async () => {
+      const userId = 'user-1';
+      const searchDto = {
+        query: 'test',
+        page: 1,
+        limit: 20,
+      };
+
+      // Mock empty contributor query
+      const mockContributorQueryBuilder = {
+        ...mockQueryBuilder,
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+
+      // Mock empty owned projects query
+      const mockOwnedProjectsQueryBuilder = {
+        ...mockQueryBuilder,
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+
+      (contributorRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockContributorQueryBuilder,
+      );
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValueOnce(
+        mockOwnedProjectsQueryBuilder,
+      );
+      // Do NOT mock the final search query builder, service should short-circuit
+
+      const result = await service.searchProjects(userId, searchDto);
+
+      expect(result).toEqual({
+        projects: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+      });
     });
   });
 });

@@ -118,10 +118,57 @@ export class CloudinaryService {
       const fileExtension = this.getFileExtension(file.originalname);
       const publicId = `${this.getAttachmentFolder(entityType, entityId)}/${uploadedById}/file-${timestamp}${fileExtension}`;
 
-      // Check if file exists and is readable
-      try {
-        await fs.promises.access(file.path, fs.constants.R_OK);
-      } catch (err) {
+      let result;
+
+      if (file.buffer) {
+        // Upload from buffer (memory) - convert to base64
+        try {
+          const base64Data = file.buffer.toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${base64Data}`;
+
+          result = await cloudinary.uploader.upload(dataURI, {
+            public_id: publicId,
+            resource_type: 'auto',
+          });
+        } catch (error) {
+          this.logger.error(
+            `Failed to upload buffer to Cloudinary: ${JSON.stringify({
+              entityType,
+              entityId,
+              uploadedById,
+              fileSize: file?.size,
+              fileType: file?.mimetype,
+            })}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+          throw new InternalServerErrorException({
+            status: 500,
+            code: 'CLOUDINARY.UPLOAD_FAILED',
+            message: this.i18n.translate('errors.cloudinary.upload_failed', {
+              lang: acceptLanguage,
+            }),
+          });
+        }
+      } else if (file.path) {
+        // Check if file exists and is readable
+        try {
+          await fs.promises.access(file.path, fs.constants.R_OK);
+        } catch (err) {
+          throw new BadRequestException({
+            status: 400,
+            code: 'CLOUDINARY.INVALID_FILE',
+            message: this.i18n.translate('errors.cloudinary.invalid_file', {
+              lang: acceptLanguage,
+            }),
+          });
+        }
+
+        // Upload from file path
+        result = await cloudinary.uploader.upload(file.path, {
+          public_id: publicId,
+          resource_type: 'auto',
+        });
+      } else {
         throw new BadRequestException({
           status: 400,
           code: 'CLOUDINARY.INVALID_FILE',
@@ -130,11 +177,6 @@ export class CloudinaryService {
           }),
         });
       }
-
-      const result = await cloudinary.uploader.upload(file.path, {
-        public_id: publicId,
-        resource_type: 'auto',
-      });
 
       return {
         url: result.secure_url,

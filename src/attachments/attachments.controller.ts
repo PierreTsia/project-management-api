@@ -7,10 +7,7 @@ import {
   UseInterceptors,
   UploadedFile,
   UseGuards,
-  Req,
-  ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
+  Headers,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -23,17 +20,30 @@ import {
   ApiHeader,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RequireProjectRole } from '../projects/decorators/require-project-role.decorator';
 import { ProjectRole } from '../projects/enums/project-role.enum';
 import { ProjectPermissionGuard } from '../projects/guards/project-permission.guard';
 import { AttachmentsService } from './attachments.service';
 import { AttachmentResponseDto } from './dto/attachment-response.dto';
-import { AttachmentEntityType } from './entities/attachment.entity';
 import { CustomLogger } from '../common/services/logger.service';
+import { User } from '../users/entities/user.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AttachmentEntityType } from './entities/attachment.entity';
+
+// Reusable API schemas
+const FILE_UPLOAD_SCHEMA = {
+  type: 'object',
+  properties: {
+    file: {
+      type: 'string',
+      format: 'binary',
+      description:
+        'File to upload (PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, images)',
+    },
+  },
+  required: ['file'],
+};
 
 @ApiTags('Attachments')
 @Controller('projects/:projectId')
@@ -55,416 +65,196 @@ export class AttachmentsController {
   // Project Attachments
   @Post('attachments')
   @RequireProjectRole(ProjectRole.WRITE)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const randomName = uuidv4();
-          return cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
-  @ApiOperation({
-    summary: 'Upload project attachment',
-    description:
-      'Upload a file attachment to a project. Requires WRITE permission.',
-  })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload project attachment' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description:
-            'File to upload (PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, images)',
-        },
-      },
-      required: ['file'],
-    },
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Attachment uploaded successfully',
-    type: AttachmentResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid file type or size',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Insufficient permissions',
-  })
+  @ApiBody({ schema: FILE_UPLOAD_SCHEMA })
+  @ApiParam({ name: 'projectId' })
+  @ApiResponse({ status: 201, type: AttachmentResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid file type or size' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async uploadProjectAttachment(
     @Param('projectId') projectId: string,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
-          new FileTypeValidator({
-            fileType:
-              /\.(pdf|doc|docx|txt|csv|xls|xlsx|jpg|jpeg|png|gif|webp)$/,
-          }),
-        ],
-      }),
-    )
-    file: Express.Multer.File,
-    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: User,
+    @Headers('accept-language') acceptLanguage: string = 'en',
   ): Promise<AttachmentResponseDto> {
     return this.attachmentsService.uploadAttachment(
       file,
       AttachmentEntityType.PROJECT,
       projectId,
-      req.user.id,
+      user.id,
       projectId,
-      req.headers['accept-language'],
+      acceptLanguage,
     );
   }
 
   @Get('attachments')
   @RequireProjectRole(ProjectRole.READ)
-  @ApiOperation({
-    summary: 'Get project attachments',
-    description: 'Get all attachments for a project. Requires READ permission.',
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Project attachments retrieved successfully',
-    type: [AttachmentResponseDto],
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Insufficient permissions',
-  })
+  @ApiOperation({ summary: 'Get project attachments' })
+  @ApiParam({ name: 'projectId' })
+  @ApiResponse({ status: 200, type: [AttachmentResponseDto] })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async getProjectAttachments(
     @Param('projectId') projectId: string,
-    @Req() req: any,
+    @CurrentUser() user: User,
+    @Headers('accept-language') acceptLanguage: string = 'en',
   ): Promise<AttachmentResponseDto[]> {
     return this.attachmentsService.getAttachments(
       AttachmentEntityType.PROJECT,
       projectId,
       projectId,
-      req.user.id,
-      req.headers['accept-language'],
+      user.id,
+      acceptLanguage,
     );
   }
 
   @Delete('attachments/:attachmentId')
-  @RequireProjectRole(ProjectRole.READ)
-  @ApiOperation({
-    summary: 'Delete project attachment',
-    description:
-      'Delete a project attachment. Can be deleted by uploader or project admin.',
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiParam({
-    name: 'attachmentId',
-    description: 'Attachment ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Attachment deleted successfully',
-  })
+  @RequireProjectRole(ProjectRole.WRITE)
+  @ApiOperation({ summary: 'Delete project attachment' })
+  @ApiParam({ name: 'projectId' })
+  @ApiParam({ name: 'attachmentId' })
+  @ApiResponse({ status: 200 })
   @ApiResponse({
     status: 403,
     description: 'Cannot delete attachment (not uploader or admin)',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Attachment not found',
-  })
+  @ApiResponse({ status: 404, description: 'Attachment not found' })
   async deleteProjectAttachment(
     @Param('projectId') projectId: string,
     @Param('attachmentId') attachmentId: string,
-    @Req() req: any,
+    @CurrentUser() user: User,
+    @Headers('accept-language') acceptLanguage: string = 'en',
   ): Promise<void> {
     return this.attachmentsService.deleteAttachment(
       attachmentId,
       projectId,
-      req.user.id,
-      req.headers['accept-language'],
+      user.id,
+      acceptLanguage,
     );
   }
 
   @Get('attachments/:attachmentId')
   @RequireProjectRole(ProjectRole.READ)
-  @ApiOperation({
-    summary: 'Get project attachment by ID',
-    description:
-      'Get a specific project attachment by ID. Requires READ permission.',
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiParam({
-    name: 'attachmentId',
-    description: 'Attachment ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Project attachment retrieved successfully',
-    type: AttachmentResponseDto,
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Insufficient permissions',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Attachment not found',
-  })
+  @ApiOperation({ summary: 'Get project attachment by ID' })
+  @ApiParam({ name: 'projectId' })
+  @ApiParam({ name: 'attachmentId' })
+  @ApiResponse({ status: 200, type: AttachmentResponseDto })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Attachment not found' })
   async getProjectAttachmentById(
     @Param('projectId') projectId: string,
     @Param('attachmentId') attachmentId: string,
-    @Req() req: any,
+    @CurrentUser() user: User,
+    @Headers('accept-language') acceptLanguage: string = 'en',
   ): Promise<AttachmentResponseDto> {
     return this.attachmentsService.getAttachmentById(
       attachmentId,
       projectId,
-      req.user.id,
-      req.headers['accept-language'],
+      user.id,
+      acceptLanguage,
     );
   }
 
   // Task Attachments
   @Post('tasks/:taskId/attachments')
-  @RequireProjectRole(ProjectRole.READ)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const randomName = uuidv4();
-          return cb(null, `${randomName}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
-  @ApiOperation({
-    summary: 'Upload task attachment',
-    description:
-      'Upload a file attachment to a task. Requires READ permission.',
-  })
+  @RequireProjectRole(ProjectRole.WRITE)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload task attachment' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description:
-            'File to upload (PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, images)',
-        },
-      },
-      required: ['file'],
-    },
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiParam({
-    name: 'taskId',
-    description: 'Task ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Attachment uploaded successfully',
-    type: AttachmentResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid file type or size',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Insufficient permissions',
-  })
+  @ApiBody({ schema: FILE_UPLOAD_SCHEMA })
+  @ApiParam({ name: 'projectId' })
+  @ApiParam({ name: 'taskId' })
+  @ApiResponse({ status: 201, type: AttachmentResponseDto })
+  @ApiResponse({ status: 400, description: 'Invalid file type or size' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async uploadTaskAttachment(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
-          new FileTypeValidator({
-            fileType:
-              /\.(pdf|doc|docx|txt|csv|xls|xlsx|jpg|jpeg|png|gif|webp)$/,
-          }),
-        ],
-      }),
-    )
-    file: Express.Multer.File,
-    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: User,
+    @Headers('accept-language') acceptLanguage: string = 'en',
   ): Promise<AttachmentResponseDto> {
     return this.attachmentsService.uploadAttachment(
       file,
       AttachmentEntityType.TASK,
       taskId,
-      req.user.id,
+      user.id,
       projectId,
-      req.headers['accept-language'],
+      acceptLanguage,
     );
   }
 
   @Get('tasks/:taskId/attachments')
   @RequireProjectRole(ProjectRole.READ)
-  @ApiOperation({
-    summary: 'Get task attachments',
-    description: 'Get all attachments for a task. Requires READ permission.',
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiParam({
-    name: 'taskId',
-    description: 'Task ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Task attachments retrieved successfully',
-    type: [AttachmentResponseDto],
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Insufficient permissions',
-  })
+  @ApiOperation({ summary: 'Get task attachments' })
+  @ApiParam({ name: 'projectId' })
+  @ApiParam({ name: 'taskId' })
+  @ApiResponse({ status: 200, type: [AttachmentResponseDto] })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async getTaskAttachments(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
-    @Req() req: any,
+    @CurrentUser() user: User,
+    @Headers('accept-language') acceptLanguage: string = 'en',
   ): Promise<AttachmentResponseDto[]> {
     return this.attachmentsService.getAttachments(
       AttachmentEntityType.TASK,
       taskId,
       projectId,
-      req.user.id,
-      req.headers['accept-language'],
+      user.id,
+      acceptLanguage,
     );
   }
 
   @Delete('tasks/:taskId/attachments/:attachmentId')
-  @RequireProjectRole(ProjectRole.READ)
-  @ApiOperation({
-    summary: 'Delete task attachment',
-    description:
-      'Delete a task attachment. Can be deleted by uploader or project admin.',
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiParam({
-    name: 'taskId',
-    description: 'Task ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiParam({
-    name: 'attachmentId',
-    description: 'Attachment ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Attachment deleted successfully',
-  })
+  @RequireProjectRole(ProjectRole.WRITE)
+  @ApiOperation({ summary: 'Delete task attachment' })
+  @ApiParam({ name: 'projectId' })
+  @ApiParam({ name: 'taskId' })
+  @ApiParam({ name: 'attachmentId' })
+  @ApiResponse({ status: 200 })
   @ApiResponse({
     status: 403,
     description: 'Cannot delete attachment (not uploader or admin)',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Attachment not found',
-  })
+  @ApiResponse({ status: 404, description: 'Attachment not found' })
   async deleteTaskAttachment(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
     @Param('attachmentId') attachmentId: string,
-    @Req() req: any,
+    @CurrentUser() user: User,
+    @Headers('accept-language') acceptLanguage: string = 'en',
   ): Promise<void> {
     return this.attachmentsService.deleteAttachment(
       attachmentId,
       projectId,
-      req.user.id,
-      req.headers['accept-language'],
+      user.id,
+      acceptLanguage,
     );
   }
 
   @Get('tasks/:taskId/attachments/:attachmentId')
   @RequireProjectRole(ProjectRole.READ)
-  @ApiOperation({
-    summary: 'Get task attachment by ID',
-    description:
-      'Get a specific task attachment by ID. Requires READ permission.',
-  })
-  @ApiParam({
-    name: 'projectId',
-    description: 'Project ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiParam({
-    name: 'taskId',
-    description: 'Task ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiParam({
-    name: 'attachmentId',
-    description: 'Attachment ID',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Task attachment retrieved successfully',
-    type: AttachmentResponseDto,
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Insufficient permissions',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Attachment not found',
-  })
+  @ApiOperation({ summary: 'Get task attachment by ID' })
+  @ApiParam({ name: 'projectId' })
+  @ApiParam({ name: 'taskId' })
+  @ApiParam({ name: 'attachmentId' })
+  @ApiResponse({ status: 200, type: AttachmentResponseDto })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Attachment not found' })
   async getTaskAttachmentById(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
     @Param('attachmentId') attachmentId: string,
-    @Req() req: any,
+    @CurrentUser() user: User,
+    @Headers('accept-language') acceptLanguage: string = 'en',
   ): Promise<AttachmentResponseDto> {
     return this.attachmentsService.getAttachmentById(
       attachmentId,
       projectId,
-      req.user.id,
-      req.headers['accept-language'],
+      user.id,
+      acceptLanguage,
     );
   }
 }

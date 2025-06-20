@@ -29,6 +29,23 @@ const SUPPORTED_DOCUMENT_TYPES = [
   'text/csv',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/octet-stream', // Generic binary - we'll validate by extension
+];
+
+// Supported file extensions for validation fallback
+const SUPPORTED_EXTENSIONS = [
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.txt',
+  '.csv',
+  '.xls',
+  '.xlsx',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
 ];
 
 @Injectable()
@@ -78,7 +95,18 @@ export class CloudinaryService {
         ...SUPPORTED_IMAGE_TYPES,
         ...SUPPORTED_DOCUMENT_TYPES,
       ];
-      if (!supportedTypes.includes(file.mimetype)) {
+
+      let isValidType = supportedTypes.includes(file.mimetype);
+
+      // If mimetype is generic (octet-stream), validate by file extension
+      if (file.mimetype === 'application/octet-stream') {
+        const fileExtension = this.getFileExtension(
+          file.originalname,
+        ).toLowerCase();
+        isValidType = SUPPORTED_EXTENSIONS.includes(fileExtension);
+      }
+
+      if (!isValidType) {
         throw new BadRequestException({
           status: 400,
           code: 'CLOUDINARY.INVALID_FILE_TYPE',

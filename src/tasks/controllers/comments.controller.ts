@@ -18,6 +18,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ProjectPermissionGuard } from '../../projects/guards/project-permission.guard';
@@ -42,6 +43,10 @@ export class CommentsController {
   @ApiOperation({ summary: 'Create a new comment on a task' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiParam({ name: 'taskId', description: 'Task ID' })
+  @ApiBody({
+    type: CreateCommentDto,
+    description: 'Comment data to create',
+  })
   @ApiResponse({
     status: 201,
     description: 'Comment created successfully',
@@ -119,6 +124,10 @@ export class CommentsController {
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiParam({ name: 'taskId', description: 'Task ID' })
   @ApiParam({ name: 'commentId', description: 'Comment ID' })
+  @ApiBody({
+    type: UpdateCommentDto,
+    description: 'Comment data to update',
+  })
   @ApiResponse({
     status: 200,
     description: 'Comment updated successfully',

@@ -50,7 +50,7 @@ export class TasksService {
         `Task not found with id: ${id} for project ${projectId}`,
       );
       throw new NotFoundException(
-        this.i18n.t('errors.task_not_found', {
+        this.i18n.t('errors.tasks.task_not_found', {
           lang: acceptLanguage,
           args: { id, projectId },
         }),
@@ -89,7 +89,7 @@ export class TasksService {
         `Task not found for deletion with id: ${id} for project ${projectId}`,
       );
       throw new NotFoundException(
-        this.i18n.t('errors.task_not_found', {
+        this.i18n.t('errors.tasks.task_not_found', {
           lang: acceptLanguage,
           args: { id, projectId },
         }),

@@ -19,5 +19,7 @@
     "cannot_change_owner_role": "Cannot change the project owner's role",
     "cannot_remove_last_admin": "Cannot remove the last admin from the project"
   },
-  "task_not_found": "Task with ID {id} not found in project {projectId}"
+  "tasks": {
+    "task_not_found": "Task with ID {id} not found in project {projectId}"
+  }
 }

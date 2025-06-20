@@ -4,7 +4,7 @@
     "404": "Ressource non trouvée"
   },
   "cloudinary": {
-    "invalid_file": "Format ou taille de fichier invalide. Veuillez télécharger une image JPEG, PNG ou GIF de moins de 5MB.",
+    "invalid_file": "Format de fichier ou taille invalide. Veuillez télécharger une image JPEG, PNG ou GIF de moins de 5MB.",
     "upload_failed": "Échec du téléchargement de l'image. Veuillez réessayer.",
     "delete_failed": "Échec de la suppression de l'image. Veuillez réessayer."
   },
@@ -16,13 +16,21 @@
     "contributor_already_exists": "L'utilisateur est déjà contributeur de ce projet",
     "contributor_not_found": "Contributeur non trouvé",
     "cannot_remove_owner": "Impossible de supprimer le propriétaire du projet",
-    "cannot_change_owner_role": "Impossible de modifier le rôle du propriétaire du projet",
+    "cannot_change_owner_role": "Impossible de changer le rôle du propriétaire du projet",
     "cannot_remove_last_admin": "Impossible de supprimer le dernier administrateur du projet"
   },
   "tasks": {
-    "task_not_found": "La tâche avec l'ID {id} n'a pas été trouvée dans le projet {projectId}",
-    "assignee_not_contributor": "L'utilisateur {assigneeId} n'est pas un contributeur du projet {projectId}",
+    "task_not_found": "Tâche avec l'ID {id} non trouvée dans le projet {projectId}",
+    "assignee_not_contributor": "L'utilisateur {assigneeId} n'est pas contributeur du projet {projectId}",
     "only_assignee_can_update_status": "Seul l'assigné de la tâche peut mettre à jour le statut de la tâche {taskId}",
-    "assignee_insufficient_role": "L'utilisateur {assigneeId} a un rôle insuffisant ({role}) pour être assigné à des tâches dans le projet {projectId}. Nécessite un rôle WRITE ou supérieur."
+    "assignee_insufficient_role": "L'utilisateur {assigneeId} a un rôle insuffisant ({role}) pour être assigné aux tâches du projet {projectId}. Nécessite le rôle WRITE ou supérieur."
+  },
+  "comments": {
+    "comment_not_found": "Commentaire non trouvé",
+    "task_not_found": "Tâche non trouvée",
+    "insufficient_permission": "Vous n'avez pas la permission de commenter cette tâche",
+    "cannot_view_comments": "Vous n'avez pas la permission de voir les commentaires de cette tâche",
+    "cannot_edit_comment": "Vous ne pouvez modifier que vos propres commentaires",
+    "cannot_delete_comment": "Vous ne pouvez supprimer que vos propres commentaires"
   }
 } 

@@ -24,5 +24,13 @@
     "assignee_not_contributor": "User {assigneeId} is not a contributor to project {projectId}",
     "only_assignee_can_update_status": "Only the task assignee can update the status of task {taskId}",
     "assignee_insufficient_role": "User {assigneeId} has insufficient role ({role}) to be assigned tasks in project {projectId}. Requires WRITE role or higher."
+  },
+  "comments": {
+    "comment_not_found": "Comment not found",
+    "task_not_found": "Task not found",
+    "insufficient_permission": "You do not have permission to comment on this task",
+    "cannot_view_comments": "You do not have permission to view comments for this task",
+    "cannot_edit_comment": "You can only edit your own comments",
+    "cannot_delete_comment": "You can only delete your own comments"
   }
 }

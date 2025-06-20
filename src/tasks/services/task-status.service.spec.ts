@@ -19,7 +19,7 @@ describe('TaskStatusService', () => {
   });
 
   describe('validateStatusTransition', () => {
-    it('should allow all status transitions (including backwards)', () => {
+    it('should allow valid workflow transitions', () => {
       // Forward transitions
       expect(
         service.validateStatusTransition(
@@ -33,17 +33,8 @@ describe('TaskStatusService', () => {
           TaskStatus.DONE,
         ),
       ).toBe(true);
-      expect(
-        service.validateStatusTransition(TaskStatus.TODO, TaskStatus.DONE),
-      ).toBe(true);
 
-      // Backward transitions
-      expect(
-        service.validateStatusTransition(
-          TaskStatus.DONE,
-          TaskStatus.IN_PROGRESS,
-        ),
-      ).toBe(true);
+      // Backward transitions (limited)
       expect(
         service.validateStatusTransition(
           TaskStatus.IN_PROGRESS,
@@ -51,7 +42,10 @@ describe('TaskStatusService', () => {
         ),
       ).toBe(true);
       expect(
-        service.validateStatusTransition(TaskStatus.DONE, TaskStatus.TODO),
+        service.validateStatusTransition(
+          TaskStatus.DONE,
+          TaskStatus.IN_PROGRESS,
+        ),
       ).toBe(true);
 
       // Same status
@@ -68,15 +62,22 @@ describe('TaskStatusService', () => {
         service.validateStatusTransition(TaskStatus.DONE, TaskStatus.DONE),
       ).toBe(true);
     });
+
+    it('should reject invalid transitions', () => {
+      // Invalid direct jumps
+      expect(
+        service.validateStatusTransition(TaskStatus.TODO, TaskStatus.DONE),
+      ).toBe(false);
+      expect(
+        service.validateStatusTransition(TaskStatus.DONE, TaskStatus.TODO),
+      ).toBe(false);
+    });
   });
 
   describe('getValidNextStatuses', () => {
-    it('should return all statuses except the current one', () => {
+    it('should return valid next statuses for each current status', () => {
       const todoNextStatuses = service.getValidNextStatuses(TaskStatus.TODO);
-      expect(todoNextStatuses).toEqual([
-        TaskStatus.IN_PROGRESS,
-        TaskStatus.DONE,
-      ]);
+      expect(todoNextStatuses).toEqual([TaskStatus.IN_PROGRESS]);
 
       const inProgressNextStatuses = service.getValidNextStatuses(
         TaskStatus.IN_PROGRESS,
@@ -87,10 +88,7 @@ describe('TaskStatusService', () => {
       ]);
 
       const doneNextStatuses = service.getValidNextStatuses(TaskStatus.DONE);
-      expect(doneNextStatuses).toEqual([
-        TaskStatus.TODO,
-        TaskStatus.IN_PROGRESS,
-      ]);
+      expect(doneNextStatuses).toEqual([TaskStatus.IN_PROGRESS]);
     });
   });
 
@@ -104,19 +102,21 @@ describe('TaskStatusService', () => {
       }).not.toThrow();
 
       expect(() => {
-        service.validateAndThrowIfInvalid(TaskStatus.DONE, TaskStatus.TODO);
+        service.validateAndThrowIfInvalid(
+          TaskStatus.IN_PROGRESS,
+          TaskStatus.DONE,
+        );
       }).not.toThrow();
     });
 
-    it('should throw BadRequestException for invalid transitions (though currently all are valid)', () => {
-      // This test is for future use when we might add transition restrictions
-      // Currently all transitions are valid, so this test ensures the method structure is correct
+    it('should throw BadRequestException for invalid transitions', () => {
       expect(() => {
-        service.validateAndThrowIfInvalid(
-          TaskStatus.TODO,
-          TaskStatus.IN_PROGRESS,
-        );
-      }).not.toThrow(BadRequestException);
+        service.validateAndThrowIfInvalid(TaskStatus.TODO, TaskStatus.DONE);
+      }).toThrow(BadRequestException);
+
+      expect(() => {
+        service.validateAndThrowIfInvalid(TaskStatus.DONE, TaskStatus.TODO);
+      }).toThrow(BadRequestException);
     });
   });
 });

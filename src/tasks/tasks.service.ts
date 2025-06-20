@@ -87,15 +87,6 @@ export class TasksService {
       )}`,
     );
 
-    // Validate assignee if being updated
-    if (updateTaskDto.assigneeId) {
-      await this.validateAssignee(
-        updateTaskDto.assigneeId,
-        projectId,
-        acceptLanguage,
-      );
-    }
-
     const task = await this.findOne(id, projectId, acceptLanguage);
     const updatedTask = this.taskRepository.merge(task, updateTaskDto);
     const savedTask = await this.taskRepository.save(updatedTask);
@@ -166,6 +157,29 @@ export class TasksService {
     this.logger.log(
       `Task ${id} status updated successfully from ${originalStatus} to ${updateTaskStatusDto.status}`,
     );
+    return savedTask;
+  }
+
+  async assignTask(
+    id: string,
+    projectId: string,
+    assigneeId: string,
+    acceptLanguage?: string,
+  ): Promise<Task> {
+    this.logger.debug(
+      `Assigning task ${id} from project ${projectId} to user ${assigneeId}`,
+    );
+
+    const task = await this.findOne(id, projectId, acceptLanguage);
+
+    // Validate the new assignee
+    await this.validateAssignee(assigneeId, projectId, acceptLanguage);
+
+    // Update the assignee
+    task.assigneeId = assigneeId;
+    const savedTask = await this.taskRepository.save(task);
+
+    this.logger.log(`Task ${id} assigned successfully to user ${assigneeId}`);
     return savedTask;
   }
 

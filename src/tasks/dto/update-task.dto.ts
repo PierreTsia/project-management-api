@@ -6,7 +6,6 @@ import {
   MaxLength,
   IsEnum,
   IsDateString,
-  IsUUID,
 } from 'class-validator';
 import { TaskPriority } from '../enums/task-priority.enum';
 
@@ -53,13 +52,4 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
-
-  @ApiProperty({
-    description: 'ID of the user this task is assigned to',
-    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
-    required: false,
-  })
-  @IsOptional()
-  @IsUUID()
-  assigneeId?: string;
 }

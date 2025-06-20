@@ -5,26 +5,39 @@ import { TaskStatus } from '../enums/task-status.enum';
 export class TaskStatusService {
   /**
    * Validates if a status transition is allowed
-   * All transitions are allowed (including backwards) as per requirements
+   * Follows proper workflow: TODO -> IN_PROGRESS -> DONE
    */
   validateStatusTransition(
-    _currentStatus: TaskStatus,
-    _newStatus: TaskStatus,
+    currentStatus: TaskStatus,
+    newStatus: TaskStatus,
   ): boolean {
-    // All status transitions are allowed (including backwards)
-    // TODO -> IN_PROGRESS -> DONE
-    // DONE -> IN_PROGRESS -> TODO
-    // Any direct transition is valid
-    return true;
+    // Same status is always valid
+    if (currentStatus === newStatus) {
+      return true;
+    }
+
+    // Define valid transitions
+    const validTransitions = {
+      [TaskStatus.TODO]: [TaskStatus.IN_PROGRESS],
+      [TaskStatus.IN_PROGRESS]: [TaskStatus.TODO, TaskStatus.DONE],
+      [TaskStatus.DONE]: [TaskStatus.IN_PROGRESS],
+    };
+
+    const allowedTransitions = validTransitions[currentStatus] || [];
+    return allowedTransitions.includes(newStatus);
   }
 
   /**
    * Gets the next valid statuses for a given current status
    */
   getValidNextStatuses(currentStatus: TaskStatus): TaskStatus[] {
-    return Object.values(TaskStatus).filter(
-      (status) => status !== currentStatus,
-    );
+    const validTransitions = {
+      [TaskStatus.TODO]: [TaskStatus.IN_PROGRESS],
+      [TaskStatus.IN_PROGRESS]: [TaskStatus.TODO, TaskStatus.DONE],
+      [TaskStatus.DONE]: [TaskStatus.IN_PROGRESS],
+    };
+
+    return validTransitions[currentStatus] || [];
   }
 
   /**

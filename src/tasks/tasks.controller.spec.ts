@@ -4,6 +4,7 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
+import { AssignTaskDto } from './dto/assign-task.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
@@ -43,6 +44,7 @@ describe('TasksController', () => {
             update: jest.fn(),
             remove: jest.fn(),
             updateStatus: jest.fn(),
+            assignTask: jest.fn(),
           },
         },
       ],
@@ -343,6 +345,73 @@ describe('TasksController', () => {
     });
   });
 
+  describe('assignTask', () => {
+    it('should assign task successfully', async () => {
+      const projectId = 'project-1';
+      const taskId = 'task-1';
+      const assignTaskDto: AssignTaskDto = {
+        assigneeId: 'user-2',
+      };
+
+      const assignedTask = { ...mockTask, assigneeId: 'user-2' };
+
+      (tasksService.assignTask as jest.Mock).mockResolvedValue(assignedTask);
+
+      const result = await controller.assignTask(
+        projectId,
+        taskId,
+        assignTaskDto,
+        'en-US',
+      );
+
+      expect(result).toBeInstanceOf(TaskResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: assignedTask.id,
+          title: assignedTask.title,
+          description: assignedTask.description,
+          status: assignedTask.status,
+          priority: assignedTask.priority,
+          projectId: assignedTask.projectId,
+          assigneeId: assignedTask.assigneeId,
+        }),
+      );
+      expect(tasksService.assignTask).toHaveBeenCalledWith(
+        taskId,
+        projectId,
+        assignTaskDto.assigneeId,
+        'en-US',
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const projectId = 'project-1';
+      const taskId = 'task-1';
+      const assignTaskDto: AssignTaskDto = {
+        assigneeId: 'user-3',
+      };
+
+      const assignedTask = { ...mockTask, assigneeId: 'user-3' };
+
+      (tasksService.assignTask as jest.Mock).mockResolvedValue(assignedTask);
+
+      const result = await controller.assignTask(
+        projectId,
+        taskId,
+        assignTaskDto,
+        'fr-FR',
+      );
+
+      expect(result).toBeInstanceOf(TaskResponseDto);
+      expect(tasksService.assignTask).toHaveBeenCalledWith(
+        taskId,
+        projectId,
+        assignTaskDto.assigneeId,
+        'fr-FR',
+      );
+    });
+  });
+
   describe('Guards and Decorators', () => {
     let reflector: Reflector;
 
@@ -404,6 +473,14 @@ describe('TasksController', () => {
       const role = reflector.get<ProjectRole>(
         REQUIRE_PROJECT_ROLE_KEY,
         controller.updateStatus,
+      );
+      expect(role).toBe(ProjectRole.WRITE);
+    });
+
+    it('should require WRITE role for assignTask', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.assignTask,
       );
       expect(role).toBe(ProjectRole.WRITE);
     });

@@ -29,6 +29,7 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
+import { AssignTaskDto } from './dto/assign-task.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 
 @ApiTags('Tasks')
@@ -247,6 +248,48 @@ export class TasksController {
       projectId,
       updateTaskStatusDto,
       req.user.id,
+      acceptLanguage,
+    );
+    return new TaskResponseDto(task);
+  }
+
+  @Put(':taskId/assign')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
+  @ApiOperation({ summary: 'Assign task to a user' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiParam({ name: 'taskId', description: 'Task ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task assigned successfully',
+    type: TaskResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error or invalid assignee',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project or task not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async assignTask(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Body() assignTaskDto: AssignTaskDto,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<TaskResponseDto> {
+    const task = await this.tasksService.assignTask(
+      taskId,
+      projectId,
+      assignTaskDto.assigneeId,
       acceptLanguage,
     );
     return new TaskResponseDto(task);

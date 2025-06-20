@@ -36,17 +36,11 @@ export class AttachmentsService {
     projectId: string,
     acceptLanguage?: string,
   ): Promise<AttachmentResponseDto> {
-    // Verify user has permission to upload to this entity
-    const requiredRole =
-      entityType === AttachmentEntityType.PROJECT
-        ? ProjectRole.WRITE
-        : ProjectRole.READ; // READ permission allows commenting/attaching to tasks
-
     const hasPermission =
       await this.projectPermissionService.hasProjectPermission(
         uploadedById,
         projectId,
-        requiredRole,
+        ProjectRole.WRITE,
       );
 
     if (!hasPermission) {

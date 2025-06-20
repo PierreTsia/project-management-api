@@ -197,7 +197,7 @@ describe('AttachmentsService', () => {
       // Assert
       expect(
         mockProjectPermissionService.hasProjectPermission,
-      ).toHaveBeenCalledWith(userId, projectId, ProjectRole.READ);
+      ).toHaveBeenCalledWith(userId, projectId, ProjectRole.WRITE);
       expect(mockCloudinaryService.uploadFile).toHaveBeenCalledWith(
         mockFile,
         AttachmentEntityType.TASK,
@@ -262,7 +262,7 @@ describe('AttachmentsService', () => {
 
       expect(
         mockProjectPermissionService.hasProjectPermission,
-      ).toHaveBeenCalledWith(userId, projectId, ProjectRole.READ);
+      ).toHaveBeenCalledWith(userId, projectId, ProjectRole.WRITE);
     });
   });
 

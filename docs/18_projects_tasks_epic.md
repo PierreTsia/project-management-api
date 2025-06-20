@@ -665,28 +665,28 @@ export class PaginationHelper {
 **Value:** File sharing and document management for both projects and tasks
 
 **Definition of Done:**
-- [ ] Create generic `Attachment` entity with polymorphic relationships (entityType: 'PROJECT' | 'TASK', entityId)
-- [ ] Extend existing `CloudinaryService` with generic file upload methods
-- [ ] Create `AttachmentsService` with upload/download/delete operations for both projects and tasks
-- [ ] Create `AttachmentsController` with unified file endpoints
-- [ ] Add file validation (size, type limits) - support common document types (PDF, DOC, images, etc.)
-- [ ] Implement proper folder structure in Cloudinary (projects/attachments, tasks/attachments)
-- [ ] Add permission checks (project contributors can upload, admins can delete any)
-- [ ] Write unit tests for attachment service
-- [ ] Write e2e tests for file upload/download/delete
-- [ ] Add migration for attachments table
-- [ ] Test file upload to both projects and tasks
+- [x] Create generic `Attachment` entity with polymorphic relationships (entityType: 'PROJECT' | 'TASK', entityId)
+- [x] Extend existing `CloudinaryService` with generic file upload methods
+- [x] Create `AttachmentsService` with upload/download/delete operations for both projects and tasks
+- [x] Create `AttachmentsController` with unified file endpoints
+- [x] Add file validation (size, type limits) - support common document types (PDF, DOC, images, etc.)
+- [x] Implement proper folder structure in Cloudinary (projects/attachments, tasks/attachments)
+- [x] Add permission checks (project contributors can upload, admins can delete any)
+- [x] Write unit tests for attachment service
+- [x] Write tests for file upload/download/delete
+- [x] Add migration for attachments table
+- [x] Test file upload to both projects and tasks
 
 **Acceptance Criteria:**
-- Users can upload files to both projects and tasks
-- File size and type restrictions are enforced (extend beyond just images)
-- Files are stored in Cloudinary with proper folder organization
-- Users can download attached files
-- Users can delete their own attachments
-- Project admins can delete any attachment
-- Proper permission checks based on project roles
-- Support for common file types: PDF, DOC, DOCX, TXT, images, etc.
-- Clean file cleanup when attachments are deleted
+- [x] Users can upload files to both projects and tasks
+- [x] File size and type restrictions are enforced (extend beyond just images)
+- [x] Files are stored in Cloudinary with proper folder organization
+- [x] Users can download attached files
+- [x] Users can delete their own attachments
+- [x] Project admins can delete any attachment
+- [x] Proper permission checks based on project roles
+- [x] Support for common file types: PDF, DOC, DOCX, TXT, images, etc.
+- [x] Clean file cleanup when attachments are deleted
 
 **Technical Design:**
 - **Entity**: Single `Attachment` entity with `entityType` and `entityId` for polymorphic relationships

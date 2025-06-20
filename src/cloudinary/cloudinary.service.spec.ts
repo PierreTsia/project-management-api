@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import { extractPublicId } from 'cloudinary-build-url';
 import { MockCustomLogger } from '../test/mocks';
 import { CustomLogger } from '../common/services/logger.service';
+import { AttachmentEntityType } from '../attachments/entities/attachment.entity';
 
 jest.mock('cloudinary');
 jest.mock('fs', () => ({
@@ -68,12 +69,500 @@ describe('CloudinaryService', () => {
     service = module.get<CloudinaryService>(CloudinaryService);
     i18nService = module.get<I18nService>(I18nService);
 
+    // Verify cloudinary.config was called during service instantiation
+    expect(cloudinary.config).toHaveBeenCalledWith({
+      cloud_name: 'test-cloud',
+      api_key: 'test-key',
+      api_secret: 'test-secret',
+    });
+
     // Reset all mocks before each test
     jest.clearAllMocks();
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('constructor', () => {
+    it('should throw error when Cloudinary credentials are missing', async () => {
+      const invalidConfigService = {
+        get: jest.fn((key: string) => {
+          const config = {
+            CLOUDINARY_CLOUD_NAME: null,
+            CLOUDINARY_API_KEY: null,
+            CLOUDINARY_API_SECRET: null,
+            PROJECT_NAME: 'test-project',
+            NODE_ENV: 'test',
+          };
+          return config[key];
+        }),
+      };
+
+      await expect(
+        Test.createTestingModule({
+          providers: [
+            CloudinaryService,
+            { provide: ConfigService, useValue: invalidConfigService },
+            { provide: I18nService, useValue: mockI18nService },
+            { provide: CustomLogger, useValue: mockLogger },
+          ],
+        }).compile(),
+      ).rejects.toThrow('Missing Cloudinary credentials');
+    });
+  });
+
+  describe('uploadFile', () => {
+    const mockFile = {
+      fieldname: 'file',
+      originalname: 'test.pdf',
+      encoding: '7bit',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('test'),
+      size: 1024,
+      path: '/tmp/test.pdf',
+      stream: {},
+      destination: '/tmp',
+      filename: 'test.pdf',
+    } as Express.Multer.File;
+
+    const mockEntityType = AttachmentEntityType.PROJECT;
+    const mockEntityId = 'project123';
+    const mockUploadedById = 'user123';
+    const mockAcceptLanguage = 'en';
+
+    it('should successfully upload a PDF file from buffer', async () => {
+      const mockUploadResult = {
+        secure_url: 'https://cloudinary.com/test.pdf',
+        public_id:
+          'test-project/dev/projects/project123/attachments/user123/file-123.pdf',
+        version: '123',
+      };
+
+      (cloudinary.uploader.upload as jest.Mock).mockResolvedValue(
+        mockUploadResult,
+      );
+
+      const result = await service.uploadFile(
+        mockFile,
+        mockEntityType,
+        mockEntityId,
+        mockUploadedById,
+        mockAcceptLanguage,
+      );
+
+      expect(result).toEqual({
+        url: mockUploadResult.secure_url,
+        publicId: mockUploadResult.public_id,
+        version: mockUploadResult.version,
+      });
+      expect(cloudinary.uploader.upload).toHaveBeenCalledWith(
+        expect.stringContaining('data:application/pdf;base64,'),
+        {
+          public_id: expect.stringContaining(
+            'test-project/dev/projects/project123/attachments/user123/file-',
+          ),
+          resource_type: 'auto',
+        },
+      );
+    });
+
+    it('should successfully upload a file from path', async () => {
+      const pathFile = {
+        ...mockFile,
+        buffer: null,
+        path: '/tmp/test.pdf',
+      } as Express.Multer.File;
+
+      const mockUploadResult = {
+        secure_url: 'https://cloudinary.com/test.pdf',
+        public_id:
+          'test-project/dev/projects/project123/attachments/user123/file-123.pdf',
+        version: '123',
+      };
+
+      (cloudinary.uploader.upload as jest.Mock).mockResolvedValue(
+        mockUploadResult,
+      );
+
+      const result = await service.uploadFile(
+        pathFile,
+        mockEntityType,
+        mockEntityId,
+        mockUploadedById,
+        mockAcceptLanguage,
+      );
+
+      expect(result).toEqual({
+        url: mockUploadResult.secure_url,
+        publicId: mockUploadResult.public_id,
+        version: mockUploadResult.version,
+      });
+      expect(cloudinary.uploader.upload).toHaveBeenCalledWith(pathFile.path, {
+        public_id: expect.stringContaining(
+          'test-project/dev/projects/project123/attachments/user123/file-',
+        ),
+        resource_type: 'auto',
+      });
+    });
+
+    it('should successfully upload a DOCX file with octet-stream mimetype using extension validation', async () => {
+      const docxFile = {
+        ...mockFile,
+        originalname: 'test.docx',
+        mimetype: 'application/octet-stream',
+      } as Express.Multer.File;
+
+      const mockUploadResult = {
+        secure_url: 'https://cloudinary.com/test.docx',
+        public_id:
+          'test-project/dev/projects/project123/attachments/user123/file-123.docx',
+        version: '123',
+      };
+
+      (cloudinary.uploader.upload as jest.Mock).mockResolvedValue(
+        mockUploadResult,
+      );
+
+      const result = await service.uploadFile(
+        docxFile,
+        mockEntityType,
+        mockEntityId,
+        mockUploadedById,
+        mockAcceptLanguage,
+      );
+
+      expect(result).toEqual({
+        url: mockUploadResult.secure_url,
+        publicId: mockUploadResult.public_id,
+        version: mockUploadResult.version,
+      });
+    });
+
+    it('should throw BadRequestException for invalid file type', async () => {
+      const invalidFile = {
+        ...mockFile,
+        mimetype: 'application/html',
+        originalname: 'test.html',
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadFile(
+          invalidFile,
+          mockEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.invalid_file_type',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
+    it('should throw BadRequestException for octet-stream with invalid extension', async () => {
+      const invalidFile = {
+        ...mockFile,
+        mimetype: 'application/octet-stream',
+        originalname: 'test.html',
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadFile(
+          invalidFile,
+          mockEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.invalid_file_type',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
+    it('should throw BadRequestException for file too large (document)', async () => {
+      const largeFile = {
+        ...mockFile,
+        size: 11 * 1024 * 1024, // 11MB
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadFile(
+          largeFile,
+          mockEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.file_too_large',
+        { lang: mockAcceptLanguage, args: { maxSize: 10 } },
+      );
+    });
+
+    it('should throw BadRequestException for file too large (image)', async () => {
+      const largeImageFile = {
+        ...mockFile,
+        mimetype: 'image/jpeg',
+        size: 6 * 1024 * 1024, // 6MB
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadFile(
+          largeImageFile,
+          mockEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.file_too_large',
+        { lang: mockAcceptLanguage, args: { maxSize: 5 } },
+      );
+    });
+
+    it('should throw BadRequestException for missing file content', async () => {
+      const invalidFile = {
+        ...mockFile,
+        buffer: null,
+        path: null,
+      } as Express.Multer.File;
+
+      await expect(
+        service.uploadFile(
+          invalidFile,
+          mockEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.invalid_file',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
+    it('should throw BadRequestException when file is not accessible', async () => {
+      const pathFile = {
+        ...mockFile,
+        buffer: null,
+        path: '/tmp/test.pdf',
+      } as Express.Multer.File;
+
+      (fs.promises.access as jest.Mock).mockRejectedValueOnce(
+        new Error('File not accessible'),
+      );
+
+      await expect(
+        service.uploadFile(
+          pathFile,
+          mockEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.invalid_file',
+        { lang: mockAcceptLanguage },
+      );
+    });
+
+    it('should throw InternalServerErrorException when buffer upload fails', async () => {
+      (cloudinary.uploader.upload as jest.Mock).mockRejectedValue(
+        new Error('Upload failed'),
+      );
+
+      await expect(
+        service.uploadFile(
+          mockFile,
+          mockEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.upload_failed',
+        { lang: mockAcceptLanguage },
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to upload buffer to Cloudinary'),
+        expect.any(String),
+      );
+    });
+
+    it('should throw InternalServerErrorException when path upload fails', async () => {
+      const pathFile = {
+        ...mockFile,
+        buffer: null,
+        path: '/tmp/test.pdf',
+      } as Express.Multer.File;
+
+      (cloudinary.uploader.upload as jest.Mock).mockRejectedValue(
+        new Error('Upload failed'),
+      );
+
+      await expect(
+        service.uploadFile(
+          pathFile,
+          mockEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.upload_failed',
+        { lang: mockAcceptLanguage },
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to upload file to Cloudinary'),
+        expect.any(String),
+      );
+    });
+
+    it('should clean up temporary file after upload', async () => {
+      const pathFile = {
+        ...mockFile,
+        buffer: null,
+        path: '/tmp/test.pdf',
+      } as Express.Multer.File;
+
+      const mockUploadResult = {
+        secure_url: 'https://cloudinary.com/test.pdf',
+        public_id:
+          'test-project/dev/projects/project123/attachments/user123/file-123.pdf',
+        version: '123',
+      };
+
+      (cloudinary.uploader.upload as jest.Mock).mockResolvedValue(
+        mockUploadResult,
+      );
+
+      await service.uploadFile(
+        pathFile,
+        mockEntityType,
+        mockEntityId,
+        mockUploadedById,
+        mockAcceptLanguage,
+      );
+
+      expect(fs.unlink).toHaveBeenCalledWith(
+        pathFile.path,
+        expect.any(Function),
+      );
+    });
+
+    it('should handle task entity type correctly', async () => {
+      const mockUploadResult = {
+        secure_url: 'https://cloudinary.com/test.pdf',
+        public_id:
+          'test-project/dev/tasks/task123/attachments/user123/file-123.pdf',
+        version: '123',
+      };
+
+      (cloudinary.uploader.upload as jest.Mock).mockResolvedValue(
+        mockUploadResult,
+      );
+
+      const result = await service.uploadFile(
+        mockFile,
+        AttachmentEntityType.TASK,
+        'task123',
+        mockUploadedById,
+        mockAcceptLanguage,
+      );
+
+      expect(result).toEqual({
+        url: mockUploadResult.secure_url,
+        publicId: mockUploadResult.public_id,
+        version: mockUploadResult.version,
+      });
+      expect(cloudinary.uploader.upload).toHaveBeenCalledWith(
+        expect.stringContaining('data:application/pdf;base64,'),
+        {
+          public_id: expect.stringContaining(
+            'test-project/dev/tasks/task123/attachments/user123/file-',
+          ),
+          resource_type: 'auto',
+        },
+      );
+    });
+
+    it('should throw error for unsupported entity type', async () => {
+      await expect(
+        service.uploadFile(
+          mockFile,
+          'UNSUPPORTED' as AttachmentEntityType,
+          mockEntityId,
+          mockUploadedById,
+          mockAcceptLanguage,
+        ),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.upload_failed',
+        { lang: mockAcceptLanguage },
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to upload file to Cloudinary'),
+        expect.any(String),
+      );
+    });
+  });
+
+  describe('deleteFile', () => {
+    const mockPublicId =
+      'test-project/dev/projects/project123/attachments/user123/file-123.pdf';
+    const mockAcceptLanguage = 'en';
+
+    it('should successfully delete a file', async () => {
+      (cloudinary.uploader.destroy as jest.Mock).mockResolvedValue({
+        result: 'ok',
+      });
+
+      await service.deleteFile(mockPublicId, mockAcceptLanguage);
+
+      expect(cloudinary.uploader.destroy).toHaveBeenCalledWith(mockPublicId);
+    });
+
+    it('should throw InternalServerErrorException when deletion fails', async () => {
+      (cloudinary.uploader.destroy as jest.Mock).mockRejectedValue(
+        new Error('Delete failed'),
+      );
+
+      await expect(
+        service.deleteFile(mockPublicId, mockAcceptLanguage),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.cloudinary.delete_failed',
+        { lang: mockAcceptLanguage },
+      );
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to delete file from Cloudinary'),
+        expect.any(String),
+      );
+    });
   });
 
   describe('uploadImage', () => {

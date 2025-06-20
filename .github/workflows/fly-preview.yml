@@ -57,18 +57,17 @@ jobs:
           curl -L https://fly.io/install.sh | sh
           echo "$HOME/.fly/bin" >> $GITHUB_PATH
 
-      - name: Ensure shared database is running
+      - name: Check PR preview database status
         if: github.event.action != 'closed'
         run: |
-          echo "Checking if shared database is running..."
-          # Check if database is running, if not try to start it
-          if ! fly status -a red-cloud-4808 --json | jq -e '.Status == "running"' > /dev/null 2>&1; then
-            echo "Database is stopped, attempting to start it..."
-            fly pg restart -a red-cloud-4808 || echo "Failed to restart database, continuing anyway..."
-            # Wait a bit for database to start
-            sleep 30
+          echo "Checking PR preview database status..."
+          
+          if fly status -a red-cloud-4808 --json | jq -e '.Status == "running"' > /dev/null 2>&1; then
+            echo "✅ PR preview database is running"
           else
-            echo "Database is already running"
+            echo "⚠️  PR preview database is stopped"
+            echo "The PR app may fail to connect to the database"
+            echo "You may need to manually start it with: npm run preview-db:start"
           fi
 
       - name: Deploy PR app to Fly.io

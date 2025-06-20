@@ -305,13 +305,23 @@ export class CloudinaryService {
     }
   }
 
-  async uploadImage(
+  /**
+   * Upload an image to Cloudinary for user avatars
+   * Only supports image files with 5MB size limit
+   * Uses avatar-specific folder structure
+   *
+   * @param file - The image file to upload (images only)
+   * @param userId - ID of the user uploading the avatar
+   * @param acceptLanguage - Language for error messages
+   * @returns Promise with upload result containing url, publicId, and version
+   */
+  async uploadAvatar(
     file: Express.Multer.File,
     userId: string,
     acceptLanguage?: string,
   ) {
     try {
-      // Validate file type
+      // Validate file type - only images allowed for avatars
       if (!SUPPORTED_IMAGE_TYPES.includes(file.mimetype)) {
         throw new BadRequestException({
           status: 400,
@@ -322,8 +332,8 @@ export class CloudinaryService {
         });
       }
 
-      const maxSize = MAX_FILE_SIZE;
-      if (file.size > maxSize) {
+      // Check file size - 5MB limit for images
+      if (file.size > MAX_FILE_SIZE) {
         throw new BadRequestException({
           status: 400,
           code: 'CLOUDINARY.INVALID_FILE',
@@ -346,10 +356,55 @@ export class CloudinaryService {
       const timestamp = Date.now();
       const publicId = `${this.folder}/${userId}/avatar-${timestamp}`;
 
-      // Check if file exists and is readable
-      try {
-        await fs.promises.access(file.path, fs.constants.R_OK);
-      } catch (err) {
+      let result;
+
+      if (file.buffer) {
+        // Upload from buffer (memory) - convert to base64
+        try {
+          const base64Data = file.buffer.toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${base64Data}`;
+
+          result = await cloudinary.uploader.upload(dataURI, {
+            public_id: publicId,
+            resource_type: 'auto',
+          });
+        } catch (error) {
+          this.logger.error(
+            `Failed to upload buffer to Cloudinary: ${JSON.stringify({
+              userId,
+              fileSize: file?.size,
+              fileType: file?.mimetype,
+            })}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+          throw new InternalServerErrorException({
+            status: 500,
+            code: 'CLOUDINARY.UPLOAD_FAILED',
+            message: this.i18n.translate('errors.cloudinary.upload_failed', {
+              lang: acceptLanguage,
+            }),
+          });
+        }
+      } else if (file.path) {
+        // Check if file exists and is readable
+        try {
+          await fs.promises.access(file.path, fs.constants.R_OK);
+        } catch (err) {
+          throw new BadRequestException({
+            status: 400,
+            code: 'CLOUDINARY.INVALID_FILE',
+            message: this.i18n.translate('errors.cloudinary.invalid_file', {
+              lang: acceptLanguage,
+            }),
+          });
+        }
+
+        // Upload from file path
+        result = await cloudinary.uploader.upload(file.path, {
+          public_id: publicId,
+          resource_type: 'auto',
+        });
+      } else {
         throw new BadRequestException({
           status: 400,
           code: 'CLOUDINARY.INVALID_FILE',
@@ -358,11 +413,6 @@ export class CloudinaryService {
           }),
         });
       }
-
-      const result = await cloudinary.uploader.upload(file.path, {
-        public_id: publicId,
-        resource_type: 'auto',
-      });
 
       return {
         url: result.secure_url,

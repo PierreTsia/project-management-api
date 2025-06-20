@@ -42,7 +42,7 @@ describe('UsersService', () => {
   };
 
   const mockCloudinaryService = {
-    uploadImage: jest.fn(),
+    uploadAvatar: jest.fn(),
     deleteImage: jest.fn(),
     extractPublicIdFromUrl: jest.fn(),
   };
@@ -324,7 +324,7 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(userWithNewAvatar)
         .mockResolvedValueOnce(userWithNewAvatar);
       (usersRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
-      (mockCloudinaryService.uploadImage as jest.Mock).mockResolvedValue({
+      (mockCloudinaryService.uploadAvatar as jest.Mock).mockResolvedValue({
         url: newAvatarUrl,
         publicId: newPublicId,
       });
@@ -338,7 +338,7 @@ describe('UsersService', () => {
       const result = await service.uploadAvatar('user-1', mockFile);
 
       expect(result.avatarUrl).toBe(newAvatarUrl);
-      expect(mockCloudinaryService.uploadImage).toHaveBeenCalledWith(
+      expect(mockCloudinaryService.uploadAvatar).toHaveBeenCalledWith(
         mockFile,
         'user-1',
         undefined,
@@ -369,7 +369,7 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(userWithNewAvatar)
         .mockResolvedValueOnce(userWithNewAvatar);
       (usersRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
-      (mockCloudinaryService.uploadImage as jest.Mock).mockResolvedValue({
+      (mockCloudinaryService.uploadAvatar as jest.Mock).mockResolvedValue({
         url: newAvatarUrl,
         publicId: newPublicId,
       });
@@ -398,7 +398,7 @@ describe('UsersService', () => {
         userWithOldAvatar,
       );
       (usersRepository.update as jest.Mock).mockRejectedValue(uploadError);
-      (mockCloudinaryService.uploadImage as jest.Mock).mockResolvedValue({
+      (mockCloudinaryService.uploadAvatar as jest.Mock).mockResolvedValue({
         url: 'new-url',
         publicId: 'new-id',
       });

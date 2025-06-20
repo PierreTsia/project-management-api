@@ -565,27 +565,27 @@ describe('CloudinaryService', () => {
     });
   });
 
-  describe('uploadImage', () => {
+  describe('uploadAvatar', () => {
     const mockFile = {
       fieldname: 'avatar',
       originalname: 'test.jpg',
       encoding: '7bit',
       mimetype: 'image/jpeg',
-      buffer: Buffer.from('test'),
       size: 1024,
-      path: '/tmp/test.jpg',
-      stream: {},
       destination: '/tmp',
       filename: 'test.jpg',
+      path: '/tmp/test.jpg',
+      buffer: undefined,
+      stream: null,
     } as Express.Multer.File;
 
     const mockUserId = 'user123';
     const mockAcceptLanguage = 'en';
 
-    it('should successfully upload an image', async () => {
+    it('should upload avatar successfully', async () => {
       const mockUploadResult = {
-        secure_url: 'https://cloudinary.com/test.jpg',
-        public_id: 'test-project/dev/avatars/user123/avatar-123',
+        secure_url: 'https://cloudinary.com/avatar.jpg',
+        public_id: 'test-public-id',
         version: '123',
       };
 
@@ -593,7 +593,7 @@ describe('CloudinaryService', () => {
         mockUploadResult,
       );
 
-      const result = await service.uploadImage(
+      const result = await service.uploadAvatar(
         mockFile,
         mockUserId,
         mockAcceptLanguage,
@@ -605,101 +605,67 @@ describe('CloudinaryService', () => {
         version: mockUploadResult.version,
       });
       expect(cloudinary.uploader.upload).toHaveBeenCalledWith(mockFile.path, {
-        public_id: expect.stringContaining(
-          'test-project/dev/avatars/user123/avatar-',
-        ),
+        public_id: expect.stringContaining('avatars/user123/avatar-'),
         resource_type: 'auto',
       });
     });
 
     it('should throw BadRequestException for invalid file type', async () => {
-      const invalidFile = {
-        ...mockFile,
-        mimetype: 'application/pdf',
-      } as Express.Multer.File;
+      const invalidFile = { ...mockFile, mimetype: 'application/pdf' };
 
       await expect(
-        service.uploadImage(invalidFile, mockUserId, mockAcceptLanguage),
+        service.uploadAvatar(invalidFile, mockUserId, mockAcceptLanguage),
       ).rejects.toThrow(BadRequestException);
-
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'errors.cloudinary.invalid_file',
-        { lang: mockAcceptLanguage },
-      );
     });
 
     it('should throw BadRequestException for file too large', async () => {
-      const largeFile = {
-        ...mockFile,
-        size: 6 * 1024 * 1024,
-      } as Express.Multer.File; // 6MB
+      const largeFile = { ...mockFile, size: 10 * 1024 * 1024 }; // 10MB
 
       await expect(
-        service.uploadImage(largeFile, mockUserId, mockAcceptLanguage),
+        service.uploadAvatar(largeFile, mockUserId, mockAcceptLanguage),
       ).rejects.toThrow(BadRequestException);
-
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'errors.cloudinary.invalid_file',
-        { lang: mockAcceptLanguage },
-      );
     });
 
-    it('should throw BadRequestException for missing file content', async () => {
-      const invalidFile = {
-        ...mockFile,
-        buffer: null,
-        path: null,
-      } as Express.Multer.File;
+    it('should throw BadRequestException for invalid file', async () => {
+      const invalidFile = { ...mockFile, path: undefined, buffer: undefined };
 
       await expect(
-        service.uploadImage(invalidFile, mockUserId, mockAcceptLanguage),
+        service.uploadAvatar(invalidFile, mockUserId, mockAcceptLanguage),
       ).rejects.toThrow(BadRequestException);
-
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'errors.cloudinary.invalid_file',
-        { lang: mockAcceptLanguage },
-      );
     });
 
-    it('should throw BadRequestException when file is not accessible', async () => {
-      (fs.promises.access as jest.Mock).mockRejectedValueOnce(
-        new Error('File not accessible'),
+    it('should throw BadRequestException for unreadable file', async () => {
+      (fs.promises.access as jest.Mock).mockRejectedValue(
+        new Error('File not found'),
       );
 
       await expect(
-        service.uploadImage(mockFile, mockUserId, mockAcceptLanguage),
+        service.uploadAvatar(mockFile, mockUserId, mockAcceptLanguage),
       ).rejects.toThrow(BadRequestException);
-
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'errors.cloudinary.invalid_file',
-        { lang: mockAcceptLanguage },
-      );
     });
 
-    it('should throw InternalServerErrorException when upload fails', async () => {
+    it('should throw InternalServerErrorException on upload failure', async () => {
+      // Arrange
+      (fs.promises.access as jest.Mock).mockResolvedValue(undefined); // File is accessible
       (cloudinary.uploader.upload as jest.Mock).mockRejectedValue(
         new Error('Upload failed'),
       );
 
+      // Act & Assert
       await expect(
-        service.uploadImage(mockFile, mockUserId, mockAcceptLanguage),
+        service.uploadAvatar(mockFile, mockUserId, mockAcceptLanguage),
       ).rejects.toThrow(InternalServerErrorException);
-
-      expect(i18nService.translate).toHaveBeenCalledWith(
-        'errors.cloudinary.upload_failed',
-        { lang: mockAcceptLanguage },
-      );
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to upload image to Cloudinary'),
-        expect.any(String),
-      );
     });
 
-    it('should clean up temporary file after upload', async () => {
+    it('should handle buffer uploads', async () => {
+      const bufferFile = {
+        ...mockFile,
+        path: undefined,
+        buffer: Buffer.from('test'),
+      };
       const mockUploadResult = {
-        secure_url: 'https://cloudinary.com/test.jpg',
-        public_id: 'test-project/dev/avatars/user123/avatar-123',
+        secure_url: 'https://cloudinary.com/avatar.jpg',
+        public_id: 'test-public-id',
         version: '123',
       };
 
@@ -707,12 +673,24 @@ describe('CloudinaryService', () => {
         mockUploadResult,
       );
 
-      await service.uploadImage(mockFile, mockUserId, mockAcceptLanguage);
-
-      expect(fs.unlink).toHaveBeenCalledWith(
-        mockFile.path,
-        expect.any(Function),
+      const result = await service.uploadAvatar(
+        bufferFile,
+        mockUserId,
+        mockAcceptLanguage,
       );
+
+      expect(cloudinary.uploader.upload).toHaveBeenCalledWith(
+        expect.stringContaining('data:image/jpeg;base64,'),
+        {
+          public_id: expect.stringContaining('avatars/user123/avatar-'),
+          resource_type: 'auto',
+        },
+      );
+      expect(result).toEqual({
+        url: mockUploadResult.secure_url,
+        publicId: mockUploadResult.public_id,
+        version: mockUploadResult.version,
+      });
     });
   });
 

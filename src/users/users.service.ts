@@ -113,7 +113,7 @@ export class UsersService {
     }
 
     // Upload new avatar
-    const uploadResult = await this.cloudinaryService.uploadImage(
+    const uploadResult = await this.cloudinaryService.uploadAvatar(
       file,
       userId,
       acceptLanguage,

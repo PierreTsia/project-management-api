@@ -614,12 +614,12 @@ export class PaginationHelper {
 **Value:** Task workflow and assignment functionality
 
 **Definition of Done:**
-- [ ] Implement task assignment to users
+- [x] Implement task assignment to users
 - [ ] Add task status transitions (TODO → IN_PROGRESS → DONE)
 - [ ] Create task assignment endpoints
-- [ ] Add validation for status transitions
-- [ ] Implement assignee-only operations (update status)
-- [ ] Write unit tests for assignment logic
+- [x] Add validation for status transitions
+- [ ] Implement assignee-only operations (update status) - NOTE : currently the status can be updated by the upadate task dto - we should consider this as a pb ?
+- [x] Write unit tests for assignment logic
 - [ ] Write e2e tests for status transitions
 
 **Acceptance Criteria:**

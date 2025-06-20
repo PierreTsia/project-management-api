@@ -717,22 +717,22 @@ export class PaginationHelper {
 **Value:** Improved user experience and task discovery
 
 **Definition of Done:**
-- [ ] Create `SearchTasksDto` with query, status, priority, assigneeId, page, limit fields
-- [ ] Create `SearchProjectsDto` with query, status, page, limit fields
-- [ ] Implement `TaskService.searchTasks()` method using TypeORM QueryBuilder
-- [ ] Implement `ProjectService.searchProjects()` method using TypeORM QueryBuilder
-- [ ] Add search endpoints to controllers (`GET /projects/:projectId/tasks/search`, `GET /projects/search`)
-- [ ] Add validation using class-validator decorators for all search parameters
-- [ ] Implement case-insensitive text search using `ILIKE` with wildcards
-- [ ] Add filtering by status, priority, assignee (tasks) and status (projects)
-- [ ] Implement pagination with configurable page size (default: 20, max: 100)
-- [ ] Add proper ordering (newest first by default)
-- [ ] Create `PaginationHelper` utility class for consistent pagination responses
-- [ ] Write unit tests for search service methods (minimum 80% coverage)
-- [ ] Write e2e tests for search endpoints with various filter combinations
-- [ ] Test search performance with sample data
-- [ ] Add database indexes for search performance (projectId, assigneeId, status, priority)
-- [ ] Test all search scenarios manually with Postman/curl
+- [x] Create `SearchTasksDto` with query, status, priority, assigneeId, page, limit fields
+- [x] Create `SearchProjectsDto` with query, status, page, limit fields
+- [x] Implement `TaskService.searchTasks()` method using TypeORM QueryBuilder
+- [x] Implement `ProjectService.searchProjects()` method using TypeORM QueryBuilder
+- [x] Add search endpoints to controllers (`GET /projects/:projectId/tasks/search`, `GET /projects/search`)
+- [x] Add validation using class-validator decorators for all search parameters
+- [x] Implement case-insensitive text search using `ILIKE` with wildcards
+- [x] Add filtering by status, priority, assignee (tasks) and status (projects)
+- [x] Implement pagination with configurable page size (default: 20, max: 100)
+- [x] Add proper ordering (newest first by default)
+- [x] Create `PaginationHelper` utility class for consistent pagination responses
+- [x] Write unit tests for search service methods (minimum 80% coverage)
+- [x] Write tests for search endpoints with various filter combinations
+- [x] Test search performance with sample data
+- [x] Add database indexes for search performance (projectId, assigneeId, status, priority)
+- [x] Test all search scenarios manually with Postman/curl
 
 **Acceptance Criteria:**
 - Users can search tasks by title/description with case-insensitive partial matching

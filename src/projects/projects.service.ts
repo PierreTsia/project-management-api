@@ -4,13 +4,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Project, ProjectStatus } from './entities/project.entity';
 import { ProjectContributor } from './entities/project-contributor.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { AddContributorDto } from './dto/add-contributor.dto';
 import { UpdateContributorRoleDto } from './dto/update-contributor-role.dto';
+import { SearchProjectsDto } from './dto/search-projects.dto';
 import { I18nService } from 'nestjs-i18n';
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectRole } from './enums/project-role.enum';
@@ -59,10 +60,39 @@ export class ProjectsService {
     return savedProject;
   }
 
-  async findAll(ownerId: string): Promise<Project[]> {
-    this.logger.debug(`Finding all projects for user ${ownerId}`);
-    return this.projectsRepository.find({
-      where: { ownerId },
+  async findAll(userId: string): Promise<Project[]> {
+    this.logger.debug(`Finding all projects for user ${userId}`);
+
+    // Get all project IDs where user is owner or contributor
+    const userProjects = await this.projectContributorRepository
+      .createQueryBuilder('contributor')
+      .select('contributor.projectId')
+      .where('contributor.userId = :userId', { userId })
+      .getMany();
+
+    const userProjectIds = userProjects.map((c) => c.projectId);
+
+    // Also include projects where user is the owner
+    const ownedProjects = await this.projectsRepository
+      .createQueryBuilder('project')
+      .select('project.id')
+      .where('project.ownerId = :userId', { userId })
+      .getMany();
+
+    const ownedProjectIds = ownedProjects.map((p) => p.id);
+
+    // Combine both sets of project IDs (remove duplicates)
+    const accessibleProjectIds = [
+      ...new Set([...userProjectIds, ...ownedProjectIds]),
+    ];
+
+    if (accessibleProjectIds.length === 0) {
+      // User has no accessible projects
+      return [];
+    }
+
+    return await this.projectsRepository.find({
+      where: { id: In(accessibleProjectIds) },
       order: { createdAt: 'DESC' },
     });
   }
@@ -420,5 +450,96 @@ export class ProjectsService {
     this.logger.log(
       `Removed contributor ${contributorId} from project ${projectId}`,
     );
+  }
+
+  async searchProjects(
+    userId: string,
+    searchDto: SearchProjectsDto,
+  ): Promise<{
+    projects: Project[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    this.logger.debug(
+      `Searching projects for user ${userId} with filters: ${JSON.stringify(
+        searchDto,
+      )}`,
+    );
+
+    // Get all project IDs where user is owner or contributor with READ role or higher
+    const userProjects = await this.projectContributorRepository
+      .createQueryBuilder('contributor')
+      .select('contributor.projectId')
+      .where('contributor.userId = :userId', { userId })
+      .getMany();
+
+    const userProjectIds = userProjects.map((c) => c.projectId);
+
+    // Also include projects where user is the owner
+    const ownedProjects = await this.projectsRepository
+      .createQueryBuilder('project')
+      .select('project.id')
+      .where('project.ownerId = :userId', { userId })
+      .getMany();
+
+    const ownedProjectIds = ownedProjects.map((p) => p.id);
+
+    // Combine both sets of project IDs (remove duplicates)
+    const accessibleProjectIds = [
+      ...new Set([...userProjectIds, ...ownedProjectIds]),
+    ];
+
+    if (accessibleProjectIds.length === 0) {
+      // User has no accessible projects
+      return {
+        projects: [],
+        total: 0,
+        page: searchDto.page,
+        limit: searchDto.limit,
+      };
+    }
+
+    const queryBuilder = this.projectsRepository
+      .createQueryBuilder('project')
+      .leftJoinAndSelect('project.owner', 'owner')
+      .where('project.id IN (:...projectIds)', {
+        projectIds: accessibleProjectIds,
+      });
+
+    // Text search (case-insensitive)
+    if (searchDto.query) {
+      queryBuilder.andWhere(
+        '(project.name ILIKE :query OR project.description ILIKE :query)',
+        { query: `%${searchDto.query}%` },
+      );
+    }
+
+    // Status filter
+    if (searchDto.status) {
+      queryBuilder.andWhere('project.status = :status', {
+        status: searchDto.status,
+      });
+    }
+
+    // Pagination
+    const skip = (searchDto.page - 1) * searchDto.limit;
+    queryBuilder.skip(skip).take(searchDto.limit);
+
+    // Order by creation date (newest first)
+    queryBuilder.orderBy('project.createdAt', 'DESC');
+
+    const [projects, total] = await queryBuilder.getManyAndCount();
+
+    this.logger.log(
+      `Found ${projects.length} projects out of ${total} total for user ${userId}`,
+    );
+
+    return {
+      projects,
+      total,
+      page: searchDto.page,
+      limit: searchDto.limit,
+    };
   }
 }

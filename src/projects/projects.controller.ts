@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   Request,
   Headers,
   UseInterceptors,
@@ -34,6 +35,8 @@ import { ProjectRole } from './enums/project-role.enum';
 import { ProjectPermissionGuard } from './guards/project-permission.guard';
 import { RequireProjectRole } from './decorators/require-project-role.decorator';
 import { UserResponseDto } from '../users/dto/user-response.dto';
+import { SearchProjectsDto } from './dto/search-projects.dto';
+import { SearchProjectsResponseDto } from './dto/search-projects-response.dto';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -84,6 +87,39 @@ export class ProjectsController {
   async findAll(@Request() req: { user: User }): Promise<ProjectResponseDto[]> {
     const projects = await this.projectsService.findAll(req.user.id);
     return projects.map((project) => new ProjectResponseDto(project));
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search and filter projects for the current user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns filtered and paginated projects',
+    type: SearchProjectsResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - validation error',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async searchProjects(
+    @Request() req: { user: User },
+    @Query() searchDto: SearchProjectsDto,
+  ): Promise<SearchProjectsResponseDto> {
+    const result = await this.projectsService.searchProjects(
+      req.user.id,
+      searchDto,
+    );
+    return {
+      projects: result.projects.map(
+        (project) => new ProjectResponseDto(project),
+      ),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+    };
   }
 
   @Get(':id')

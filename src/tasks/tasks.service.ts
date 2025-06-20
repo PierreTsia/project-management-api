@@ -11,6 +11,7 @@ import { Task } from './entities/task.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
+import { SearchTasksDto } from './dto/search-tasks.dto';
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskStatusService } from './services/task-status.service';
@@ -232,5 +233,70 @@ export class TasksService {
       // If ProjectsService throws an error (e.g., project not found), re-throw it
       throw error;
     }
+  }
+
+  async searchTasks(
+    projectId: string,
+    searchDto: SearchTasksDto,
+  ): Promise<{ tasks: Task[]; total: number; page: number; limit: number }> {
+    this.logger.debug(
+      `Searching tasks for project ${projectId} with filters: ${JSON.stringify(
+        searchDto,
+      )}`,
+    );
+
+    const queryBuilder = this.taskRepository
+      .createQueryBuilder('task')
+      .leftJoinAndSelect('task.assignee', 'assignee')
+      .where('task.projectId = :projectId', { projectId });
+
+    // Text search (case-insensitive)
+    if (searchDto.query) {
+      queryBuilder.andWhere(
+        '(task.title ILIKE :query OR task.description ILIKE :query)',
+        { query: `%${searchDto.query}%` },
+      );
+    }
+
+    // Status filter
+    if (searchDto.status) {
+      queryBuilder.andWhere('task.status = :status', {
+        status: searchDto.status,
+      });
+    }
+
+    // Priority filter
+    if (searchDto.priority) {
+      queryBuilder.andWhere('task.priority = :priority', {
+        priority: searchDto.priority,
+      });
+    }
+
+    // Assignee filter
+    if (searchDto.assigneeId) {
+      queryBuilder.andWhere('task.assigneeId = :assigneeId', {
+        assigneeId: searchDto.assigneeId,
+      });
+    }
+
+    // Pagination
+    const skip = (searchDto.page - 1) * searchDto.limit;
+    queryBuilder.skip(skip).take(searchDto.limit);
+
+    // Order by creation date (newest first)
+    queryBuilder.orderBy('task.createdAt', 'DESC');
+
+    const [tasks, total] = await queryBuilder.getManyAndCount();
+
+    this.logger.log(
+      `Found ${tasks.length} tasks out of ${total} total for project ${projectId}`,
+    );
+
+    return {
+      tasks,
+      total,
+      page: searchDto.page,
+      limit: searchDto.limit,
+    };
   }
 }

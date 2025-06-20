@@ -506,6 +506,17 @@ describe('ProjectsService', () => {
       (contributorRepository.save as jest.Mock).mockResolvedValue(
         mockContributor,
       );
+      (contributorRepository.findOne as jest.Mock).mockImplementation(
+        (args) => {
+          if (
+            args?.where?.id === mockContributor.id &&
+            args?.relations?.includes('user')
+          ) {
+            return Promise.resolve(mockContributor);
+          }
+          return Promise.resolve(null);
+        },
+      );
 
       const result = await service.addContributor(
         projectId,

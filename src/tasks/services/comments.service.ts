@@ -7,20 +7,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { I18nService } from 'nestjs-i18n';
 import { Comment } from '../entities/comment.entity';
-import { Task } from '../entities/task.entity';
 import { CreateCommentDto } from '../dto/create-comment.dto';
 import { UpdateCommentDto } from '../dto/update-comment.dto';
 import { CommentResponseDto } from '../dto/comment-response.dto';
 import { ProjectPermissionService } from '../../projects/services/project-permission.service';
 import { ProjectRole } from '../../projects/enums/project-role.enum';
+import { TasksService } from '../tasks.service';
 
 @Injectable()
 export class CommentsService {
   constructor(
     @InjectRepository(Comment)
     private readonly commentsRepository: Repository<Comment>,
-    @InjectRepository(Task)
-    private readonly taskRepository: Repository<Task>,
+    private readonly tasksService: TasksService,
     private readonly projectPermissionService: ProjectPermissionService,
     private readonly i18n: I18nService,
   ) {}
@@ -31,8 +30,8 @@ export class CommentsService {
     createCommentDto: CreateCommentDto,
     acceptLanguage?: string,
   ): Promise<CommentResponseDto> {
-    // Check if user has permission to comment on this task
-    const task = await this.findTaskById(taskId, acceptLanguage);
+    // First get the task to validate it exists and get its projectId
+    const task = await this.tasksService.findById(taskId, acceptLanguage);
 
     const hasPermission =
       await this.projectPermissionService.hasProjectPermission(
@@ -69,8 +68,8 @@ export class CommentsService {
     userId: string,
     acceptLanguage?: string,
   ): Promise<CommentResponseDto[]> {
-    // Check if user has permission to view this task
-    const task = await this.findTaskById(taskId, acceptLanguage);
+    // First get the task to validate it exists and get its projectId
+    const task = await this.tasksService.findById(taskId, acceptLanguage);
 
     const hasPermission =
       await this.projectPermissionService.hasProjectPermission(
@@ -186,23 +185,5 @@ export class CommentsService {
     }
 
     await this.commentsRepository.remove(comment);
-  }
-
-  private async findTaskById(taskId: string, acceptLanguage?: string) {
-    const task = await this.taskRepository.findOne({
-      where: { id: taskId },
-    });
-
-    if (!task) {
-      throw new NotFoundException({
-        status: 404,
-        code: 'COMMENTS.TASK_NOT_FOUND',
-        message: this.i18n.translate('errors.comments.task_not_found', {
-          lang: acceptLanguage,
-        }),
-      });
-    }
-
-    return task;
   }
 }

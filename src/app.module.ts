@@ -15,6 +15,7 @@ import { validationSchema } from './config/validation.schema';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TasksModule } from './tasks/tasks.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
@@ -46,6 +47,7 @@ import { CustomLogger } from './common/services/logger.service';
     UsersModule,
     AuthModule,
     ProjectsModule,
+    TasksModule,
     CloudinaryModule,
     LoggerModule,
   ],

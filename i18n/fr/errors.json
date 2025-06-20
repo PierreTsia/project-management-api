@@ -4,9 +4,11 @@
     "404": "Ressource non trouvée"
   },
   "cloudinary": {
-    "invalid_file": "Format de fichier ou taille invalide. Veuillez télécharger une image JPEG, PNG ou GIF de moins de 5MB.",
-    "upload_failed": "Échec du téléchargement de l'image. Veuillez réessayer.",
-    "delete_failed": "Échec de la suppression de l'image. Veuillez réessayer."
+    "invalid_file": "Type de fichier invalide. Seules les images JPEG, PNG et GIF sont autorisées.",
+    "invalid_file_type": "Type de fichier invalide. Seuls les fichiers PDF, DOC, DOCX, TXT, CSV, XLS, XLSX et les images sont autorisés.",
+    "file_too_large": "La taille du fichier dépasse la limite maximale de {{maxSize}}MB.",
+    "upload_failed": "Échec du téléchargement du fichier. Veuillez réessayer.",
+    "delete_failed": "Échec de la suppression du fichier. Veuillez réessayer."
   },
   "project": {
     "not_found": "Projet non trouvé",
@@ -32,5 +34,10 @@
     "cannot_view_comments": "Vous n'avez pas la permission de voir les commentaires de cette tâche",
     "cannot_edit_comment": "Vous ne pouvez modifier que vos propres commentaires",
     "cannot_delete_comment": "Vous ne pouvez supprimer que vos propres commentaires"
+  },
+  "attachments": {
+    "insufficient_permissions": "Vous n'avez pas la permission d'effectuer cette action sur les pièces jointes.",
+    "not_found": "Pièce jointe introuvable.",
+    "cannot_delete": "Vous ne pouvez supprimer que vos propres pièces jointes ou vous avez besoin de permissions d'administrateur."
   }
 } 

@@ -4,9 +4,11 @@
     "404": "Resource not found"
   },
   "cloudinary": {
-    "invalid_file": "Invalid file format or size. Please upload a JPEG, PNG, or GIF image under 5MB.",
-    "upload_failed": "Failed to upload image. Please try again.",
-    "delete_failed": "Failed to delete image. Please try again."
+    "invalid_file": "Invalid file type. Only JPEG, PNG, and GIF images are allowed.",
+    "invalid_file_type": "Invalid file type. Only PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, and image files are allowed.",
+    "file_too_large": "File size exceeds the maximum limit of {{maxSize}}MB.",
+    "upload_failed": "Failed to upload file. Please try again.",
+    "delete_failed": "Failed to delete file. Please try again."
   },
   "project": {
     "not_found": "Project not found",
@@ -32,5 +34,10 @@
     "cannot_view_comments": "You do not have permission to view comments for this task",
     "cannot_edit_comment": "You can only edit your own comments",
     "cannot_delete_comment": "You can only delete your own comments"
+  },
+  "attachments": {
+    "insufficient_permissions": "You don't have permission to perform this action on attachments.",
+    "not_found": "Attachment not found.",
+    "cannot_delete": "You can only delete your own attachments or you need admin permissions."
   }
 }

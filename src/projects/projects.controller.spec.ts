@@ -79,6 +79,7 @@ describe('ProjectsController', () => {
             addContributor: jest.fn(),
             updateContributorRole: jest.fn(),
             removeContributor: jest.fn(),
+            searchProjects: jest.fn(),
           },
         },
         {
@@ -181,6 +182,38 @@ describe('ProjectsController', () => {
         }),
       );
       expect(projectsService.findAll).toHaveBeenCalledWith(mockUser.id);
+    });
+  });
+
+  describe('searchProjects', () => {
+    it('should call the service and return paginated projects', async () => {
+      const searchDto = { query: 'test', page: 1, limit: 10 };
+      const serviceResult = {
+        projects: [mockProject],
+        total: 1,
+        page: 1,
+        limit: 10,
+      };
+
+      (projectsService.searchProjects as jest.Mock).mockResolvedValue(
+        serviceResult,
+      );
+
+      const result = await controller.searchProjects(
+        { user: mockUser },
+        searchDto,
+      );
+
+      expect(projectsService.searchProjects).toHaveBeenCalledWith(
+        mockUser.id,
+        searchDto,
+      );
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(10);
+      expect(result.projects).toHaveLength(1);
+      expect(result.projects[0]).toBeInstanceOf(ProjectResponseDto);
+      expect(result.projects[0].id).toBe(mockProject.id);
     });
   });
 

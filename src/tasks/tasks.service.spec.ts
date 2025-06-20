@@ -24,6 +24,7 @@ const mockRepository = {
   findOne: jest.fn(),
   merge: jest.fn(),
   delete: jest.fn(),
+  createQueryBuilder: jest.fn(),
 };
 
 const mockI18nService = {
@@ -43,6 +44,16 @@ const mockProjectsService = {
 
 const mockTaskStatusService = {
   validateAndThrowIfInvalid: jest.fn(),
+};
+
+const mockQueryBuilder = {
+  leftJoinAndSelect: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  andWhere: jest.fn().mockReturnThis(),
+  skip: jest.fn().mockReturnThis(),
+  take: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  getManyAndCount: jest.fn(),
 };
 
 const mockTask: Task = {
@@ -603,6 +614,99 @@ describe('TasksService', () => {
       await expect(
         service.assignTask('missing', 'project-1', assigneeId, 'en-US'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('searchTasks', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      (mockRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockQueryBuilder,
+      );
+    });
+
+    it('should search tasks with multiple filters', async () => {
+      const projectId = 'project-1';
+      const searchDto = {
+        query: 'test',
+        status: TaskStatus.IN_PROGRESS,
+        priority: TaskPriority.HIGH,
+        assigneeId: 'user-1',
+        page: 1,
+        limit: 10,
+      };
+      const tasks = [mockTask];
+
+      (mockQueryBuilder.getManyAndCount as jest.Mock).mockResolvedValue([
+        tasks,
+        1,
+      ]);
+
+      const result = await service.searchTasks(projectId, searchDto);
+
+      expect(result).toEqual({ tasks, total: 1, page: 1, limit: 10 });
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith('task');
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'task.projectId = :projectId',
+        { projectId },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        '(task.title ILIKE :query OR task.description ILIKE :query)',
+        { query: `%${searchDto.query}%` },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'task.status = :status',
+        { status: searchDto.status },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'task.priority = :priority',
+        { priority: searchDto.priority },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'task.assigneeId = :assigneeId',
+        { assigneeId: searchDto.assigneeId },
+      );
+      expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(10);
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
+        'task.createdAt',
+        'DESC',
+      );
+    });
+
+    it('should handle search with no filters', async () => {
+      const projectId = 'project-1';
+      const searchDto = { page: 2, limit: 20 };
+      const tasks = [mockTask, { ...mockTask, id: 'task-2' }];
+
+      (mockQueryBuilder.getManyAndCount as jest.Mock).mockResolvedValue([
+        tasks,
+        2,
+      ]);
+
+      const result = await service.searchTasks(projectId, searchDto);
+
+      expect(result).toEqual({ tasks, total: 2, page: 2, limit: 20 });
+      expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining('ILIKE'),
+        expect.any(Object),
+      );
+      expect(mockQueryBuilder.skip).toHaveBeenCalledWith(20);
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(20);
+    });
+
+    it('should return empty results when no tasks match', async () => {
+      const projectId = 'project-1';
+      const searchDto = { query: 'nonexistent', page: 1, limit: 10 };
+
+      (mockQueryBuilder.getManyAndCount as jest.Mock).mockResolvedValue([
+        [],
+        0,
+      ]);
+
+      const result = await service.searchTasks(projectId, searchDto);
+
+      expect(result).toEqual({ tasks: [], total: 0, page: 1, limit: 10 });
     });
   });
 });

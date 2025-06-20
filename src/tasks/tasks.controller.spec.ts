@@ -45,6 +45,7 @@ describe('TasksController', () => {
             remove: jest.fn(),
             updateStatus: jest.fn(),
             assignTask: jest.fn(),
+            searchTasks: jest.fn(),
           },
         },
       ],
@@ -124,6 +125,34 @@ describe('TasksController', () => {
         }),
       );
       expect(tasksService.findAll).toHaveBeenCalledWith(projectId);
+    });
+  });
+
+  describe('searchTasks', () => {
+    it('should call the service and return paginated tasks', async () => {
+      const projectId = 'project-1';
+      const searchDto = { query: 'test', page: 1, limit: 10 };
+      const serviceResult = {
+        tasks: [mockTask],
+        total: 1,
+        page: 1,
+        limit: 10,
+      };
+
+      (tasksService.searchTasks as jest.Mock).mockResolvedValue(serviceResult);
+
+      const result = await controller.searchTasks(projectId, searchDto);
+
+      expect(tasksService.searchTasks).toHaveBeenCalledWith(
+        projectId,
+        searchDto,
+      );
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(10);
+      expect(result.tasks).toHaveLength(1);
+      expect(result.tasks[0]).toBeInstanceOf(TaskResponseDto);
+      expect(result.tasks[0].id).toBe(mockTask.id);
     });
   });
 

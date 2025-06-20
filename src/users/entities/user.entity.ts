@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { RefreshToken } from '../../auth/entities/refresh-token.entity';
 
 @Entity('users')
@@ -22,6 +23,7 @@ export class User {
   @Column({ nullable: true })
   providerId?: string;
 
+  @Exclude()
   @Column({ nullable: true })
   password?: string;
 
@@ -43,18 +45,22 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Exclude()
   @Column({ nullable: true })
   emailConfirmationToken?: string;
 
   @Column({ default: false })
   isEmailConfirmed: boolean;
 
+  @Exclude()
   @Column({ nullable: true })
   passwordResetExpires?: Date;
 
+  @Exclude()
   @Column({ nullable: true })
   passwordResetToken?: string;
 
+  @Exclude()
   @Column({ nullable: true })
   emailConfirmationExpires?: Date;
 

@@ -76,6 +76,23 @@ export class TasksService {
     return task;
   }
 
+  async findById(id: string, acceptLanguage?: string): Promise<Task> {
+    this.logger.debug(`Finding task with id: ${id}`);
+    const task = await this.taskRepository.findOne({
+      where: { id },
+    });
+    if (!task) {
+      this.logger.warn(`Task not found with id: ${id}`);
+      throw new NotFoundException(
+        this.i18n.t('errors.tasks.task_not_found', {
+          lang: acceptLanguage,
+          args: { id, projectId: 'unknown' },
+        }),
+      );
+    }
+    return task;
+  }
+
   async update(
     id: string,
     projectId: string,

@@ -309,11 +309,19 @@ export class ProjectsService {
     const savedContributor =
       await this.projectContributorRepository.save(contributor);
 
+    // Load the contributor with user relation for the response
+    const contributorWithUser = await this.projectContributorRepository.findOne(
+      {
+        where: { id: savedContributor.id },
+        relations: ['user'],
+      },
+    );
+
     this.logger.log(
       `Added contributor ${user.id} with role ${addContributorDto.role} to project ${projectId}`,
     );
 
-    return savedContributor;
+    return contributorWithUser;
   }
 
   async updateContributorRole(

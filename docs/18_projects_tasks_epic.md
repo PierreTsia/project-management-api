@@ -781,11 +781,11 @@ DELETE /api/v1/projects/:projectId/tasks/:taskId/attachments/:attachmentId - Del
 
 **Definition of Done:**
 - [ ] Create `ProjectSnapshot` entity with daily metrics storage
+- [ ] Add migration for project_snapshots table
 - [ ] Create `ProjectSnapshotService` with daily cron job for snapshot generation
 - [ ] Implement `getProjectProgress()` method that combines real-time + snapshot data
 - [ ] Add `GET /projects/:id/progress` endpoint to `ProjectsController`
 - [ ] Create `ProjectProgressDto` with current stats, trends, and recent activity
-- [ ] Add migration for project_snapshots table
 - [ ] Write unit tests for snapshot generation and progress calculation
 - [ ] Write e2e tests for progress endpoint
 - [ ] Test progress calculation with sample data

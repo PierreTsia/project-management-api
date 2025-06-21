@@ -63,22 +63,53 @@ describe('DateUtils', () => {
     it('should return correct week number for first week of year', () => {
       const date = new Date('2024-01-01'); // First day of year
       const result = DateUtils.getWeekNumber(date);
+      expect(result).toBe('2024-W01');
+    });
 
+    it('should return correct week number for January 4th (always week 1)', () => {
+      const date = new Date('2024-01-04'); // January 4th
+      const result = DateUtils.getWeekNumber(date);
       expect(result).toBe('2024-W01');
     });
 
     it('should return correct week number for middle of year', () => {
       const date = new Date('2024-06-15'); // Middle of year
       const result = DateUtils.getWeekNumber(date);
-
       expect(result).toMatch(/^2024-W\d{2}$/);
     });
 
     it('should return correct week number for end of year', () => {
       const date = new Date('2024-12-31'); // Last day of year
       const result = DateUtils.getWeekNumber(date);
+      // December 31 can be in week 1 of the next year according to ISO 8601
+      expect(result).toMatch(/^(2024|2025)-W\d{2}$/);
+    });
 
-      expect(result).toMatch(/^2024-W\d{2}$/);
+    it('should handle year boundary correctly (December 31, 2023)', () => {
+      const date = new Date('2023-12-31'); // Last day of 2023
+      const result = DateUtils.getWeekNumber(date);
+      // Should be week 1 of 2024 if it's a Monday, or last week of 2023
+      expect(result).toMatch(/^(2023|2024)-W\d{2}$/);
+    });
+
+    it('should handle year boundary correctly (January 1, 2024)', () => {
+      const date = new Date('2024-01-01'); // First day of 2024
+      const result = DateUtils.getWeekNumber(date);
+      // Should be week 1 of 2024
+      expect(result).toBe('2024-W01');
+    });
+
+    it('should be consistent for same week dates', () => {
+      const monday = new Date('2024-01-01'); // Monday
+      const wednesday = new Date('2024-01-03'); // Wednesday
+      const sunday = new Date('2024-01-07'); // Sunday
+
+      const mondayWeek = DateUtils.getWeekNumber(monday);
+      const wednesdayWeek = DateUtils.getWeekNumber(wednesday);
+      const sundayWeek = DateUtils.getWeekNumber(sunday);
+
+      expect(mondayWeek).toBe(wednesdayWeek);
+      expect(wednesdayWeek).toBe(sundayWeek);
     });
   });
 

@@ -24,17 +24,32 @@ export class DateUtils {
 
   /**
    * Gets the ISO week number for a given date (YYYY-WW format)
+   * Uses ISO 8601 standard: weeks start on Monday, week 1 is the week containing January 4th
    */
   static getWeekNumber(date: Date): string {
-    const year = date.getFullYear();
-    const week = Math.ceil(
-      (date.getTime() - new Date(year, 0, 1).getTime()) /
-        (DAYS_IN_WEEK *
-          HOURS_IN_DAY *
-          MINUTES_IN_HOUR *
-          SECONDS_IN_MINUTE *
-          MILLISECONDS_IN_SECOND),
-    );
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+
+    // Thursday in current week decides the year
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+
+    // January 4 is always in week 1
+    const week1 = new Date(d.getFullYear(), 0, 4);
+    week1.setHours(0, 0, 0, 0);
+
+    // Adjust to Thursday in week 1
+    week1.setDate(week1.getDate() + 3 - ((week1.getDay() + 6) % 7));
+
+    const millisecondsInWeek =
+      DAYS_IN_WEEK *
+      HOURS_IN_DAY *
+      MINUTES_IN_HOUR *
+      SECONDS_IN_MINUTE *
+      MILLISECONDS_IN_SECOND;
+    const week =
+      Math.floor((d.getTime() - week1.getTime()) / millisecondsInWeek) + 1;
+    const year = d.getFullYear();
+
     return `${year}-W${week.toString().padStart(2, '0')}`;
   }
 

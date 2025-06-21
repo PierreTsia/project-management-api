@@ -717,14 +717,14 @@ DELETE /api/v1/projects/:projectId/tasks/:taskId/attachments/:attachmentId - Del
 **Value:** Team management and role administration
 
 **Definition of Done:**
-- [ ] Create contributor management endpoints (add, remove, update role)
-- [ ] Implement role change validation (only owners/admins can change roles)
-- [ ] Add contributor listing endpoint
-- [ ] Create DTOs for contributor operations
-- [ ] Add validation for role changes
-- [ ] Write unit tests for contributor management
-- [ ] Write e2e tests for role changes
-- [ ] Test all role-based permissions
+- [x] Create contributor management endpoints (add, remove, update role)
+- [x] Implement role change validation (only owners/admins can change roles)
+- [x] Add contributor listing endpoint
+- [x] Create DTOs for contributor operations
+- [x] Add validation for role changes
+- [x] Write unit tests for contributor management
+- [x] Write e2e tests for role changes
+- [x] Test all role-based permissions
 
 **Acceptance Criteria:**
 - Project owners can add/remove contributors
@@ -780,13 +780,15 @@ DELETE /api/v1/projects/:projectId/tasks/:taskId/attachments/:attachmentId - Del
 **Value:** Project insights and progress tracking
 
 **Definition of Done:**
-- [ ] Create project progress endpoint (task completion stats)
-- [ ] Implement contributor activity metrics
-- [ ] Add project overview statistics
-- [ ] Create reporting DTOs
-- [ ] Write unit tests for reporting logic
-- [ ] Write e2e tests for reporting endpoints
-- [ ] Test reporting with sample data
+- [ ] Create `ProjectSnapshot` entity with daily metrics storage
+- [ ] Create `ProjectSnapshotService` with daily cron job for snapshot generation
+- [ ] Implement `getProjectProgress()` method that combines real-time + snapshot data
+- [ ] Add `GET /projects/:id/progress` endpoint to `ProjectsController`
+- [ ] Create `ProjectProgressDto` with current stats, trends, and recent activity
+- [ ] Add migration for project_snapshots table
+- [ ] Write unit tests for snapshot generation and progress calculation
+- [ ] Write e2e tests for progress endpoint
+- [ ] Test progress calculation with sample data
 
 **Acceptance Criteria:**
 - Project owners can view completion statistics
@@ -795,53 +797,250 @@ DELETE /api/v1/projects/:projectId/tasks/:taskId/attachments/:attachmentId - Del
 - Data is calculated correctly
 - Performance is acceptable
 
----
+**Technical Design:**
 
-#### Task 5.2: API Documentation & Final Testing
-**Estimated Time:** 1-2 hours  
-**Dependencies:** All previous tasks  
-**Value:** Production readiness and developer experience
+### Project Snapshot Entity
+```typescript
+@Entity('project_snapshots')
+export class ProjectSnapshot {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-**Definition of Done:**
-- [ ] Add Swagger/OpenAPI documentation
-- [ ] Create comprehensive API documentation
-- [ ] Perform end-to-end testing of all features
-- [ ] Fix any discovered bugs
-- [ ] Optimize database queries
-- [ ] Add rate limiting if needed
-- [ ] Create deployment checklist
+  @Column({ name: 'project_id' })
+  projectId: string;
 
-**Acceptance Criteria:**
-- All API endpoints are documented
-- Documentation is accurate and helpful
-- All features work correctly together
-- Performance meets requirements
-- Code is production-ready
+  @Column({ name: 'snapshot_date', type: 'date' })
+  snapshotDate: Date;
 
----
+  // Task metrics
+  @Column({ name: 'total_tasks', default: 0 })
+  totalTasks: number;
 
-## Implementation Notes
+  @Column({ name: 'completed_tasks', default: 0 })
+  completedTasks: number;
 
-### Priority Order
-1. **Start with Phase 1** - Foundation is critical
-2. **Complete each task fully** before moving to the next
-3. **Test thoroughly** at each step
-4. **Commit frequently** with descriptive messages
+  @Column({ name: 'in_progress_tasks', default: 0 })
+  inProgressTasks: number;
 
-### Testing Strategy
-- **Unit tests** for all services and utilities
-- **E2E tests** for all controller endpoints
-- **Manual testing** with Postman/curl for each task
-- **Integration testing** between related features
+  @Column({ name: 'todo_tasks', default: 0 })
+  todoTasks: number;
 
-### Database Migrations
-- Create migrations for each entity
-- Test migrations on clean database
-- Include rollback scripts if needed
+  @Column({ name: 'new_tasks_today', default: 0 })
+  newTasksToday: number;
 
-### Security Considerations
-- Validate all inputs
-- Check permissions at service level
-- Use proper error handling
-- Sanitize user data
+  @Column({ name: 'completed_tasks_today', default: 0 })
+  completedTasksToday: number;
 
+  // Activity metrics
+  @Column({ name: 'comments_added_today', default: 0 })
+  commentsAddedToday: number;
+
+  @Column({ name: 'attachments_uploaded_today', default: 0 })
+  attachmentsUploadedToday: number;
+
+  // Calculated fields
+  @Column({ name: 'completion_percentage', type: 'decimal', precision: 5, scale: 2, default: 0 })
+  completionPercentage: number;
+
+  @CreateDateColumn()
+  createdAt: Date;
+}
+```
+
+### Project Progress DTO
+```typescript
+interface ProjectProgressDto {
+  // Current stats (real-time)
+  current: {
+    totalTasks: number;
+    completedTasks: number;
+    inProgressTasks: number;
+    todoTasks: number;
+    completionPercentage: number;
+  };
+  
+  // Historical trends (from snapshots)
+  trends: {
+    daily: Array<{
+      date: string; // YYYY-MM-DD
+      totalTasks: number;
+      completedTasks: number;
+      newTasks: number;
+      completionRate: number;
+      commentsAdded: number;
+    }>;
+    
+    weekly: Array<{
+      week: string; // YYYY-WW
+      totalTasks: number;
+      completedTasks: number;
+      newTasks: number;
+      completionRate: number;
+    }>;
+  };
+  
+  // Recent activity (last 7 days)
+  recentActivity: {
+    tasksCreated: number;
+    tasksCompleted: number;
+    commentsAdded: number;
+    attachmentsUploaded: number;
+  };
+}
+```
+
+### Snapshot Service with Cron Job
+```typescript
+@Injectable()
+export class ProjectSnapshotService {
+  constructor(
+    @InjectRepository(ProjectSnapshot)
+    private snapshotRepository: Repository<ProjectSnapshot>,
+    private projectsService: ProjectsService,
+    private tasksService: TasksService,
+    private commentsService: CommentsService,
+    private attachmentsService: AttachmentsService,
+    private logger: CustomLogger,
+  ) {
+    this.logger.setContext('ProjectSnapshotService');
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async generateDailySnapshots() {
+    this.logger.log('Starting daily project snapshots generation...');
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    try {
+      const projects = await this.projectsService.findAllActive();
+
+      for (const project of projects) {
+        await this.generateSnapshotForProject(project.id, today);
+      }
+
+      this.logger.log(`Generated snapshots for ${projects.length} projects`);
+    } catch (error) {
+      this.logger.error('Error generating daily snapshots', error.stack);
+    }
+  }
+
+  private async generateSnapshotForProject(projectId: string, date: Date) {
+    // Calculate all metrics for the project using services
+    const metrics = await this.calculateProjectMetrics(projectId, date);
+    
+    // Save or update snapshot
+    await this.snapshotRepository.save({
+      projectId,
+      snapshotDate: date,
+      ...metrics,
+    });
+  }
+
+  private async calculateProjectMetrics(projectId: string, date: Date) {
+    // Use services to get data instead of direct repository access
+    const tasks = await this.tasksService.findAll(projectId);
+    const todayStart = new Date(date);
+    const todayEnd = new Date(date);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Calculate all metrics in a single pass through the tasks array
+    const metrics = tasks.reduce((acc, task) => {
+      // Count by status
+      switch (task.status) {
+        case TaskStatus.DONE:
+          acc.completedTasks++;
+          break;
+        case TaskStatus.IN_PROGRESS:
+          acc.inProgressTasks++;
+          break;
+        case TaskStatus.TODO:
+          acc.todoTasks++;
+          break;
+      }
+
+      // Count today's activity
+      if (task.createdAt >= todayStart && task.createdAt <= todayEnd) {
+        acc.newTasksToday++;
+      }
+
+      if (task.status === TaskStatus.DONE && 
+          task.updatedAt >= todayStart && task.updatedAt <= todayEnd) {
+        acc.completedTasksToday++;
+      }
+
+      return acc;
+    }, {
+      totalTasks: tasks.length,
+      completedTasks: 0,
+      inProgressTasks: 0,
+      todoTasks: 0,
+      newTasksToday: 0,
+      completedTasksToday: 0,
+    });
+
+    // Calculate completion percentage
+    const completionPercentage = metrics.totalTasks > 0 
+      ? (metrics.completedTasks / metrics.totalTasks) * 100 
+      : 0;
+
+    // Get today's comments and attachments (would need service methods)
+    const commentsAddedToday = await this.getCommentsCountForDate(projectId, todayStart, todayEnd);
+    const attachmentsUploadedToday = await this.getAttachmentsCountForDate(projectId, todayStart, todayEnd);
+
+    return {
+      ...metrics,
+      commentsAddedToday,
+      attachmentsUploadedToday,
+      completionPercentage,
+    };
+  }
+
+  private async getCommentsCountForDate(projectId: string, start: Date, end: Date): Promise<number> {
+    // This would need a method in CommentsService to get comments by project and date range
+    // For now, placeholder implementation
+    return 0;
+  }
+
+  private async getAttachmentsCountForDate(projectId: string, start: Date, end: Date): Promise<number> {
+    // This would need a method in AttachmentsService to get attachments by project and date range
+    // For now, placeholder implementation
+    return 0;
+  }
+}
+```
+
+### API Endpoints
+```
+GET /projects/:id/progress - Get current project progress
+GET /projects/:id/progress?include=trends&days=30 - Include historical trends
+GET /projects/:id/progress?include=activity&days=7 - Include recent activity
+```
+
+### Implementation Steps
+1. **Create migration** for `project_snapshots` table
+2. **Create `ProjectSnapshot` entity**
+3. **Create `ProjectSnapshotService`** with cron job
+4. **Add `getProjectProgress()` method** that combines real-time + snapshot data
+5. **Add progress endpoint** to `ProjectsController`
+6. **Write tests** for snapshot generation and progress calculation
+
+### Required Service Methods
+To support the snapshot functionality, we need to add these methods to existing services:
+
+#### ProjectsService
+- `findAllActive()` - Get all active projects for snapshot generation
+
+#### CommentsService  
+- `getCommentsCountForProjectAndDateRange(projectId, startDate, endDate)` - Count comments for a project within a date range
+
+#### AttachmentsService
+- `getAttachmentsCountForProjectAndDateRange(projectId, startDate, endDate)` - Count attachments for a project within a date range
+
+### Benefits of Snapshot Approach
+1. **Fast Queries:** Dashboard loads instantly from pre-calculated snapshots
+2. **Historical Data:** Perfect for trend analysis and charts
+3. **Scalable:** Cron job runs once per day, not on every request
+4. **Consistent:** All users see the same data for a given day
+5. **Extensible:** Easy to add new metrics without changing API
+6. **Service-based:** Follows established patterns in the codebase

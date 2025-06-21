@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ProjectSnapshot } from '../entities/project-snapshot.entity';
-import { ProjectsService } from '../projects.service';
+import { ProjectsService } from '../../projects/projects.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { CommentsService } from '../../tasks/services/comments.service';
 import { AttachmentsService } from '../../attachments/attachments.service';

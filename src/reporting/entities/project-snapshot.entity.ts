@@ -6,7 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Project } from './project.entity';
+import { Project } from '../../projects/entities/project.entity';
 
 @Entity('project_snapshots')
 export class ProjectSnapshot {
@@ -55,10 +55,11 @@ export class ProjectSnapshot {
   })
   completionPercentage: number;
 
+  @CreateDateColumn()
+  createdAt: Date;
+
+  // Relationships
   @ManyToOne(() => Project, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'project_id' })
   project: Project;
-
-  @CreateDateColumn()
-  createdAt: Date;
 }

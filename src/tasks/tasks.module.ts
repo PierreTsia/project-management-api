@@ -13,6 +13,6 @@ import { TaskStatusService } from './services/task-status.service';
   imports: [TypeOrmModule.forFeature([Task, Comment]), ProjectsModule],
   controllers: [TasksController, CommentsController],
   providers: [TasksService, CommentsService, TaskStatusService],
-  exports: [TasksService],
+  exports: [TasksService, CommentsService],
 })
 export class TasksModule {}

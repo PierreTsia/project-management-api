@@ -780,8 +780,8 @@ DELETE /api/v1/projects/:projectId/tasks/:taskId/attachments/:attachmentId - Del
 **Value:** Project insights and progress tracking
 
 **Definition of Done:**
-- [ ] Create `ProjectSnapshot` entity with daily metrics storage
-- [ ] Add migration for project_snapshots table
+- [x] Create `ProjectSnapshot` entity with daily metrics storage
+- [x] Add migration for project_snapshots table
 - [ ] Create `ProjectSnapshotService` with daily cron job for snapshot generation
 - [ ] Implement `getProjectProgress()` method that combines real-time + snapshot data
 - [ ] Add `GET /projects/:id/progress` endpoint to `ProjectsController`

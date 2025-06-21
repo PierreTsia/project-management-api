@@ -9,6 +9,12 @@ import { AttachmentsService } from '../../attachments/attachments.service';
 import { CustomLogger } from '../../common/services/logger.service';
 import { TaskStatus } from '../../tasks/enums/task-status.enum';
 
+// Test type for snapshots without entity relationships
+type TestSnapshot = Omit<ProjectSnapshot, 'project' | 'createdAt'> & {
+  createdAt?: Date;
+  project?: any;
+};
+
 describe('ProjectSnapshotService', () => {
   let service: ProjectSnapshotService;
 
@@ -16,6 +22,7 @@ describe('ProjectSnapshotService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+    createQueryBuilder: jest.fn(),
     manager: {
       getRepository: jest.fn(),
     },
@@ -70,6 +77,21 @@ describe('ProjectSnapshotService', () => {
     updatedAt: new Date('2024-01-01T00:00:00Z'),
   };
 
+  const mockSnapshot: TestSnapshot = {
+    id: 'snapshot-1',
+    projectId: 'project-1',
+    snapshotDate: new Date('2024-01-15'),
+    totalTasks: 1,
+    completedTasks: 0,
+    inProgressTasks: 0,
+    todoTasks: 1,
+    newTasksToday: 0,
+    completedTasksToday: 0,
+    commentsAddedToday: 5,
+    attachmentsUploadedToday: 3,
+    completionPercentage: 0,
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -115,20 +137,7 @@ describe('ProjectSnapshotService', () => {
     mockAttachmentsService.getAttachmentsCountForProjectAndDateRange.mockResolvedValue(
       3,
     );
-    mockSnapshotRepository.save.mockResolvedValue({
-      id: 'snapshot-1',
-      projectId: 'project-1',
-      snapshotDate: new Date('2024-01-15'),
-      totalTasks: 1,
-      completedTasks: 0,
-      inProgressTasks: 0,
-      todoTasks: 1,
-      newTasksToday: 0,
-      completedTasksToday: 0,
-      commentsAddedToday: 5,
-      attachmentsUploadedToday: 3,
-      completionPercentage: 0,
-    });
+    mockSnapshotRepository.save.mockResolvedValue(mockSnapshot);
   });
 
   afterEach(() => {
@@ -204,367 +213,401 @@ describe('ProjectSnapshotService', () => {
     });
   });
 
-  describe('calculateProjectMetrics', () => {
-    it('should calculate metrics correctly for a project with various task statuses', async () => {
+  describe('generateHistoricalSnapshots', () => {
+    it('should generate historical snapshots for specified days', async () => {
       // Arrange
       const projectId = 'project-1';
-      const date = new Date('2024-01-15');
-      const tasks = [
-        {
-          ...mockTask,
-          status: TaskStatus.DONE,
-          updatedAt: new Date('2024-01-15T12:00:00Z'),
-        },
-        {
-          ...mockTask,
-          id: 'task-2',
-          status: TaskStatus.IN_PROGRESS,
-          createdAt: new Date('2024-01-14T10:00:00Z'),
-        },
-        {
-          ...mockTask,
-          id: 'task-3',
-          status: TaskStatus.TODO,
-          createdAt: new Date('2024-01-14T10:00:00Z'),
-        },
-        {
-          ...mockTask,
-          id: 'task-4',
-          status: TaskStatus.TODO,
-          createdAt: new Date('2024-01-15T14:00:00Z'),
-        },
-      ];
-
-      mockTasksService.findAll.mockResolvedValue(tasks);
+      const days = 3;
+      mockSnapshotRepository.findOne.mockResolvedValue(null); // No existing snapshots
 
       // Act
-      const result = await (service as any).calculateProjectMetrics(
-        projectId,
-        date,
-      );
+      await service.generateHistoricalSnapshots(projectId, days);
 
       // Assert
-      expect(result.totalTasks).toBe(4);
-      expect(result.completedTasks).toBe(1);
-      expect(result.inProgressTasks).toBe(1);
-      expect(result.todoTasks).toBe(2);
-      expect(result.newTasksToday).toBe(1);
-      expect(result.completedTasksToday).toBe(1);
-      expect(result.completionPercentage).toBe(25);
-      expect(result.commentsAddedToday).toBe(5);
-      expect(result.attachmentsUploadedToday).toBe(3);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Generating historical snapshots for project ${projectId} for the past ${days} days`,
+      );
+      expect(mockSnapshotRepository.save).toHaveBeenCalledTimes(days);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Historical snapshots generation completed for project ${projectId}`,
+      );
     });
 
-    it('should handle empty task list', async () => {
+    it('should handle errors during historical snapshot generation', async () => {
       // Arrange
       const projectId = 'project-1';
-      const date = new Date('2024-01-15');
-      mockTasksService.findAll.mockResolvedValue([]);
-
-      // Act
-      const result = await (service as any).calculateProjectMetrics(
-        projectId,
-        date,
-      );
-
-      // Assert
-      expect(result.totalTasks).toBe(0);
-      expect(result.completedTasks).toBe(0);
-      expect(result.inProgressTasks).toBe(0);
-      expect(result.todoTasks).toBe(0);
-      expect(result.newTasksToday).toBe(0);
-      expect(result.completedTasksToday).toBe(0);
-      expect(result.completionPercentage).toBe(0);
-    });
-
-    it('should calculate completion percentage correctly', async () => {
-      // Arrange
-      const projectId = 'project-1';
-      const date = new Date('2024-01-15');
-      const tasks = [
-        { ...mockTask, status: TaskStatus.DONE },
-        { ...mockTask, id: 'task-2', status: TaskStatus.DONE },
-        { ...mockTask, id: 'task-3', status: TaskStatus.IN_PROGRESS },
-      ];
-
-      mockTasksService.findAll.mockResolvedValue(tasks);
-
-      // Act
-      const result = await (service as any).calculateProjectMetrics(
-        projectId,
-        date,
-      );
-
-      // Assert
-      expect(result.totalTasks).toBe(3);
-      expect(result.completedTasks).toBe(2);
-      expect(result.completionPercentage).toBeCloseTo(66.67, 1);
-    });
-  });
-
-  describe('getCommentsCountForDate', () => {
-    it('should return comments count successfully', async () => {
-      // Arrange
-      const projectId = 'project-1';
-      const startDate = new Date('2024-01-15T00:00:00Z');
-      const endDate = new Date('2024-01-15T23:59:59Z');
-      const expectedCount = 10;
-
-      mockCommentsService.getCommentsCountForProjectAndDateRange.mockResolvedValue(
-        expectedCount,
+      const days = 3;
+      mockTasksService.findAll.mockRejectedValueOnce(
+        new Error('Database error'),
       );
 
       // Act
-      const result = await (service as any).getCommentsCountForDate(
-        projectId,
-        startDate,
-        endDate,
-      );
+      await service.generateHistoricalSnapshots(projectId, days);
 
       // Assert
-      expect(result).toBe(expectedCount);
-      expect(
-        mockCommentsService.getCommentsCountForProjectAndDateRange,
-      ).toHaveBeenCalledWith(projectId, startDate, endDate);
-    });
-
-    it('should return 0 when comments service throws an error', async () => {
-      // Arrange
-      const projectId = 'project-1';
-      const startDate = new Date('2024-01-15T00:00:00Z');
-      const endDate = new Date('2024-01-15T23:59:59Z');
-
-      mockCommentsService.getCommentsCountForProjectAndDateRange.mockRejectedValue(
-        new Error('Comments service error'),
-      );
-
-      // Act
-      const result = await (service as any).getCommentsCountForDate(
-        projectId,
-        startDate,
-        endDate,
-      );
-
-      // Assert
-      expect(result).toBe(0);
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to get comments count for project project-1:',
+        expect.stringContaining('Failed to generate snapshot for'),
         expect.any(String),
       );
-    });
-  });
-
-  describe('getAttachmentsCountForDate', () => {
-    it('should return attachments count successfully', async () => {
-      // Arrange
-      const projectId = 'project-1';
-      const startDate = new Date('2024-01-15T00:00:00Z');
-      const endDate = new Date('2024-01-15T23:59:59Z');
-      const expectedCount = 7;
-
-      mockAttachmentsService.getAttachmentsCountForProjectAndDateRange.mockResolvedValue(
-        expectedCount,
-      );
-
-      // Act
-      const result = await (service as any).getAttachmentsCountForDate(
-        projectId,
-        startDate,
-        endDate,
-      );
-
-      // Assert
-      expect(result).toBe(expectedCount);
-      expect(
-        mockAttachmentsService.getAttachmentsCountForProjectAndDateRange,
-      ).toHaveBeenCalledWith(projectId, startDate, endDate);
-    });
-
-    it('should return 0 when attachments service throws an error', async () => {
-      // Arrange
-      const projectId = 'project-1';
-      const startDate = new Date('2024-01-15T00:00:00Z');
-      const endDate = new Date('2024-01-15T23:59:59Z');
-
-      mockAttachmentsService.getAttachmentsCountForProjectAndDateRange.mockRejectedValue(
-        new Error('Attachments service error'),
-      );
-
-      // Act
-      const result = await (service as any).getAttachmentsCountForDate(
-        projectId,
-        startDate,
-        endDate,
-      );
-
-      // Assert
-      expect(result).toBe(0);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to get attachments count for project project-1:',
-        expect.any(String),
-      );
-    });
-  });
-
-  describe('generateSnapshotForProject', () => {
-    it('should generate and save snapshot successfully', async () => {
-      // Arrange
-      const projectId = 'project-1';
-      const date = new Date('2024-01-15');
-      const expectedSnapshot = {
-        id: 'snapshot-1',
-        projectId,
-        snapshotDate: date,
-        totalTasks: 1,
-        completedTasks: 0,
-        inProgressTasks: 0,
-        todoTasks: 1,
-        newTasksToday: 0,
-        completedTasksToday: 0,
-        commentsAddedToday: 5,
-        attachmentsUploadedToday: 3,
-        completionPercentage: 0,
-      };
-
-      mockSnapshotRepository.findOne.mockResolvedValue(null);
-      mockSnapshotRepository.save.mockResolvedValue(expectedSnapshot);
-
-      // Act
-      await (service as any).generateSnapshotForProject(projectId, date);
-
-      // Assert
-      expect(mockSnapshotRepository.save).toHaveBeenCalledWith({
-        projectId,
-        snapshotDate: date,
-        totalTasks: 1,
-        completedTasks: 0,
-        inProgressTasks: 0,
-        todoTasks: 1,
-        newTasksToday: 0,
-        completedTasksToday: 0,
-        commentsAddedToday: 5,
-        attachmentsUploadedToday: 3,
-        completionPercentage: 0,
-      });
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Created new snapshot for project ${projectId} with ID: ${expectedSnapshot.id}`,
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        `Historical snapshots generation completed for project ${projectId}`,
       );
     });
 
-    it('should handle errors during snapshot generation', async () => {
+    it('should update existing snapshots instead of creating new ones', async () => {
       // Arrange
       const projectId = 'project-1';
-      const date = new Date('2024-01-15');
-      const error = new Error('Snapshot generation failed');
-
-      mockTasksService.findAll.mockRejectedValue(error);
-
-      // Act & Assert
-      await expect(
-        (service as any).generateSnapshotForProject(projectId, date),
-      ).rejects.toThrow('Snapshot generation failed');
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        `Error generating snapshot for project ${projectId}:`,
-        expect.any(String),
-      );
-    });
-
-    it('should update existing snapshot instead of creating duplicate (regression test)', async () => {
-      // Arrange
-      const projectId = 'project-1';
-      const date = new Date('2024-01-15');
+      const days = 1;
       const existingSnapshot = {
-        id: 'existing-snapshot-1',
-        projectId,
-        snapshotDate: date,
-        totalTasks: 1,
-        completedTasks: 0,
-        inProgressTasks: 0,
-        todoTasks: 1,
-        newTasksToday: 0,
-        completedTasksToday: 0,
-        commentsAddedToday: 2,
-        attachmentsUploadedToday: 1,
-        completionPercentage: 0,
+        id: 'snapshot-1',
+        projectId: 'project-1',
+        snapshotDate: new Date('2024-01-15'),
       };
-
       mockSnapshotRepository.findOne.mockResolvedValue(existingSnapshot);
-      mockSnapshotRepository.update.mockResolvedValue({ affected: 1 });
 
       // Act
-      await (service as any).generateSnapshotForProject(projectId, date);
+      await service.generateHistoricalSnapshots(projectId, days);
 
       // Assert
-      expect(mockSnapshotRepository.findOne).toHaveBeenCalledWith({
-        where: { projectId, snapshotDate: date },
-      });
       expect(mockSnapshotRepository.update).toHaveBeenCalledWith(
         existingSnapshot.id,
-        {
+        expect.objectContaining({
           totalTasks: 1,
           completedTasks: 0,
           inProgressTasks: 0,
           todoTasks: 1,
-          newTasksToday: 0,
-          completedTasksToday: 0,
-          commentsAddedToday: 5,
-          attachmentsUploadedToday: 3,
-          completionPercentage: 0,
-        },
+        }),
       );
       expect(mockSnapshotRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getProjectProgress', () => {
+    it('should return current progress without trends or activity', async () => {
+      // Arrange
+      const projectId = 'project-1';
+
+      // Act
+      const result = await service.getProjectProgress(projectId);
+
+      // Assert
+      expect(result).toEqual({
+        current: {
+          totalTasks: 1,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          todoTasks: 1,
+          completionPercentage: 0,
+        },
+      });
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Updated existing snapshot for project ${projectId} with ID: ${existingSnapshot.id}`,
+        `Getting project progress for project ${projectId} with trends: false, activity: false, days: 30`,
       );
     });
 
-    it('should create new snapshot when none exists for the project and date', async () => {
+    it('should return progress with trends included', async () => {
       // Arrange
       const projectId = 'project-1';
-      const date = new Date('2024-01-15');
-      const expectedSnapshot = {
-        id: 'new-snapshot-1',
-        projectId,
-        snapshotDate: date,
-        totalTasks: 1,
-        completedTasks: 0,
-        inProgressTasks: 0,
-        todoTasks: 1,
-        newTasksToday: 0,
-        completedTasksToday: 0,
-        commentsAddedToday: 5,
-        attachmentsUploadedToday: 3,
-        completionPercentage: 0,
-      };
-
-      mockSnapshotRepository.findOne.mockResolvedValue(null);
-      mockSnapshotRepository.save.mockResolvedValue(expectedSnapshot);
+      const mockSnapshots = [
+        {
+          id: 'snapshot-1',
+          projectId: 'project-1',
+          snapshotDate: new Date('2024-01-15'),
+          totalTasks: 5,
+          completedTasks: 3,
+          newTasksToday: 1,
+          completionPercentage: 60,
+          commentsAddedToday: 2,
+        },
+      ];
+      mockSnapshotRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(mockSnapshots),
+      });
 
       // Act
-      await (service as any).generateSnapshotForProject(projectId, date);
+      const result = await service.getProjectProgress(
+        projectId,
+        true,
+        false,
+        7,
+      );
 
       // Assert
-      expect(mockSnapshotRepository.findOne).toHaveBeenCalledWith({
-        where: { projectId, snapshotDate: date },
+      expect(result.trends).toBeDefined();
+      expect(result.trends?.daily).toHaveLength(1);
+      expect(result.trends?.daily[0]).toEqual({
+        date: '2024-01-15',
+        totalTasks: 5,
+        completedTasks: 3,
+        newTasks: 1,
+        completionRate: 60,
+        commentsAdded: 2,
       });
-      expect(mockSnapshotRepository.save).toHaveBeenCalledWith({
+    });
+
+    it('should return progress with activity included', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const mockRawResult = {
+        tasksCreated: '5',
+        tasksCompleted: '3',
+        commentsAdded: '10',
+        attachmentsUploaded: '2',
+      };
+      mockSnapshotRepository.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue(mockRawResult),
+      });
+
+      // Act
+      const result = await service.getProjectProgress(
         projectId,
-        snapshotDate: date,
-        totalTasks: 1,
-        completedTasks: 0,
-        inProgressTasks: 0,
-        todoTasks: 1,
-        newTasksToday: 0,
-        completedTasksToday: 0,
-        commentsAddedToday: 5,
-        attachmentsUploadedToday: 3,
-        completionPercentage: 0,
-      });
-      expect(mockSnapshotRepository.update).not.toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Created new snapshot for project ${projectId} with ID: ${expectedSnapshot.id}`,
+        false,
+        true,
+        7,
       );
+
+      // Assert
+      expect(result.recentActivity).toBeDefined();
+      expect(result.recentActivity).toEqual({
+        tasksCreated: 5,
+        tasksCompleted: 3,
+        commentsAdded: 10,
+        attachmentsUploaded: 2,
+      });
+    });
+
+    it('should return progress with both trends and activity included', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const mockSnapshots = [
+        {
+          id: 'snapshot-1',
+          projectId: 'project-1',
+          snapshotDate: new Date('2024-01-15'),
+          totalTasks: 5,
+          completedTasks: 3,
+          newTasksToday: 1,
+          completionPercentage: 60,
+          commentsAddedToday: 2,
+        },
+      ];
+      const mockRawResult = {
+        tasksCreated: '5',
+        tasksCompleted: '3',
+        commentsAdded: '10',
+        attachmentsUploaded: '2',
+      };
+
+      mockSnapshotRepository.createQueryBuilder
+        .mockReturnValueOnce({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          orderBy: jest.fn().mockReturnThis(),
+          getMany: jest.fn().mockResolvedValue(mockSnapshots),
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getRawOne: jest.fn().mockResolvedValue(mockRawResult),
+        });
+
+      // Act
+      const result = await service.getProjectProgress(projectId, true, true, 7);
+
+      // Assert
+      expect(result.trends).toBeDefined();
+      expect(result.recentActivity).toBeDefined();
+    });
+
+    it('should handle errors during progress retrieval', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      mockTasksService.findAll.mockRejectedValue(new Error('Database error'));
+
+      // Act & Assert
+      await expect(service.getProjectProgress(projectId)).rejects.toThrow(
+        'Database error',
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        `Error getting project progress for project ${projectId}:`,
+        expect.any(String),
+      );
+    });
+  });
+
+  describe('getHistoricalTrends', () => {
+    it('should return historical trends for specified days', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const days = 7;
+      const mockSnapshots = [
+        {
+          id: 'snapshot-1',
+          projectId: 'project-1',
+          snapshotDate: new Date('2024-01-15'),
+          totalTasks: 5,
+          completedTasks: 3,
+          newTasksToday: 1,
+          completionPercentage: 60,
+          commentsAddedToday: 2,
+        },
+        {
+          id: 'snapshot-2',
+          projectId: 'project-1',
+          snapshotDate: new Date('2024-01-16'),
+          totalTasks: 6,
+          completedTasks: 4,
+          newTasksToday: 1,
+          completionPercentage: 66.67,
+          commentsAddedToday: 3,
+        },
+      ];
+
+      mockSnapshotRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(mockSnapshots),
+      });
+
+      // Act
+      const result = await service.getHistoricalTrends(projectId, days);
+
+      // Assert
+      expect(result.daily).toHaveLength(2);
+      expect(result.weekly).toBeDefined();
+      expect(result.daily[0]).toEqual({
+        date: '2024-01-15',
+        totalTasks: 5,
+        completedTasks: 3,
+        newTasks: 1,
+        completionRate: 60,
+        commentsAdded: 2,
+      });
+    });
+  });
+
+  describe('getRecentActivity', () => {
+    it('should return recent activity for specified days', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const days = 7;
+      const mockRawResult = {
+        tasksCreated: '10',
+        tasksCompleted: '5',
+        commentsAdded: '25',
+        attachmentsUploaded: '8',
+      };
+
+      mockSnapshotRepository.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue(mockRawResult),
+      });
+
+      // Act
+      const result = await service.getRecentActivity(projectId, days);
+
+      // Assert
+      expect(result).toEqual({
+        tasksCreated: 10,
+        tasksCompleted: 5,
+        commentsAdded: 25,
+        attachmentsUploaded: 8,
+      });
+    });
+
+    it('should handle null results and return default values', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const days = 7;
+
+      mockSnapshotRepository.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue(null),
+      });
+
+      // Act
+      const result = await service.getRecentActivity(projectId, days);
+
+      // Assert
+      expect(result).toEqual({
+        tasksCreated: 0,
+        tasksCompleted: 0,
+        commentsAdded: 0,
+        attachmentsUploaded: 0,
+      });
+    });
+  });
+
+  describe('groupSnapshotsByWeek', () => {
+    it('should group snapshots by week correctly', () => {
+      // Arrange
+      const snapshots: TestSnapshot[] = [
+        {
+          ...mockSnapshot,
+          id: 'snapshot-1',
+          snapshotDate: new Date('2024-01-15'),
+          totalTasks: 5,
+          completedTasks: 3,
+          newTasksToday: 1,
+          completionPercentage: 60,
+        },
+        {
+          ...mockSnapshot,
+          id: 'snapshot-2',
+          snapshotDate: new Date('2024-01-16'),
+          totalTasks: 6,
+          completedTasks: 4,
+          newTasksToday: 1,
+          completionPercentage: 66.67,
+        },
+        {
+          ...mockSnapshot,
+          id: 'snapshot-3',
+          snapshotDate: new Date('2024-01-22'), // Different week
+          totalTasks: 7,
+          completedTasks: 5,
+          newTasksToday: 1,
+          completionPercentage: 71.43,
+        },
+      ];
+
+      // Act
+      const result = service.groupSnapshotsByWeek(
+        snapshots as ProjectSnapshot[],
+      );
+
+      // Assert
+      expect(result).toHaveLength(2); // Two different weeks
+      expect(result[0]).toEqual({
+        week: expect.any(String),
+        totalTasks: 6, // Average of 5 and 6
+        completedTasks: 4, // Average of 3 and 4
+        newTasks: 2, // Sum of 1 and 1
+        completionRate: expect.any(Number),
+      });
+    });
+
+    it('should handle empty snapshots array', () => {
+      // Arrange
+      const snapshots: ProjectSnapshot[] = [];
+
+      // Act
+      const result = service.groupSnapshotsByWeek(snapshots);
+
+      // Assert
+      expect(result).toEqual([]);
     });
   });
 });

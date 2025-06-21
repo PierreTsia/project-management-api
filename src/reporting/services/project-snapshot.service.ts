@@ -1,22 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { ProjectSnapshot } from '../entities/project-snapshot.entity';
 import { TasksService } from '../../tasks/tasks.service';
 import { CommentsService } from '../../tasks/services/comments.service';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { CustomLogger } from '../../common/services/logger.service';
 import { TaskStatus } from '../../tasks/enums/task-status.enum';
+import { DateUtils } from '../../common/utils/date.utils';
 import { Prettify } from '../../common/utils/types';
 import { ProjectProgressDto } from '../../projects/dto/project-progress.dto';
-import { DateUtils } from '../../common/utils/date.utils';
 
-// Constants to avoid magic numbers
+// Constants
 const DEFAULT_PROGRESS_DAYS = 30;
-const PERCENTAGE_MULTIPLIER = 100;
-const DECIMAL_RADIX = 10;
 const DEFAULT_COUNT = 0;
+const DECIMAL_RADIX = 10;
+const PERCENTAGE_MULTIPLIER = 100;
 
 type ProjectMetrics = {
   totalTasks: number;
@@ -48,20 +47,17 @@ export class ProjectSnapshotService {
     this.logger.setContext('ProjectSnapshotService');
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  /**
+   * Generate daily snapshots for all active projects
+   * This method is called by a cron job
+   */
   async generateDailySnapshots() {
     this.logger.log('Starting daily project snapshots generation...');
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    this.logger.log(
-      `Generating snapshots for date: ${today.toISOString().split('T')[0]}`,
-    );
-
     try {
-      // Get all active projects directly from repository for cron job
+      // Get all active projects
       const projects = await this.snapshotRepository.manager
-        .getRepository('Project')
+        .getRepository('projects')
         .find({ where: { status: 'ACTIVE' } });
 
       this.logger.log(
@@ -71,19 +67,17 @@ export class ProjectSnapshotService {
       let successCount = 0;
       let errorCount = 0;
 
+      // Generate snapshots for each project
       for (const project of projects) {
         try {
-          await this.generateSnapshotForProject(project.id, today);
+          await this.generateSnapshotForProject(project.id, new Date());
           successCount++;
-          this.logger.debug(
-            `Successfully generated snapshot for project: ${project.id}`,
-          );
         } catch (error) {
-          errorCount++;
           this.logger.error(
             `Failed to generate snapshot for project ${project.id}:`,
             error.stack,
           );
+          errorCount++;
         }
       }
 
@@ -249,7 +243,7 @@ export class ProjectSnapshotService {
       `Completion percentage for project ${projectId}: ${completionPercentage.toFixed(2)}%`,
     );
 
-    // Get today's comments and attachments (would need service methods)
+    // Get today's comments and attachments
     const commentsAddedToday = await this.getCommentsCountForDate(
       projectId,
       todayStart,

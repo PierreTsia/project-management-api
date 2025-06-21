@@ -73,8 +73,9 @@ export class ReportingController {
   ): Promise<ProjectProgressDto> {
     // Parse include parameter to determine what to include
     const includeTrends = include === 'trends' || include?.includes('trends');
-    const includeActivity =
-      include === 'activity' || include?.includes('activity');
+    const includeActivity = !!(
+      include === 'activity' || include?.includes('activity')
+    );
     const daysNumber = parseInt(days, 10) || 30;
 
     const progress = await this.projectSnapshotService.getProjectProgress(

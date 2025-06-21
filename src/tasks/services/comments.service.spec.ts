@@ -2,19 +2,22 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { I18nService } from 'nestjs-i18n';
-import { NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { Comment } from '../entities/comment.entity';
 import { CreateCommentDto } from '../dto/create-comment.dto';
 import { UpdateCommentDto } from '../dto/update-comment.dto';
 import { ProjectPermissionService } from '../../projects/services/project-permission.service';
 import { TasksService } from '../tasks.service';
+import { CustomLogger } from '../../common/services/logger.service';
+import { MockCustomLogger } from '../../test/mocks';
 
 describe('CommentsService', () => {
   let service: CommentsService;
   let commentsRepository: Repository<Comment>;
   let tasksService: TasksService;
   let projectPermissionService: ProjectPermissionService;
+  let mockLogger: MockCustomLogger;
 
   const mockTask = {
     id: 'task-1',
@@ -57,6 +60,8 @@ describe('CommentsService', () => {
   };
 
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CommentsService,
@@ -98,14 +103,8 @@ describe('CommentsService', () => {
           },
         },
         {
-          provide: Logger,
-          useValue: {
-            log: jest.fn(),
-            error: jest.fn(),
-            warn: jest.fn(),
-            debug: jest.fn(),
-            verbose: jest.fn(),
-          },
+          provide: CustomLogger,
+          useValue: mockLogger,
         },
       ],
     }).compile();

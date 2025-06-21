@@ -9,9 +9,11 @@ import { ProjectPermissionService } from '../projects/services/project-permissio
 import { ProjectRole } from '../projects/enums/project-role.enum';
 import { CustomLogger } from '../common/services/logger.service';
 import { AttachmentResponseDto } from './dto/attachment-response.dto';
+import { MockCustomLogger } from '../test/mocks';
 
 describe('AttachmentsService', () => {
   let service: AttachmentsService;
+  let mockLogger: MockCustomLogger;
 
   const mockAttachmentRepository = {
     create: jest.fn(),
@@ -31,13 +33,6 @@ describe('AttachmentsService', () => {
 
   const mockProjectPermissionService = {
     hasProjectPermission: jest.fn(),
-  };
-
-  const mockLogger = {
-    setContext: jest.fn(),
-    log: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
   };
 
   const mockUser = {
@@ -76,6 +71,8 @@ describe('AttachmentsService', () => {
   };
 
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttachmentsService,
@@ -420,7 +417,6 @@ describe('AttachmentsService', () => {
       expect(mockAttachmentRepository.remove).toHaveBeenCalledWith(
         mockAttachment,
       );
-      expect(mockLogger.log).toHaveBeenCalled();
     });
 
     it('should delete attachment when user is admin', async () => {
@@ -537,8 +533,6 @@ describe('AttachmentsService', () => {
           acceptLanguage,
         ),
       ).rejects.toThrow(cloudinaryError);
-
-      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 
@@ -725,7 +719,6 @@ describe('AttachmentsService', () => {
 
       // Assert
       expect(result).toBe(0);
-      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 });

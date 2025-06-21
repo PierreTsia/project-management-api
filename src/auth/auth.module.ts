@@ -4,7 +4,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -26,7 +25,6 @@ import { CleanupService } from './cleanup.service';
         limit: 3,
       },
     ]),
-    ScheduleModule.forRoot(),
     UsersModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

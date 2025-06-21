@@ -7,10 +7,13 @@ import { CommentResponseDto } from '../dto/comment-response.dto';
 import { ProjectPermissionService } from '../../projects/services/project-permission.service';
 import { Reflector } from '@nestjs/core';
 import { I18nService } from 'nestjs-i18n';
+import { CustomLogger } from '../../common/services/logger.service';
+import { MockCustomLogger } from '../../test/mocks';
 
 describe('CommentsController', () => {
   let controller: CommentsController;
   let commentsService: CommentsService;
+  let mockLogger: MockCustomLogger;
 
   const mockCommentResponse: CommentResponseDto = {
     id: 'comment-1',
@@ -41,6 +44,8 @@ describe('CommentsController', () => {
   };
 
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CommentsController],
       providers: [
@@ -71,6 +76,10 @@ describe('CommentsController', () => {
           useValue: {
             translate: jest.fn(),
           },
+        },
+        {
+          provide: CustomLogger,
+          useValue: mockLogger,
         },
       ],
     }).compile();

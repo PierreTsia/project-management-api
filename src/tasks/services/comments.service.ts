@@ -13,6 +13,7 @@ import { CommentResponseDto } from '../dto/comment-response.dto';
 import { ProjectPermissionService } from '../../projects/services/project-permission.service';
 import { ProjectRole } from '../../projects/enums/project-role.enum';
 import { TasksService } from '../tasks.service';
+import { CustomLogger } from '../../common/services/logger.service';
 
 @Injectable()
 export class CommentsService {
@@ -22,6 +23,7 @@ export class CommentsService {
     private readonly tasksService: TasksService,
     private readonly projectPermissionService: ProjectPermissionService,
     private readonly i18n: I18nService,
+    private readonly logger: CustomLogger,
   ) {}
 
   async createComment(
@@ -185,5 +187,38 @@ export class CommentsService {
     }
 
     await this.commentsRepository.remove(comment);
+  }
+
+  async getCommentsCountForProjectAndDateRange(
+    projectId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    try {
+      this.logger.debug(
+        `Getting comments count for project ${projectId} between ${startDate.toISOString()} and ${endDate.toISOString()}`,
+      );
+
+      const count = await this.commentsRepository
+        .createQueryBuilder('comment')
+        .innerJoin('comment.task', 'task')
+        .where('task.projectId = :projectId', { projectId })
+        .andWhere('comment.createdAt >= :startDate', { startDate })
+        .andWhere('comment.createdAt <= :endDate', { endDate })
+        .getCount();
+
+      this.logger.debug(
+        `Found ${count} comments for project ${projectId} in date range`,
+      );
+
+      return count;
+    } catch (error) {
+      this.logger.error(
+        `Error getting comments count for project ${projectId}:`,
+        error.stack,
+      );
+      // Return 0 instead of throwing to prevent snapshot generation from failing
+      return 0;
+    }
   }
 }

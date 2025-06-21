@@ -2,21 +2,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CleanupService } from './cleanup.service';
 import { UsersService } from '../users/users.service';
 import { CustomLogger } from '../common/services/logger.service';
+import { MockCustomLogger } from '../test/mocks';
 
 describe('CleanupService', () => {
   let service: CleanupService;
+  let mockLogger: MockCustomLogger;
 
   const mockUsersService = {
     deleteExpiredUnconfirmedAccounts: jest.fn(),
   };
 
-  const mockLogger = {
-    setContext: jest.fn(),
-    log: jest.fn(),
-    error: jest.fn(),
-  };
-
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CleanupService,

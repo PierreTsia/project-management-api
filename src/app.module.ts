@@ -11,12 +11,14 @@ import {
 import * as path from 'path';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { validationSchema } from './config/validation.schema';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
 import { AttachmentsModule } from './attachments/attachments.module';
+import { ReportingModule } from './reporting/reporting.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
@@ -37,6 +39,7 @@ import { CustomLogger } from './common/services/logger.service';
       autoLoadEntities: true,
       synchronize: false,
     }),
+    ScheduleModule.forRoot(),
     I18nModule.forRoot({
       fallbackLanguage: 'en',
       loaderOptions: {
@@ -50,6 +53,7 @@ import { CustomLogger } from './common/services/logger.service';
     ProjectsModule,
     TasksModule,
     AttachmentsModule,
+    ReportingModule,
     CloudinaryModule,
     LoggerModule,
   ],

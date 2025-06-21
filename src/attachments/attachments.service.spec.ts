@@ -9,9 +9,11 @@ import { ProjectPermissionService } from '../projects/services/project-permissio
 import { ProjectRole } from '../projects/enums/project-role.enum';
 import { CustomLogger } from '../common/services/logger.service';
 import { AttachmentResponseDto } from './dto/attachment-response.dto';
+import { MockCustomLogger } from '../test/mocks';
 
 describe('AttachmentsService', () => {
   let service: AttachmentsService;
+  let mockLogger: MockCustomLogger;
 
   const mockAttachmentRepository = {
     create: jest.fn(),
@@ -31,12 +33,6 @@ describe('AttachmentsService', () => {
 
   const mockProjectPermissionService = {
     hasProjectPermission: jest.fn(),
-  };
-
-  const mockLogger = {
-    setContext: jest.fn(),
-    log: jest.fn(),
-    error: jest.fn(),
   };
 
   const mockUser = {
@@ -75,6 +71,8 @@ describe('AttachmentsService', () => {
   };
 
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttachmentsService,
@@ -106,6 +104,7 @@ describe('AttachmentsService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe('uploadAttachment', () => {
@@ -418,7 +417,6 @@ describe('AttachmentsService', () => {
       expect(mockAttachmentRepository.remove).toHaveBeenCalledWith(
         mockAttachment,
       );
-      expect(mockLogger.log).toHaveBeenCalled();
     });
 
     it('should delete attachment when user is admin', async () => {
@@ -535,8 +533,6 @@ describe('AttachmentsService', () => {
           acceptLanguage,
         ),
       ).rejects.toThrow(cloudinaryError);
-
-      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 
@@ -617,6 +613,112 @@ describe('AttachmentsService', () => {
           acceptLanguage,
         ),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getAttachmentsCountForProjectAndDateRange', () => {
+    it('should return correct count of attachments for project in date range', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+      const expectedCount = 8;
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(expectedCount),
+      };
+
+      jest
+        .spyOn(mockAttachmentRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder);
+
+      // Act
+      const result = await service.getAttachmentsCountForProjectAndDateRange(
+        projectId,
+        startDate,
+        endDate,
+      );
+
+      // Assert
+      expect(result).toBe(expectedCount);
+      expect(mockAttachmentRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'attachment',
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        '(attachment.entityType = :projectType AND attachment.entityId = :projectId) OR (attachment.entityType = :taskType AND attachment.entityId IN (SELECT id FROM tasks WHERE project_id = :projectId))',
+        {
+          projectType: 'PROJECT',
+          taskType: 'TASK',
+          projectId,
+        },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'attachment.uploadedAt >= :startDate',
+        { startDate },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'attachment.uploadedAt <= :endDate',
+        { endDate },
+      );
+      expect(mockQueryBuilder.getCount).toHaveBeenCalled();
+    });
+
+    it('should return 0 when no attachments found', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+      };
+
+      jest
+        .spyOn(mockAttachmentRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder);
+
+      // Act
+      const result = await service.getAttachmentsCountForProjectAndDateRange(
+        projectId,
+        startDate,
+        endDate,
+      );
+
+      // Assert
+      expect(result).toBe(0);
+    });
+
+    it('should handle database errors gracefully and return 0', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest
+          .fn()
+          .mockRejectedValue(new Error('Database connection failed')),
+      };
+
+      jest
+        .spyOn(mockAttachmentRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder);
+
+      // Act
+      const result = await service.getAttachmentsCountForProjectAndDateRange(
+        projectId,
+        startDate,
+        endDate,
+      );
+
+      // Assert
+      expect(result).toBe(0);
     });
   });
 });

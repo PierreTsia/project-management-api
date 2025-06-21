@@ -9,12 +9,15 @@ import { CreateCommentDto } from '../dto/create-comment.dto';
 import { UpdateCommentDto } from '../dto/update-comment.dto';
 import { ProjectPermissionService } from '../../projects/services/project-permission.service';
 import { TasksService } from '../tasks.service';
+import { CustomLogger } from '../../common/services/logger.service';
+import { MockCustomLogger } from '../../test/mocks';
 
 describe('CommentsService', () => {
   let service: CommentsService;
   let commentsRepository: Repository<Comment>;
   let tasksService: TasksService;
   let projectPermissionService: ProjectPermissionService;
+  let mockLogger: MockCustomLogger;
 
   const mockTask = {
     id: 'task-1',
@@ -57,6 +60,8 @@ describe('CommentsService', () => {
   };
 
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CommentsService,
@@ -70,9 +75,12 @@ describe('CommentsService', () => {
             remove: jest.fn(),
             createQueryBuilder: jest.fn(() => ({
               leftJoin: jest.fn().mockReturnThis(),
+              innerJoin: jest.fn().mockReturnThis(),
               where: jest.fn().mockReturnThis(),
+              andWhere: jest.fn().mockReturnThis(),
               select: jest.fn().mockReturnThis(),
               getOne: jest.fn(),
+              getCount: jest.fn(),
             })),
           },
         },
@@ -93,6 +101,10 @@ describe('CommentsService', () => {
           useValue: {
             translate: jest.fn((key: string) => key),
           },
+        },
+        {
+          provide: CustomLogger,
+          useValue: mockLogger,
         },
       ],
     }).compile();
@@ -366,6 +378,106 @@ describe('CommentsService', () => {
       await expect(
         service.deleteComment('comment-1', 'user-1'),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('getCommentsCountForProjectAndDateRange', () => {
+    it('should return correct count of comments for project in date range', async () => {
+      const projectId = 'project-1';
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+      const expectedCount = 5;
+
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(expectedCount),
+      };
+
+      jest
+        .spyOn(commentsRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      const result = await service.getCommentsCountForProjectAndDateRange(
+        projectId,
+        startDate,
+        endDate,
+      );
+
+      expect(result).toBe(expectedCount);
+      expect(commentsRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'comment',
+      );
+      expect(mockQueryBuilder.innerJoin).toHaveBeenCalledWith(
+        'comment.task',
+        'task',
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'task.projectId = :projectId',
+        { projectId },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'comment.createdAt >= :startDate',
+        { startDate },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'comment.createdAt <= :endDate',
+        { endDate },
+      );
+      expect(mockQueryBuilder.getCount).toHaveBeenCalled();
+    });
+
+    it('should return 0 when no comments found', async () => {
+      const projectId = 'project-1';
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+      };
+
+      jest
+        .spyOn(commentsRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      const result = await service.getCommentsCountForProjectAndDateRange(
+        projectId,
+        startDate,
+        endDate,
+      );
+
+      expect(result).toBe(0);
+    });
+
+    it('should handle database errors gracefully and return 0', async () => {
+      const projectId = 'project-1';
+      const startDate = new Date('2024-01-01');
+      const endDate = new Date('2024-01-31');
+
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest
+          .fn()
+          .mockRejectedValue(new Error('Database connection failed')),
+      };
+
+      jest
+        .spyOn(commentsRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      const result = await service.getCommentsCountForProjectAndDateRange(
+        projectId,
+        startDate,
+        endDate,
+      );
+
+      expect(result).toBe(0);
     });
   });
 });

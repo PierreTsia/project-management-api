@@ -9,21 +9,17 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProjectPermissionGuard } from '../projects/guards/project-permission.guard';
 import { ProjectPermissionService } from '../projects/services/project-permission.service';
 import { I18nService } from 'nestjs-i18n';
+import { MockCustomLogger } from '../test/mocks';
 
 describe('AttachmentsController', () => {
   let controller: AttachmentsController;
+  let mockLogger: MockCustomLogger;
 
   const mockAttachmentsService = {
     uploadAttachment: jest.fn(),
     getAttachments: jest.fn(),
     deleteAttachment: jest.fn(),
     getAttachmentById: jest.fn(),
-  };
-
-  const mockLogger = {
-    setContext: jest.fn(),
-    log: jest.fn(),
-    error: jest.fn(),
   };
 
   const mockProjectPermissionService = {
@@ -85,6 +81,8 @@ describe('AttachmentsController', () => {
   };
 
   beforeEach(async () => {
+    mockLogger = new MockCustomLogger();
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AttachmentsController],
       providers: [

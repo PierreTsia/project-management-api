@@ -3,13 +3,20 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ProjectSnapshot } from '../entities/project-snapshot.entity';
-import { ProjectsService } from '../../projects/projects.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { CommentsService } from '../../tasks/services/comments.service';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { CustomLogger } from '../../common/services/logger.service';
 import { TaskStatus } from '../../tasks/enums/task-status.enum';
 import { Prettify } from '../../common/utils/types';
+import { ProjectProgressDto } from '../../projects/dto/project-progress.dto';
+import { DateUtils } from '../../common/utils/date.utils';
+
+// Constants to avoid magic numbers
+const DEFAULT_PROGRESS_DAYS = 30;
+const PERCENTAGE_MULTIPLIER = 100;
+const DECIMAL_RADIX = 10;
+const DEFAULT_COUNT = 0;
 
 type ProjectMetrics = {
   totalTasks: number;
@@ -33,7 +40,6 @@ export class ProjectSnapshotService {
   constructor(
     @InjectRepository(ProjectSnapshot)
     private snapshotRepository: Repository<ProjectSnapshot>,
-    private projectsService: ProjectsService,
     private tasksService: TasksService,
     private commentsService: CommentsService,
     private attachmentsService: AttachmentsService,
@@ -267,5 +273,170 @@ export class ProjectSnapshotService {
       );
       return 0;
     }
+  }
+
+  async getProjectProgress(
+    projectId: string,
+    includeTrends: boolean = false,
+    includeActivity: boolean = false,
+    days: number = DEFAULT_PROGRESS_DAYS,
+  ): Promise<ProjectProgressDto> {
+    this.logger.debug(
+      `Getting project progress for project ${projectId} with trends: ${includeTrends}, activity: ${includeActivity}, days: ${days}`,
+    );
+
+    try {
+      // Get current real-time metrics
+      const currentDate = DateUtils.setToStartOfDay(new Date());
+      const currentMetrics = await this.calculateProjectMetrics(
+        projectId,
+        currentDate,
+      );
+
+      const result: ProjectProgressDto = {
+        current: {
+          totalTasks: currentMetrics.totalTasks,
+          completedTasks: currentMetrics.completedTasks,
+          inProgressTasks: currentMetrics.inProgressTasks,
+          todoTasks: currentMetrics.todoTasks,
+          completionPercentage: currentMetrics.completionPercentage,
+        },
+      };
+
+      // Add historical trends if requested
+      if (includeTrends) {
+        const trends = await this.getHistoricalTrends(projectId, days);
+        result.trends = trends;
+      }
+
+      // Add recent activity if requested
+      if (includeActivity) {
+        const activity = await this.getRecentActivity(projectId, days);
+        result.recentActivity = activity;
+      }
+
+      this.logger.debug(
+        `Successfully retrieved project progress for project ${projectId}`,
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Error getting project progress for project ${projectId}:`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async getHistoricalTrends(
+    projectId: string,
+    days: number,
+  ): Promise<ProjectProgressDto['trends']> {
+    const { startDate, endDate } = DateUtils.getDateRangeForLastDays(days);
+
+    const snapshots = await this.snapshotRepository
+      .createQueryBuilder('snapshot')
+      .where('snapshot.projectId = :projectId', { projectId })
+      .andWhere('snapshot.snapshotDate >= :startDate', { startDate })
+      .andWhere('snapshot.snapshotDate <= :endDate', { endDate })
+      .orderBy('snapshot.snapshotDate', 'ASC')
+      .getMany();
+
+    // Group by week for weekly trends
+    const weeklyTrends = this.groupSnapshotsByWeek(snapshots);
+
+    return {
+      daily: snapshots.map((snapshot) => ({
+        date: DateUtils.formatToDateString(snapshot.snapshotDate),
+        totalTasks: snapshot.totalTasks,
+        completedTasks: snapshot.completedTasks,
+        newTasks: snapshot.newTasksToday,
+        completionRate: snapshot.completionPercentage,
+        commentsAdded: snapshot.commentsAddedToday,
+      })),
+      weekly: weeklyTrends,
+    };
+  }
+
+  async getRecentActivity(
+    projectId: string,
+    days: number,
+  ): Promise<ProjectProgressDto['recentActivity']> {
+    const { startDate, endDate } = DateUtils.getDateRangeForLastDays(days);
+
+    // Get recent snapshots and sum up activity
+    const snapshots = await this.snapshotRepository
+      .createQueryBuilder('snapshot')
+      .select([
+        'SUM(snapshot.newTasksToday) as tasksCreated',
+        'SUM(snapshot.completedTasksToday) as tasksCompleted',
+        'SUM(snapshot.commentsAddedToday) as commentsAdded',
+        'SUM(snapshot.attachmentsUploadedToday) as attachmentsUploaded',
+      ])
+      .where('snapshot.projectId = :projectId', { projectId })
+      .andWhere('snapshot.snapshotDate >= :startDate', { startDate })
+      .andWhere('snapshot.snapshotDate <= :endDate', { endDate })
+      .getRawOne();
+
+    return {
+      tasksCreated: parseInt(
+        snapshots?.tasksCreated || DEFAULT_COUNT.toString(),
+        DECIMAL_RADIX,
+      ),
+      tasksCompleted: parseInt(
+        snapshots?.tasksCompleted || DEFAULT_COUNT.toString(),
+        DECIMAL_RADIX,
+      ),
+      commentsAdded: parseInt(
+        snapshots?.commentsAdded || DEFAULT_COUNT.toString(),
+        DECIMAL_RADIX,
+      ),
+      attachmentsUploaded: parseInt(
+        snapshots?.attachmentsUploaded || DEFAULT_COUNT.toString(),
+        DECIMAL_RADIX,
+      ),
+    };
+  }
+
+  groupSnapshotsByWeek(
+    snapshots: ProjectSnapshot[],
+  ): ProjectProgressDto['trends']['weekly'] {
+    const weeklyMap = new Map<string, any>();
+
+    snapshots.forEach((snapshot) => {
+      const weekStart = DateUtils.getWeekStart(snapshot.snapshotDate);
+      const weekKey = DateUtils.formatToDateString(weekStart);
+
+      if (!weeklyMap.has(weekKey)) {
+        weeklyMap.set(weekKey, {
+          week: DateUtils.getWeekNumber(weekStart),
+          totalTasks: 0,
+          completedTasks: 0,
+          newTasks: 0,
+          completionRate: 0,
+          count: 0,
+        });
+      }
+
+      const weekData = weeklyMap.get(weekKey);
+      weekData.totalTasks += snapshot.totalTasks;
+      weekData.completedTasks += snapshot.completedTasks;
+      weekData.newTasks += snapshot.newTasksToday;
+      weekData.count += 1;
+    });
+
+    // Calculate averages
+    return Array.from(weeklyMap.values()).map((weekData) => ({
+      week: weekData.week,
+      totalTasks: Math.round(weekData.totalTasks / weekData.count),
+      completedTasks: Math.round(weekData.completedTasks / weekData.count),
+      newTasks: weekData.newTasks,
+      completionRate:
+        Math.round(
+          (weekData.completedTasks / weekData.totalTasks) *
+            PERCENTAGE_MULTIPLIER,
+        ) || 0,
+    }));
   }
 }

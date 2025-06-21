@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Task } from './entities/task.entity';
 import { Comment } from './entities/comment.entity';
@@ -12,7 +12,7 @@ import { TaskStatusService } from './services/task-status.service';
 @Module({
   imports: [TypeOrmModule.forFeature([Task, Comment]), ProjectsModule],
   controllers: [TasksController, CommentsController],
-  providers: [TasksService, CommentsService, TaskStatusService],
+  providers: [TasksService, CommentsService, TaskStatusService, Logger],
   exports: [TasksService, CommentsService],
 })
 export class TasksModule {}

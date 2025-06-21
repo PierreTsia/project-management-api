@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,18 +14,16 @@ import { CommentResponseDto } from '../dto/comment-response.dto';
 import { ProjectPermissionService } from '../../projects/services/project-permission.service';
 import { ProjectRole } from '../../projects/enums/project-role.enum';
 import { TasksService } from '../tasks.service';
-import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class CommentsService {
-  private readonly logger = new Logger(CommentsService.name);
-
   constructor(
     @InjectRepository(Comment)
     private readonly commentsRepository: Repository<Comment>,
     private readonly tasksService: TasksService,
     private readonly projectPermissionService: ProjectPermissionService,
     private readonly i18n: I18nService,
+    private readonly logger: Logger,
   ) {}
 
   async createComment(

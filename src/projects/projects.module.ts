@@ -21,6 +21,6 @@ import { UsersModule } from '../users/users.module';
     ProjectPermissionService,
     ProjectPermissionGuard,
   ],
-  exports: [ProjectsService, ProjectPermissionService],
+  exports: [ProjectsService, ProjectPermissionService, ProjectPermissionGuard],
 })
 export class ProjectsModule {}

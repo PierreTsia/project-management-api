@@ -72,7 +72,9 @@ export class ReportingController {
     @Headers('accept-language') _acceptLanguage?: string,
   ): Promise<ProjectProgressDto> {
     // Parse include parameter to determine what to include
-    const includeTrends = include === 'trends' || include?.includes('trends');
+    const includeTrends = !!(
+      include === 'trends' || include?.includes('trends')
+    );
     const includeActivity = !!(
       include === 'activity' || include?.includes('activity')
     );

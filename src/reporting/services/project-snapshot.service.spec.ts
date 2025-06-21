@@ -14,6 +14,8 @@ describe('ProjectSnapshotService', () => {
 
   const mockSnapshotRepository = {
     save: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
     manager: {
       getRepository: jest.fn(),
     },
@@ -424,6 +426,7 @@ describe('ProjectSnapshotService', () => {
         completionPercentage: 0,
       };
 
+      mockSnapshotRepository.findOne.mockResolvedValue(null);
       mockSnapshotRepository.save.mockResolvedValue(expectedSnapshot);
 
       // Act
@@ -444,7 +447,7 @@ describe('ProjectSnapshotService', () => {
         completionPercentage: 0,
       });
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Saved snapshot for project ${projectId} with ID: ${expectedSnapshot.id}`,
+        `Created new snapshot for project ${projectId} with ID: ${expectedSnapshot.id}`,
       );
     });
 
@@ -464,6 +467,103 @@ describe('ProjectSnapshotService', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         `Error generating snapshot for project ${projectId}:`,
         expect.any(String),
+      );
+    });
+
+    it('should update existing snapshot instead of creating duplicate (regression test)', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const date = new Date('2024-01-15');
+      const existingSnapshot = {
+        id: 'existing-snapshot-1',
+        projectId,
+        snapshotDate: date,
+        totalTasks: 1,
+        completedTasks: 0,
+        inProgressTasks: 0,
+        todoTasks: 1,
+        newTasksToday: 0,
+        completedTasksToday: 0,
+        commentsAddedToday: 2,
+        attachmentsUploadedToday: 1,
+        completionPercentage: 0,
+      };
+
+      mockSnapshotRepository.findOne.mockResolvedValue(existingSnapshot);
+      mockSnapshotRepository.update.mockResolvedValue({ affected: 1 });
+
+      // Act
+      await (service as any).generateSnapshotForProject(projectId, date);
+
+      // Assert
+      expect(mockSnapshotRepository.findOne).toHaveBeenCalledWith({
+        where: { projectId, snapshotDate: date },
+      });
+      expect(mockSnapshotRepository.update).toHaveBeenCalledWith(
+        existingSnapshot.id,
+        {
+          totalTasks: 1,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          todoTasks: 1,
+          newTasksToday: 0,
+          completedTasksToday: 0,
+          commentsAddedToday: 5,
+          attachmentsUploadedToday: 3,
+          completionPercentage: 0,
+        },
+      );
+      expect(mockSnapshotRepository.save).not.toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Updated existing snapshot for project ${projectId} with ID: ${existingSnapshot.id}`,
+      );
+    });
+
+    it('should create new snapshot when none exists for the project and date', async () => {
+      // Arrange
+      const projectId = 'project-1';
+      const date = new Date('2024-01-15');
+      const expectedSnapshot = {
+        id: 'new-snapshot-1',
+        projectId,
+        snapshotDate: date,
+        totalTasks: 1,
+        completedTasks: 0,
+        inProgressTasks: 0,
+        todoTasks: 1,
+        newTasksToday: 0,
+        completedTasksToday: 0,
+        commentsAddedToday: 5,
+        attachmentsUploadedToday: 3,
+        completionPercentage: 0,
+      };
+
+      mockSnapshotRepository.findOne.mockResolvedValue(null);
+      mockSnapshotRepository.save.mockResolvedValue(expectedSnapshot);
+
+      // Act
+      await (service as any).generateSnapshotForProject(projectId, date);
+
+      // Assert
+      expect(mockSnapshotRepository.findOne).toHaveBeenCalledWith({
+        where: { projectId, snapshotDate: date },
+      });
+      expect(mockSnapshotRepository.save).toHaveBeenCalledWith({
+        projectId,
+        snapshotDate: date,
+        totalTasks: 1,
+        completedTasks: 0,
+        inProgressTasks: 0,
+        todoTasks: 1,
+        newTasksToday: 0,
+        completedTasksToday: 0,
+        commentsAddedToday: 5,
+        attachmentsUploadedToday: 3,
+        completionPercentage: 0,
+      });
+      expect(mockSnapshotRepository.update).not.toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Created new snapshot for project ${projectId} with ID: ${expectedSnapshot.id}`,
       );
     });
   });

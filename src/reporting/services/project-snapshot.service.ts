@@ -98,6 +98,40 @@ export class ProjectSnapshotService {
     }
   }
 
+  /**
+   * Generate historical snapshots for testing purposes
+   * This method creates snapshots for the past N days to simulate historical data
+   */
+  async generateHistoricalSnapshots(projectId: string, days: number = 7) {
+    this.logger.log(
+      `Generating historical snapshots for project ${projectId} for the past ${days} days`,
+    );
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < days; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+
+      try {
+        await this.generateSnapshotForProject(projectId, date);
+        this.logger.debug(
+          `Generated snapshot for ${date.toISOString().split('T')[0]}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to generate snapshot for ${date.toISOString().split('T')[0]}:`,
+          error.stack,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Historical snapshots generation completed for project ${projectId}`,
+    );
+  }
+
   private async generateSnapshotForProject(projectId: string, date: Date) {
     this.logger.debug(
       `Generating snapshot for project ${projectId} on ${date.toISOString().split('T')[0]}`,
@@ -111,16 +145,30 @@ export class ProjectSnapshotService {
         `Calculated metrics for project ${projectId}: totalTasks=${metrics.totalTasks}, completedTasks=${metrics.completedTasks}, completionPercentage=${metrics.completionPercentage}, newTasksToday=${metrics.newTasksToday}, commentsAddedToday=${metrics.commentsAddedToday}`,
       );
 
-      // Save or update snapshot
-      const snapshot = await this.snapshotRepository.save({
-        projectId,
-        snapshotDate: date,
-        ...metrics,
+      // Check if snapshot already exists for this project and date
+      const existingSnapshot = await this.snapshotRepository.findOne({
+        where: { projectId, snapshotDate: date },
       });
 
-      this.logger.debug(
-        `Saved snapshot for project ${projectId} with ID: ${snapshot.id}`,
-      );
+      if (existingSnapshot) {
+        // Update existing snapshot
+        await this.snapshotRepository.update(existingSnapshot.id, {
+          ...metrics,
+        });
+        this.logger.debug(
+          `Updated existing snapshot for project ${projectId} with ID: ${existingSnapshot.id}`,
+        );
+      } else {
+        // Create new snapshot
+        const snapshot = await this.snapshotRepository.save({
+          projectId,
+          snapshotDate: date,
+          ...metrics,
+        });
+        this.logger.debug(
+          `Created new snapshot for project ${projectId} with ID: ${snapshot.id}`,
+        );
+      }
     } catch (error) {
       this.logger.error(
         `Error generating snapshot for project ${projectId}:`,

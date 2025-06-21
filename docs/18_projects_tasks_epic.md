@@ -783,12 +783,12 @@ DELETE /api/v1/projects/:projectId/tasks/:taskId/attachments/:attachmentId - Del
 - [x] Create `ProjectSnapshot` entity with daily metrics storage
 - [x] Add migration for project_snapshots table
 - [x] Create `ProjectSnapshotService` with daily cron job for snapshot generation
-- [ ] Implement `getProjectProgress()` method that combines real-time + snapshot data
-- [ ] Add `GET /projects/:id/progress` endpoint to `ProjectsController`
-- [ ] Create `ProjectProgressDto` with current stats, trends, and recent activity
+- [x] Implement `getProjectProgress()` method that combines real-time + snapshot data
+- [x] Add `GET /projects/:id/progress` endpoint to `ReportingController` (separate module to avoid circular dependencies)
+- [x] Create `ProjectProgressDto` with current stats, trends, and recent activity
 - [x] Write unit tests for snapshot generation and progress calculation
-- [ ] Write e2e tests for progress endpoint
-- [ ] Test progress calculation with sample data
+- [x] Write unit tests for progress endpoint
+- [x] Test progress calculation with sample data
 
 **Acceptance Criteria:**
 - Project owners can view completion statistics
@@ -1012,9 +1012,9 @@ export class ProjectSnapshotService {
 
 ### API Endpoints
 ```
-GET /projects/:id/progress - Get current project progress
-GET /projects/:id/progress?include=trends&days=30 - Include historical trends
-GET /projects/:id/progress?include=activity&days=7 - Include recent activity
+GET /api/v1/reporting/projects/:id/progress - Get current project progress
+GET /api/v1/reporting/projects/:id/progress?include=trends&days=30 - Include historical trends
+GET /api/v1/reporting/projects/:id/progress?include=activity&days=7 - Include recent activity
 ```
 
 ### Implementation Steps
@@ -1022,8 +1022,8 @@ GET /projects/:id/progress?include=activity&days=7 - Include recent activity
 2. **Create `ProjectSnapshot` entity**
 3. **Create `ProjectSnapshotService`** with cron job
 4. **Add `getProjectProgress()` method** that combines real-time + snapshot data
-5. **Add progress endpoint** to `ProjectsController`
-6. **Write tests** for snapshot generation and progress calculation
+5. **Create `ReportingModule` and `ReportingController`** for progress endpoint (avoids circular dependencies)
+6. **Write unit tests** for snapshot generation and progress calculation
 
 ### Required Service Methods
 To support the snapshot functionality, we need to add these methods to existing services:

@@ -268,7 +268,7 @@ export class AttachmentsService {
       const count = await this.attachmentRepository
         .createQueryBuilder('attachment')
         .where(
-          '(attachment.entityType = :projectType AND attachment.entityId = :projectId) OR (attachment.entityType = :taskType AND attachment.entityId IN (SELECT id FROM tasks WHERE projectId = :projectId))',
+          '(attachment.entityType = :projectType AND attachment.entityId = :projectId) OR (attachment.entityType = :taskType AND attachment.entityId IN (SELECT id FROM tasks WHERE project_id = :projectId))',
           {
             projectType: 'PROJECT',
             taskType: 'TASK',

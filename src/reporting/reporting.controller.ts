@@ -37,10 +37,14 @@ export class ReportingController {
   @RequireProjectRole(ProjectRole.READ)
   @ApiOperation({ summary: 'Get project progress' })
   @ApiParam({ name: 'id', description: 'Project ID' })
-  @ApiQuery({ name: 'trends', description: 'Include trends', required: false })
   @ApiQuery({
-    name: 'activity',
-    description: 'Include activity data',
+    name: 'include',
+    description: 'Include trends or activity',
+    required: false,
+  })
+  @ApiQuery({
+    name: 'days',
+    description: 'Number of days to include',
     required: false,
   })
   @ApiResponse({
@@ -63,15 +67,21 @@ export class ReportingController {
   async getProjectProgress(
     @Request() req: { user: User },
     @Param('id') id: string,
-    @Query('trends') includeTrends: boolean,
-    @Query('activity') includeActivity: boolean,
+    @Query('include') include: string,
+    @Query('days') days: string = '30',
     @Headers('accept-language') _acceptLanguage?: string,
   ): Promise<ProjectProgressDto> {
+    // Parse include parameter to determine what to include
+    const includeTrends = include === 'trends' || include?.includes('trends');
+    const includeActivity =
+      include === 'activity' || include?.includes('activity');
+    const daysNumber = parseInt(days, 10) || 30;
+
     const progress = await this.projectSnapshotService.getProjectProgress(
       id,
       includeTrends,
       includeActivity,
-      30, // Default to 30 days
+      daysNumber,
     );
     return progress;
   }

@@ -124,15 +124,25 @@ describe('DateUtils', () => {
     it('should format date to YYYY-MM-DD', () => {
       const date = new Date('2024-01-15T14:30:45.123Z');
       const result = DateUtils.formatToDateString(date);
-
       expect(result).toBe('2024-01-15');
     });
 
     it('should handle different time zones correctly', () => {
       const date = new Date('2024-01-15T23:59:59.999Z');
       const result = DateUtils.formatToDateString(date);
-
       expect(result).toBe('2024-01-15');
+    });
+
+    it('should accept a string and return the correct date string (regression test)', () => {
+      const dateString = '2024-01-15T14:30:45.123Z';
+      const result = DateUtils.formatToDateString(dateString);
+      expect(result).toBe('2024-01-15');
+    });
+
+    it('should not throw if given a string instead of a Date (regression test)', () => {
+      expect(() =>
+        DateUtils.formatToDateString('2024-01-15T14:30:45.123Z'),
+      ).not.toThrow();
     });
   });
 });

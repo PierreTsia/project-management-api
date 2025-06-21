@@ -254,4 +254,43 @@ export class AttachmentsService {
       uploadedBy: plainToClass(UserResponseDto, attachment.uploadedBy),
     });
   }
+
+  async getAttachmentsCountForProjectAndDateRange(
+    projectId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    try {
+      this.logger.debug(
+        `Getting attachments count for project ${projectId} between ${startDate.toISOString()} and ${endDate.toISOString()}`,
+      );
+
+      const count = await this.attachmentRepository
+        .createQueryBuilder('attachment')
+        .where(
+          '(attachment.entityType = :projectType AND attachment.entityId = :projectId) OR (attachment.entityType = :taskType AND attachment.entityId IN (SELECT id FROM tasks WHERE projectId = :projectId))',
+          {
+            projectType: 'PROJECT',
+            taskType: 'TASK',
+            projectId,
+          },
+        )
+        .andWhere('attachment.uploadedAt >= :startDate', { startDate })
+        .andWhere('attachment.uploadedAt <= :endDate', { endDate })
+        .getCount();
+
+      this.logger.debug(
+        `Found ${count} attachments for project ${projectId} in date range`,
+      );
+
+      return count;
+    } catch (error) {
+      this.logger.error(
+        `Error getting attachments count for project ${projectId}:`,
+        error.stack,
+      );
+      // Return 0 instead of throwing to prevent snapshot generation from failing
+      return 0;
+    }
+  }
 }

@@ -220,28 +220,52 @@ export class ProjectSnapshotService {
   }
 
   private async getCommentsCountForDate(
-    _projectId: string,
-    _start: Date,
-    _end: Date, // eslint-disable-line @typescript-eslint/no-unused-vars
+    projectId: string,
+    start: Date,
+    end: Date,
   ): Promise<number> {
-    // This would need a method in CommentsService to get comments by project and date range
-    // For now, placeholder implementation
-    this.logger.debug(
-      `Getting comments count for project ${_projectId} between ${_start.toISOString()} and ${_end.toISOString()}`,
-    );
-    return 0;
+    try {
+      const count =
+        await this.commentsService.getCommentsCountForProjectAndDateRange(
+          projectId,
+          start,
+          end,
+        );
+      this.logger.debug(
+        `Retrieved comments count for project ${projectId}: ${count}`,
+      );
+      return count;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get comments count for project ${projectId}:`,
+        error.stack,
+      );
+      return 0;
+    }
   }
 
   private async getAttachmentsCountForDate(
-    _projectId: string,
-    _start: Date,
-    _end: Date, // eslint-disable-line @typescript-eslint/no-unused-vars
+    projectId: string,
+    start: Date,
+    end: Date,
   ): Promise<number> {
-    // This would need a method in AttachmentsService to get attachments by project and date range
-    // For now, placeholder implementation
-    this.logger.debug(
-      `Getting attachments count for project ${_projectId} between ${_start.toISOString()} and ${_end.toISOString()}`,
-    );
-    return 0;
+    try {
+      const count =
+        await this.attachmentsService.getAttachmentsCountForProjectAndDateRange(
+          projectId,
+          start,
+          end,
+        );
+      this.logger.debug(
+        `Retrieved attachments count for project ${projectId}: ${count}`,
+      );
+      return count;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get attachments count for project ${projectId}:`,
+        error.stack,
+      );
+      return 0;
+    }
   }
 }

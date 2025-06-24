@@ -107,15 +107,18 @@ export class ProjectsService {
       .createQueryBuilder('project')
       .leftJoinAndSelect('project.owner', 'owner')
       .leftJoin(
-        'project_contributor',
+        'project_contributors',
         'contributor',
-        'contributor.projectId = project.id AND contributor.userId = :userId',
+        'contributor.project_id = project.id AND contributor.user_id = :userId',
         { userId },
       )
       .where('project.id = :projectId', { projectId: id })
-      .andWhere('(project.ownerId = :userId OR contributor.userId = :userId)', {
-        userId,
-      })
+      .andWhere(
+        '(project.ownerId = :userId OR contributor.user_id = :userId)',
+        {
+          userId,
+        },
+      )
       .getOne();
 
     if (!project) {

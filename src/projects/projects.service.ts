@@ -99,16 +99,27 @@ export class ProjectsService {
 
   async findOne(
     id: string,
-    ownerId: string,
+    userId: string,
     acceptLanguage?: string,
   ): Promise<Project> {
-    const project = await this.projectsRepository.findOne({
-      where: { id, ownerId },
-      relations: ['owner'],
-    });
+    // Use a single query with LEFT JOIN to check both ownership and contributor status
+    const project = await this.projectsRepository
+      .createQueryBuilder('project')
+      .leftJoinAndSelect('project.owner', 'owner')
+      .leftJoin(
+        'project_contributor',
+        'contributor',
+        'contributor.projectId = project.id AND contributor.userId = :userId',
+        { userId },
+      )
+      .where('project.id = :projectId', { projectId: id })
+      .andWhere('(project.ownerId = :userId OR contributor.userId = :userId)', {
+        userId,
+      })
+      .getOne();
 
     if (!project) {
-      this.logger.warn(`Project not found with id: ${id} for user ${ownerId}`);
+      this.logger.warn(`Project not found with id: ${id} for user ${userId}`);
       throw new NotFoundException({
         status: 404,
         code: 'PROJECT.NOT_FOUND',
@@ -120,7 +131,6 @@ export class ProjectsService {
 
     return project;
   }
-
   async update(
     id: string,
     updateProjectDto: UpdateProjectDto,

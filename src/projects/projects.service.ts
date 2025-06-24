@@ -99,16 +99,32 @@ export class ProjectsService {
 
   async findOne(
     id: string,
-    ownerId: string,
+    userId: string,
     acceptLanguage?: string,
   ): Promise<Project> {
-    const project = await this.projectsRepository.findOne({
-      where: { id, ownerId },
+    // First check if user is owner
+    let project = await this.projectsRepository.findOne({
+      where: { id, ownerId: userId },
       relations: ['owner'],
     });
 
+    // If not owner, check if user is contributor
     if (!project) {
-      this.logger.warn(`Project not found with id: ${id} for user ${ownerId}`);
+      const contributor = await this.projectContributorRepository.findOne({
+        where: { projectId: id, userId },
+      });
+
+      if (contributor) {
+        // User is contributor, get the project
+        project = await this.projectsRepository.findOne({
+          where: { id },
+          relations: ['owner'],
+        });
+      }
+    }
+
+    if (!project) {
+      this.logger.warn(`Project not found with id: ${id} for user ${userId}`);
       throw new NotFoundException({
         status: 404,
         code: 'PROJECT.NOT_FOUND',
@@ -120,7 +136,6 @@ export class ProjectsService {
 
     return project;
   }
-
   async update(
     id: string,
     updateProjectDto: UpdateProjectDto,

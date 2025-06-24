@@ -278,37 +278,72 @@ describe('ProjectsService', () => {
   });
 
   describe('findOne', () => {
-    it('should return a project by id and owner', async () => {
+    it('should return a project by id when user is owner', async () => {
       const projectId = 'project-1';
-      const ownerId = 'user-1';
+      const userId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
 
-      const result = await service.findOne(projectId, ownerId);
+      const result = await service.findOne(projectId, userId);
 
       expect(result).toEqual(mockProject);
       expect(projectsRepository.findOne).toHaveBeenCalledWith({
-        where: { id: projectId, ownerId },
+        where: { id: projectId, ownerId: userId },
         relations: ['owner'],
+      });
+      expect(contributorRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should return a project by id when user is contributor', async () => {
+      const projectId = 'project-1';
+      const userId = 'user-1';
+      const mockContributor = { projectId, userId, role: 'READ' };
+
+      // First call returns null (user is not owner)
+      (projectsRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockProject); // Second call returns project (user is contributor)
+      (contributorRepository.findOne as jest.Mock).mockResolvedValue(
+        mockContributor,
+      );
+
+      const result = await service.findOne(projectId, userId);
+
+      expect(result).toEqual(mockProject);
+      expect(projectsRepository.findOne).toHaveBeenCalledTimes(2);
+      expect(projectsRepository.findOne).toHaveBeenNthCalledWith(1, {
+        where: { id: projectId, ownerId: userId },
+        relations: ['owner'],
+      });
+      expect(projectsRepository.findOne).toHaveBeenNthCalledWith(2, {
+        where: { id: projectId },
+        relations: ['owner'],
+      });
+      expect(contributorRepository.findOne).toHaveBeenCalledWith({
+        where: { projectId, userId },
       });
     });
 
-    it('should throw NotFoundException when project not found', async () => {
+    it('should throw NotFoundException when project not found and user is not contributor', async () => {
       const projectId = 'non-existent';
-      const ownerId = 'user-1';
+      const userId = 'user-1';
 
       (projectsRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (contributorRepository.findOne as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.findOne(projectId, ownerId)).rejects.toThrow(
+      await expect(service.findOne(projectId, userId)).rejects.toThrow(
         NotFoundException,
       );
 
       expect(projectsRepository.findOne).toHaveBeenCalledWith({
-        where: { id: projectId, ownerId },
+        where: { id: projectId, ownerId: userId },
         relations: ['owner'],
       });
+      expect(contributorRepository.findOne).toHaveBeenCalledWith({
+        where: { projectId, userId },
+      });
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        `Project not found with id: ${projectId} for user ${ownerId}`,
+        `Project not found with id: ${projectId} for user ${userId}`,
       );
     });
   });

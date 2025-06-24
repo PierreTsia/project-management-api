@@ -305,9 +305,9 @@ describe('ProjectsService', () => {
         'owner',
       );
       expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
-        'project_contributor',
+        'project_contributors',
         'contributor',
-        'contributor.projectId = project.id AND contributor.userId = :userId',
+        'contributor.project_id = project.id AND contributor.user_id = :userId',
         { userId },
       );
       expect(mockQueryBuilder.where).toHaveBeenCalledWith(
@@ -315,7 +315,7 @@ describe('ProjectsService', () => {
         { projectId },
       );
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        '(project.ownerId = :userId OR contributor.userId = :userId)',
+        '(project.ownerId = :userId OR contributor.user_id = :userId)',
         { userId },
       );
       expect(mockQueryBuilder.getOne).toHaveBeenCalled();
@@ -348,9 +348,9 @@ describe('ProjectsService', () => {
         'owner',
       );
       expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
-        'project_contributor',
+        'project_contributors',
         'contributor',
-        'contributor.projectId = project.id AND contributor.userId = :userId',
+        'contributor.project_id = project.id AND contributor.user_id = :userId',
         { userId },
       );
       expect(mockQueryBuilder.where).toHaveBeenCalledWith(
@@ -358,7 +358,7 @@ describe('ProjectsService', () => {
         { projectId },
       );
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        '(project.ownerId = :userId OR contributor.userId = :userId)',
+        '(project.ownerId = :userId OR contributor.user_id = :userId)',
         { userId },
       );
       expect(mockQueryBuilder.getOne).toHaveBeenCalled();

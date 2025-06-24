@@ -282,66 +282,112 @@ describe('ProjectsService', () => {
       const projectId = 'project-1';
       const userId = 'user-1';
 
-      (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
+      const mockQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(mockProject),
+      };
+
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockQueryBuilder,
+      );
 
       const result = await service.findOne(projectId, userId);
 
       expect(result).toEqual(mockProject);
-      expect(projectsRepository.findOne).toHaveBeenCalledWith({
-        where: { id: projectId, ownerId: userId },
-        relations: ['owner'],
-      });
-      expect(contributorRepository.findOne).not.toHaveBeenCalled();
+      expect(projectsRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'project',
+      );
+      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+        'project.owner',
+        'owner',
+      );
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        'project_contributor',
+        'contributor',
+        'contributor.projectId = project.id AND contributor.userId = :userId',
+        { userId },
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'project.id = :projectId',
+        { projectId },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        '(project.ownerId = :userId OR contributor.userId = :userId)',
+        { userId },
+      );
+      expect(mockQueryBuilder.getOne).toHaveBeenCalled();
     });
 
     it('should return a project by id when user is contributor', async () => {
       const projectId = 'project-1';
       const userId = 'user-1';
-      const mockContributor = { projectId, userId, role: 'READ' };
 
-      // First call returns null (user is not owner)
-      (projectsRepository.findOne as jest.Mock)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(mockProject); // Second call returns project (user is contributor)
-      (contributorRepository.findOne as jest.Mock).mockResolvedValue(
-        mockContributor,
+      const mockQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(mockProject),
+      };
+
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockQueryBuilder,
       );
 
       const result = await service.findOne(projectId, userId);
 
       expect(result).toEqual(mockProject);
-      expect(projectsRepository.findOne).toHaveBeenCalledTimes(2);
-      expect(projectsRepository.findOne).toHaveBeenNthCalledWith(1, {
-        where: { id: projectId, ownerId: userId },
-        relations: ['owner'],
-      });
-      expect(projectsRepository.findOne).toHaveBeenNthCalledWith(2, {
-        where: { id: projectId },
-        relations: ['owner'],
-      });
-      expect(contributorRepository.findOne).toHaveBeenCalledWith({
-        where: { projectId, userId },
-      });
+      expect(projectsRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'project',
+      );
+      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+        'project.owner',
+        'owner',
+      );
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        'project_contributor',
+        'contributor',
+        'contributor.projectId = project.id AND contributor.userId = :userId',
+        { userId },
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'project.id = :projectId',
+        { projectId },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        '(project.ownerId = :userId OR contributor.userId = :userId)',
+        { userId },
+      );
+      expect(mockQueryBuilder.getOne).toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException when project not found and user is not contributor', async () => {
+    it('should throw NotFoundException when project not found and user has no access', async () => {
       const projectId = 'non-existent';
       const userId = 'user-1';
 
-      (projectsRepository.findOne as jest.Mock).mockResolvedValue(null);
-      (contributorRepository.findOne as jest.Mock).mockResolvedValue(null);
+      const mockQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockQueryBuilder,
+      );
 
       await expect(service.findOne(projectId, userId)).rejects.toThrow(
         NotFoundException,
       );
 
-      expect(projectsRepository.findOne).toHaveBeenCalledWith({
-        where: { id: projectId, ownerId: userId },
-        relations: ['owner'],
-      });
-      expect(contributorRepository.findOne).toHaveBeenCalledWith({
-        where: { projectId, userId },
-      });
+      expect(projectsRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'project',
+      );
+      expect(mockQueryBuilder.getOne).toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith(
         `Project not found with id: ${projectId} for user ${userId}`,
       );
@@ -359,9 +405,21 @@ describe('ProjectsService', () => {
 
       const updatedProject = { ...mockProject, ...updateProjectDto };
 
-      (projectsRepository.findOne as jest.Mock)
-        .mockResolvedValueOnce(mockProject) // First call for validation
-        .mockResolvedValueOnce(updatedProject); // Second call for return
+      // Mock validateProjectOwnership (which uses the old findOne approach)
+      (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
+
+      // Mock findOne (which uses the new createQueryBuilder approach)
+      const mockFindOneQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(updatedProject),
+      };
+
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockFindOneQueryBuilder,
+      );
       (projectsRepository.update as jest.Mock).mockResolvedValue({
         affected: 1,
       });
@@ -437,9 +495,21 @@ describe('ProjectsService', () => {
         status: ProjectStatus.ARCHIVED,
       };
 
-      (projectsRepository.findOne as jest.Mock)
-        .mockResolvedValueOnce(mockProject) // First call for validation
-        .mockResolvedValueOnce(archivedProject); // Second call for return
+      // Mock validateProjectOwnership (which uses the old findOne approach)
+      (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
+
+      // Mock findOne (which uses the new createQueryBuilder approach)
+      const mockFindOneQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(archivedProject),
+      };
+
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockFindOneQueryBuilder,
+      );
       (projectsRepository.update as jest.Mock).mockResolvedValue({
         affected: 1,
       });
@@ -466,9 +536,21 @@ describe('ProjectsService', () => {
 
       const activatedProject = { ...mockProject, status: ProjectStatus.ACTIVE };
 
-      (projectsRepository.findOne as jest.Mock)
-        .mockResolvedValueOnce(mockProject) // First call for validation
-        .mockResolvedValueOnce(activatedProject); // Second call for return
+      // Mock validateProjectOwnership (which uses the old findOne approach)
+      (projectsRepository.findOne as jest.Mock).mockResolvedValue(mockProject);
+
+      // Mock findOne (which uses the new createQueryBuilder approach)
+      const mockFindOneQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(activatedProject),
+      };
+
+      (projectsRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockFindOneQueryBuilder,
+      );
       (projectsRepository.update as jest.Mock).mockResolvedValue({
         affected: 1,
       });

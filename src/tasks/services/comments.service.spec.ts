@@ -191,7 +191,7 @@ describe('CommentsService', () => {
       expect(commentsRepository.find).toHaveBeenCalledWith({
         where: { taskId: 'task-1' },
         relations: ['user'],
-        order: { createdAt: 'ASC' },
+        order: { createdAt: 'DESC' },
       });
     });
 

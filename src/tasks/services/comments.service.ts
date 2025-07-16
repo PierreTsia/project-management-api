@@ -93,7 +93,7 @@ export class CommentsService {
     const comments = await this.commentsRepository.find({
       where: { taskId },
       relations: ['user'],
-      order: { createdAt: 'ASC' },
+      order: { createdAt: 'DESC' },
     });
 
     return comments.map((comment) => new CommentResponseDto(comment));

@@ -328,4 +328,40 @@ export class TasksController {
     );
     return new TaskResponseDto(task);
   }
+
+  @Delete(':taskId/assign')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
+  @ApiOperation({ summary: 'Unassign task from current user' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiParam({ name: 'taskId', description: 'Task ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task unassigned successfully',
+    type: TaskResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Project or task not found',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async unassignTask(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<TaskResponseDto> {
+    const task = await this.tasksService.unassignTask(
+      taskId,
+      projectId,
+      acceptLanguage,
+    );
+    return new TaskResponseDto(task);
+  }
 }

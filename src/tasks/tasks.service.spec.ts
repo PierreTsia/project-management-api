@@ -626,6 +626,101 @@ describe('TasksService', () => {
     });
   });
 
+  describe('unassignTask', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should unassign task successfully', async () => {
+      const taskWithAssignee = {
+        ...mockTask,
+        assigneeId: 'user-1',
+        assignee: { id: 'user-1', name: 'User 1' },
+      };
+
+      (mockRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(taskWithAssignee) // First call from findOne in unassignTask method
+        .mockResolvedValueOnce({
+          ...taskWithAssignee,
+          assigneeId: null,
+          assignee: null,
+        }); // Second call after save
+
+      const unassignedTask = {
+        ...taskWithAssignee,
+        assigneeId: null,
+        assignee: undefined,
+      };
+      (mockRepository.save as jest.Mock).mockResolvedValue(unassignedTask);
+
+      const result = await service.unassignTask('task-1', 'project-1', 'en-US');
+
+      expect(result).toEqual(unassignedTask);
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'task-1', projectId: 'project-1' },
+        relations: ['assignee'],
+      });
+      expect(mockRepository.save).toHaveBeenCalledWith({
+        ...taskWithAssignee,
+        assigneeId: null,
+        assignee: undefined,
+      });
+    });
+
+    it('should handle unassigning already unassigned task', async () => {
+      const unassignedTask = {
+        ...mockTask,
+        assigneeId: null,
+        assignee: null,
+      };
+
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(unassignedTask);
+      (mockRepository.save as jest.Mock).mockResolvedValue(unassignedTask);
+
+      const result = await service.unassignTask('task-1', 'project-1', 'en-US');
+
+      expect(result).toEqual(unassignedTask);
+      expect(mockRepository.save).toHaveBeenCalledWith({
+        ...unassignedTask,
+        assigneeId: null,
+        assignee: undefined,
+      });
+    });
+
+    it('should throw NotFoundException if task does not exist', async () => {
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (mockI18nService.t as jest.Mock).mockReturnValue('not found');
+
+      await expect(
+        service.unassignTask('missing', 'project-1', 'en-US'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should handle different accept-language', async () => {
+      const taskWithAssignee = {
+        ...mockTask,
+        assigneeId: 'user-1',
+        assignee: { id: 'user-1', name: 'User 1' },
+      };
+
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(taskWithAssignee);
+      const unassignedTask = {
+        ...taskWithAssignee,
+        assigneeId: null,
+        assignee: undefined,
+      };
+      (mockRepository.save as jest.Mock).mockResolvedValue(unassignedTask);
+
+      const result = await service.unassignTask('task-1', 'project-1', 'fr-FR');
+
+      expect(result).toEqual(unassignedTask);
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'task-1', projectId: 'project-1' },
+        relations: ['assignee'],
+      });
+    });
+  });
+
   describe('searchTasks', () => {
     beforeEach(() => {
       jest.clearAllMocks();

@@ -45,6 +45,7 @@ describe('TasksController', () => {
             remove: jest.fn(),
             updateStatus: jest.fn(),
             assignTask: jest.fn(),
+            unassignTask: jest.fn(),
             searchTasks: jest.fn(),
           },
         },
@@ -441,6 +442,59 @@ describe('TasksController', () => {
     });
   });
 
+  describe('unassignTask', () => {
+    it('should unassign task successfully', async () => {
+      const projectId = 'project-1';
+      const taskId = 'task-1';
+
+      const unassignedTask = { ...mockTask, assigneeId: null };
+
+      (tasksService.unassignTask as jest.Mock).mockResolvedValue(
+        unassignedTask,
+      );
+
+      const result = await controller.unassignTask(projectId, taskId, 'en-US');
+
+      expect(result).toBeInstanceOf(TaskResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: unassignedTask.id,
+          title: unassignedTask.title,
+          description: unassignedTask.description,
+          status: unassignedTask.status,
+          priority: unassignedTask.priority,
+          projectId: unassignedTask.projectId,
+          assigneeId: null,
+        }),
+      );
+      expect(tasksService.unassignTask).toHaveBeenCalledWith(
+        taskId,
+        projectId,
+        'en-US',
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const projectId = 'project-1';
+      const taskId = 'task-1';
+
+      const unassignedTask = { ...mockTask, assigneeId: null };
+
+      (tasksService.unassignTask as jest.Mock).mockResolvedValue(
+        unassignedTask,
+      );
+
+      const result = await controller.unassignTask(projectId, taskId, 'fr-FR');
+
+      expect(result).toBeInstanceOf(TaskResponseDto);
+      expect(tasksService.unassignTask).toHaveBeenCalledWith(
+        taskId,
+        projectId,
+        'fr-FR',
+      );
+    });
+  });
+
   describe('Guards and Decorators', () => {
     let reflector: Reflector;
 
@@ -510,6 +564,14 @@ describe('TasksController', () => {
       const role = reflector.get<ProjectRole>(
         REQUIRE_PROJECT_ROLE_KEY,
         controller.assignTask,
+      );
+      expect(role).toBe(ProjectRole.WRITE);
+    });
+
+    it('should require WRITE role for unassignTask', () => {
+      const role = reflector.get<ProjectRole>(
+        REQUIRE_PROJECT_ROLE_KEY,
+        controller.unassignTask,
       );
       expect(role).toBe(ProjectRole.WRITE);
     });

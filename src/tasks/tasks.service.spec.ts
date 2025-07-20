@@ -154,7 +154,6 @@ describe('TasksService', () => {
 
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
-      (mockRepository.findOne as jest.Mock).mockResolvedValue(createdTask);
 
       const result = await service.create(createTaskDto, projectId);
 
@@ -336,9 +335,7 @@ describe('TasksService', () => {
     it('should update a task successfully', async () => {
       const updateTaskDto: UpdateTaskDto = { title: 'Updated Task' };
       const mergedTask = { ...mockTask, ...updateTaskDto };
-      (mockRepository.findOne as jest.Mock)
-        .mockResolvedValueOnce(mockTask) // First call from findOne in update method
-        .mockResolvedValueOnce(mergedTask); // Second call to reload with relations
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
       (mockRepository.merge as jest.Mock).mockReturnValue(mergedTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(mergedTask);
       const result = await service.update(

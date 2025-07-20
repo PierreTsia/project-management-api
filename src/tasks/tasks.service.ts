@@ -45,14 +45,18 @@ export class TasksService {
     });
     const savedTask = await this.taskRepository.save(task);
 
-    // Reload the task with assignee relation
-    const createdTask = await this.taskRepository.findOne({
-      where: { id: savedTask.id },
-      relations: ['assignee'],
-    });
+    // Reload the task with assignee relation if assigneeId is provided
+    if (createTaskDto.assigneeId) {
+      const createdTask = await this.taskRepository.findOne({
+        where: { id: savedTask.id },
+        relations: ['assignee'],
+      });
+      this.logger.log(`Task created successfully with id: ${savedTask.id}`);
+      return createdTask;
+    }
 
     this.logger.log(`Task created successfully with id: ${savedTask.id}`);
-    return createdTask;
+    return savedTask;
   }
 
   async findAll(projectId: string): Promise<Task[]> {
@@ -120,14 +124,8 @@ export class TasksService {
     const updatedTask = this.taskRepository.merge(task, updateTaskDto);
     const savedTask = await this.taskRepository.save(updatedTask);
 
-    // Reload the task with assignee relation
-    const reloadedTask = await this.taskRepository.findOne({
-      where: { id: savedTask.id },
-      relations: ['assignee'],
-    });
-
     this.logger.log(`Task ${id} updated successfully`);
-    return reloadedTask;
+    return savedTask;
   }
 
   async remove(

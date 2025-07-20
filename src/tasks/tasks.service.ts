@@ -211,6 +211,8 @@ export class TasksService {
 
     // Update the assignee
     task.assigneeId = assigneeId;
+    // Clear the existing assignee relation to force TypeORM to reload it
+    task.assignee = undefined;
     const savedTask = await this.taskRepository.save(task);
 
     // Reload the task with assignee relation
@@ -220,6 +222,31 @@ export class TasksService {
     });
 
     this.logger.log(`Task ${id} assigned successfully to user ${assigneeId}`);
+    return updatedTask;
+  }
+
+  async unassignTask(
+    id: string,
+    projectId: string,
+    acceptLanguage?: string,
+  ): Promise<Task> {
+    this.logger.debug(`Unassigning task ${id} from project ${projectId}`);
+
+    const task = await this.findOne(id, projectId, acceptLanguage);
+
+    // Update the assignee to null
+    task.assigneeId = null;
+    // Clear the existing assignee relation
+    task.assignee = undefined;
+    const savedTask = await this.taskRepository.save(task);
+
+    // Reload the task with assignee relation
+    const updatedTask = await this.taskRepository.findOne({
+      where: { id: savedTask.id },
+      relations: ['assignee'],
+    });
+
+    this.logger.log(`Task ${id} unassigned successfully`);
     return updatedTask;
   }
 

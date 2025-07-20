@@ -190,16 +190,10 @@ export class TasksService {
     task.status = updateTaskStatusDto.status;
     const savedTask = await this.taskRepository.save(task);
 
-    // Reload the task with assignee relation
-    const updatedTask = await this.taskRepository.findOne({
-      where: { id: savedTask.id },
-      relations: ['assignee'],
-    });
-
     this.logger.log(
       `Task ${id} status updated successfully from ${originalStatus} to ${updateTaskStatusDto.status}`,
     );
-    return updatedTask;
+    return savedTask;
   }
 
   async assignTask(

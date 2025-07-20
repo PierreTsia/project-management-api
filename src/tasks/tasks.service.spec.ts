@@ -422,9 +422,7 @@ describe('TasksService', () => {
       const userId = 'user-1';
       const updatedTask = { ...mockTask, status: TaskStatus.IN_PROGRESS };
 
-      (mockRepository.findOne as jest.Mock)
-        .mockResolvedValueOnce(mockTask) // First call from findOne in updateStatus method
-        .mockResolvedValueOnce(updatedTask); // Second call to reload with relations
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
       (
         mockTaskStatusService.validateAndThrowIfInvalid as jest.Mock
       ).mockReturnValue(undefined);

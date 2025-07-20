@@ -117,6 +117,7 @@ describe('TasksService', () => {
       );
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(createdTask);
 
       const result = await service.create(createTaskDto, projectId);
 
@@ -244,6 +245,7 @@ describe('TasksService', () => {
       );
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(createdTask);
 
       const result = await service.create(createTaskDto, projectId);
 
@@ -268,6 +270,7 @@ describe('TasksService', () => {
       );
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(createdTask);
 
       const result = await service.create(createTaskDto, projectId);
 
@@ -288,6 +291,7 @@ describe('TasksService', () => {
       expect(result).toEqual(tasks);
       expect(mockRepository.find).toHaveBeenCalledWith({
         where: { projectId },
+        relations: ['assignee'],
       });
       expect(mockLogger.debug).toHaveBeenCalledWith(
         `Finding all tasks for project ${projectId}`,
@@ -302,6 +306,7 @@ describe('TasksService', () => {
       expect(result).toEqual(mockTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
+        relations: ['assignee'],
       });
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'Finding task with id: task-1 for project project-1',
@@ -431,6 +436,7 @@ describe('TasksService', () => {
       expect(result).toEqual(updatedTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
+        relations: ['assignee'],
       });
       expect(
         mockTaskStatusService.validateAndThrowIfInvalid,
@@ -527,7 +533,9 @@ describe('TasksService', () => {
       const assigneeId = 'user-1'; // WRITE role
       const assignedTask = { ...mockTask, assigneeId };
 
-      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
+      (mockRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(mockTask) // First call from findOne in assignTask method
+        .mockResolvedValueOnce(assignedTask); // Second call to reload with relations
       (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
         mockContributors,
       );
@@ -543,6 +551,7 @@ describe('TasksService', () => {
       expect(result).toEqual(assignedTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
+        relations: ['assignee'],
       });
       expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
         'project-1',

@@ -3,10 +3,13 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { UserResponseDto } from './dto/user-response.dto';
+import { NotFoundException } from '@nestjs/common';
+import { I18nService } from 'nestjs-i18n';
 
 describe('UsersController', () => {
   let controller: UsersController;
   let usersService: UsersService;
+  let i18nService: I18nService;
 
   const mockUser: User = {
     id: 'user-1',
@@ -34,11 +37,18 @@ describe('UsersController', () => {
             updateName: jest.fn(),
           },
         },
+        {
+          provide: I18nService,
+          useValue: {
+            translate: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     controller = module.get<UsersController>(UsersController);
     usersService = module.get<UsersService>(UsersService);
+    i18nService = module.get<I18nService>(I18nService);
   });
 
   afterEach(() => {
@@ -158,6 +168,90 @@ describe('UsersController', () => {
         mockAcceptLanguage,
       );
       expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('getUserById', () => {
+    it('should return user details by ID', async () => {
+      const userId = 'user-123';
+      (usersService.findOne as jest.Mock).mockResolvedValue(mockUser);
+
+      const result = await controller.getUserById(userId);
+
+      expect(result).toBeInstanceOf(UserResponseDto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: mockUser.id,
+          email: mockUser.email,
+          name: mockUser.name,
+          isEmailConfirmed: mockUser.isEmailConfirmed,
+          avatarUrl: mockUser.avatarUrl,
+        }),
+      );
+      expect(usersService.findOne).toHaveBeenCalledWith(userId);
+    });
+
+    it('should throw NotFoundException when user not found', async () => {
+      const userId = 'non-existent-user';
+      const acceptLanguage = 'en';
+      const errorMessage = 'User not found';
+
+      (usersService.findOne as jest.Mock).mockResolvedValue(null);
+      (i18nService.translate as jest.Mock).mockReturnValue(errorMessage);
+
+      await expect(
+        controller.getUserById(userId, acceptLanguage),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(usersService.findOne).toHaveBeenCalledWith(userId);
+      expect(i18nService.translate).toHaveBeenCalledWith(
+        'errors.user.not_found',
+        {
+          lang: acceptLanguage,
+        },
+      );
+    });
+
+    it('should handle accept-language header', async () => {
+      const userId = 'user-123';
+      const acceptLanguage = 'fr';
+      (usersService.findOne as jest.Mock).mockResolvedValue(mockUser);
+
+      const result = await controller.getUserById(userId, acceptLanguage);
+
+      expect(result).toBeInstanceOf(UserResponseDto);
+      expect(usersService.findOne).toHaveBeenCalledWith(userId);
+    });
+
+    it('should handle missing accept-language header', async () => {
+      const userId = 'user-123';
+      (usersService.findOne as jest.Mock).mockResolvedValue(mockUser);
+
+      const result = await controller.getUserById(userId);
+
+      expect(result).toBeInstanceOf(UserResponseDto);
+      expect(usersService.findOne).toHaveBeenCalledWith(userId);
+    });
+
+    it('should throw NotFoundException with proper error structure when user not found', async () => {
+      const userId = 'non-existent-user';
+      const acceptLanguage = 'en';
+      const errorMessage = 'User not found';
+
+      (usersService.findOne as jest.Mock).mockResolvedValue(null);
+      (i18nService.translate as jest.Mock).mockReturnValue(errorMessage);
+
+      try {
+        await controller.getUserById(userId, acceptLanguage);
+        fail('Should have thrown NotFoundException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundException);
+        expect(error.response).toEqual({
+          status: 404,
+          code: 'USER.NOT_FOUND',
+          message: errorMessage,
+        });
+      }
     });
   });
 });

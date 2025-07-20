@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Exclude, Expose } from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
 import { Task } from '../entities/task.entity';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
+import { UserResponseDto } from '../../users/dto/user-response.dto';
 
 @Exclude()
 export class TaskResponseDto {
@@ -60,12 +61,13 @@ export class TaskResponseDto {
   projectId: string;
 
   @Expose()
+  @Type(() => UserResponseDto)
   @ApiProperty({
-    description: 'ID of the user this task is assigned to',
-    example: 'c1d2e3f4-g5h6-7890-1234-567890abcdef',
+    description: 'User this task is assigned to',
+    type: UserResponseDto,
     nullable: true,
   })
-  assigneeId?: string;
+  assignee?: UserResponseDto;
 
   @Expose()
   @ApiProperty({
@@ -83,5 +85,10 @@ export class TaskResponseDto {
 
   constructor(partial: Partial<Task>) {
     Object.assign(this, partial);
+
+    // Transform assignee if it exists
+    if (partial.assignee) {
+      this.assignee = new UserResponseDto(partial.assignee);
+    }
   }
 }

@@ -44,13 +44,27 @@ export class TasksService {
       projectId,
     });
     const savedTask = await this.taskRepository.save(task);
+
+    // Reload the task with assignee relation if assigneeId is provided
+    if (createTaskDto.assigneeId) {
+      const createdTask = await this.taskRepository.findOne({
+        where: { id: savedTask.id },
+        relations: ['assignee'],
+      });
+      this.logger.log(`Task created successfully with id: ${savedTask.id}`);
+      return createdTask;
+    }
+
     this.logger.log(`Task created successfully with id: ${savedTask.id}`);
     return savedTask;
   }
 
   async findAll(projectId: string): Promise<Task[]> {
     this.logger.debug(`Finding all tasks for project ${projectId}`);
-    return this.taskRepository.find({ where: { projectId } });
+    return this.taskRepository.find({
+      where: { projectId },
+      relations: ['assignee'],
+    });
   }
 
   async findOne(
@@ -61,6 +75,7 @@ export class TasksService {
     this.logger.debug(`Finding task with id: ${id} for project ${projectId}`);
     const task = await this.taskRepository.findOne({
       where: { id, projectId },
+      relations: ['assignee'],
     });
     if (!task) {
       this.logger.warn(
@@ -108,6 +123,7 @@ export class TasksService {
     const task = await this.findOne(id, projectId, acceptLanguage);
     const updatedTask = this.taskRepository.merge(task, updateTaskDto);
     const savedTask = await this.taskRepository.save(updatedTask);
+
     this.logger.log(`Task ${id} updated successfully`);
     return savedTask;
   }
@@ -197,8 +213,14 @@ export class TasksService {
     task.assigneeId = assigneeId;
     const savedTask = await this.taskRepository.save(task);
 
+    // Reload the task with assignee relation
+    const updatedTask = await this.taskRepository.findOne({
+      where: { id: savedTask.id },
+      relations: ['assignee'],
+    });
+
     this.logger.log(`Task ${id} assigned successfully to user ${assigneeId}`);
-    return savedTask;
+    return updatedTask;
   }
 
   private async validateAssignee(

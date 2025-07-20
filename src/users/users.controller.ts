@@ -9,6 +9,8 @@ import {
   UploadedFile,
   Body,
   Patch,
+  Param,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,6 +26,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from '../config/multer.config';
 import { UpdateNameDto } from './dto/update-name.dto';
+import { I18nService } from 'nestjs-i18n';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -31,7 +34,10 @@ import { UpdateNameDto } from './dto/update-name.dto';
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly i18n: I18nService,
+  ) {}
 
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({
@@ -49,6 +55,38 @@ export class UsersController {
     @Headers('accept-language') _acceptLanguage?: string,
   ): Promise<UserResponseDto> {
     const user = await this.usersService.findOne(req.user.id);
+    return new UserResponseDto(user);
+  }
+
+  @ApiOperation({ summary: 'Get user details by ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the user details',
+    type: UserResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @Get(':id')
+  async getUserById(
+    @Param('id') id: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<UserResponseDto> {
+    const user = await this.usersService.findOne(id);
+    if (!user) {
+      throw new NotFoundException({
+        status: 404,
+        code: 'USER.NOT_FOUND',
+        message: this.i18n.translate('errors.user.not_found', {
+          lang: acceptLanguage,
+        }),
+      });
+    }
     return new UserResponseDto(user);
   }
 

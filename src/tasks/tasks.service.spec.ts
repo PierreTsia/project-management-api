@@ -117,6 +117,7 @@ describe('TasksService', () => {
       );
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(createdTask);
 
       const result = await service.create(createTaskDto, projectId);
 
@@ -153,6 +154,7 @@ describe('TasksService', () => {
 
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(createdTask);
 
       const result = await service.create(createTaskDto, projectId);
 
@@ -244,6 +246,7 @@ describe('TasksService', () => {
       );
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(createdTask);
 
       const result = await service.create(createTaskDto, projectId);
 
@@ -268,6 +271,7 @@ describe('TasksService', () => {
       );
       (mockRepository.create as jest.Mock).mockReturnValue(createdTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(createdTask);
+      (mockRepository.findOne as jest.Mock).mockResolvedValue(createdTask);
 
       const result = await service.create(createTaskDto, projectId);
 
@@ -288,6 +292,7 @@ describe('TasksService', () => {
       expect(result).toEqual(tasks);
       expect(mockRepository.find).toHaveBeenCalledWith({
         where: { projectId },
+        relations: ['assignee'],
       });
       expect(mockLogger.debug).toHaveBeenCalledWith(
         `Finding all tasks for project ${projectId}`,
@@ -302,6 +307,7 @@ describe('TasksService', () => {
       expect(result).toEqual(mockTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
+        relations: ['assignee'],
       });
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'Finding task with id: task-1 for project project-1',
@@ -330,7 +336,9 @@ describe('TasksService', () => {
     it('should update a task successfully', async () => {
       const updateTaskDto: UpdateTaskDto = { title: 'Updated Task' };
       const mergedTask = { ...mockTask, ...updateTaskDto };
-      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
+      (mockRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(mockTask) // First call from findOne in update method
+        .mockResolvedValueOnce(mergedTask); // Second call to reload with relations
       (mockRepository.merge as jest.Mock).mockReturnValue(mergedTask);
       (mockRepository.save as jest.Mock).mockResolvedValue(mergedTask);
       const result = await service.update(
@@ -414,7 +422,9 @@ describe('TasksService', () => {
       const userId = 'user-1';
       const updatedTask = { ...mockTask, status: TaskStatus.IN_PROGRESS };
 
-      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
+      (mockRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(mockTask) // First call from findOne in updateStatus method
+        .mockResolvedValueOnce(updatedTask); // Second call to reload with relations
       (
         mockTaskStatusService.validateAndThrowIfInvalid as jest.Mock
       ).mockReturnValue(undefined);
@@ -431,6 +441,7 @@ describe('TasksService', () => {
       expect(result).toEqual(updatedTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
+        relations: ['assignee'],
       });
       expect(
         mockTaskStatusService.validateAndThrowIfInvalid,
@@ -527,7 +538,9 @@ describe('TasksService', () => {
       const assigneeId = 'user-1'; // WRITE role
       const assignedTask = { ...mockTask, assigneeId };
 
-      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockTask);
+      (mockRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(mockTask) // First call from findOne in assignTask method
+        .mockResolvedValueOnce(assignedTask); // Second call to reload with relations
       (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
         mockContributors,
       );
@@ -543,6 +556,7 @@ describe('TasksService', () => {
       expect(result).toEqual(assignedTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
+        relations: ['assignee'],
       });
       expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
         'project-1',

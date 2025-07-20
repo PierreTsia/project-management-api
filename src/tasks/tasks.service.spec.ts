@@ -649,7 +649,7 @@ describe('TasksService', () => {
       const unassignedTask = {
         ...taskWithAssignee,
         assigneeId: null,
-        assignee: undefined,
+        assignee: null,
       };
       (mockRepository.save as jest.Mock).mockResolvedValue(unassignedTask);
 
@@ -703,11 +703,17 @@ describe('TasksService', () => {
         assignee: { id: 'user-1', name: 'User 1' },
       };
 
-      (mockRepository.findOne as jest.Mock).mockResolvedValue(taskWithAssignee);
+      (mockRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(taskWithAssignee) // First call from findOne in unassignTask method
+        .mockResolvedValueOnce({
+          ...taskWithAssignee,
+          assigneeId: null,
+          assignee: null,
+        }); // Second call after save (reload with relations)
       const unassignedTask = {
         ...taskWithAssignee,
         assigneeId: null,
-        assignee: undefined,
+        assignee: null,
       };
       (mockRepository.save as jest.Mock).mockResolvedValue(unassignedTask);
 

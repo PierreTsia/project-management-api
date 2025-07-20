@@ -240,8 +240,14 @@ export class TasksService {
     task.assignee = undefined;
     const savedTask = await this.taskRepository.save(task);
 
+    // Reload the task with assignee relation
+    const updatedTask = await this.taskRepository.findOne({
+      where: { id: savedTask.id },
+      relations: ['assignee'],
+    });
+
     this.logger.log(`Task ${id} unassigned successfully`);
-    return savedTask;
+    return updatedTask;
   }
 
   private async validateAssignee(

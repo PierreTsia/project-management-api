@@ -19,6 +19,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { ReportingModule } from './reporting/reporting.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
@@ -54,6 +55,7 @@ import { CustomLogger } from './common/services/logger.service';
     TasksModule,
     AttachmentsModule,
     ReportingModule,
+    DashboardModule,
     CloudinaryModule,
     LoggerModule,
   ],

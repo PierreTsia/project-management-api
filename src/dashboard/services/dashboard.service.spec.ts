@@ -231,18 +231,36 @@ describe('DashboardService', () => {
       ];
 
       mockProjectsService.findAll.mockResolvedValue(mockProjects);
-      mockRepository.find.mockResolvedValue([
+
+      // Mock projects with owner relation (first call)
+      mockRepository.find
+        .mockResolvedValueOnce([
+          {
+            id: 'project-1',
+            name: 'Project Alpha',
+            status: ProjectStatus.ACTIVE,
+            owner: { id: userId, name: 'John Doe' },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ])
+        // Mock contributors find (second call)
+        .mockResolvedValueOnce([
+          {
+            projectId: 'project-1',
+            userId: userId,
+            role: 'ADMIN',
+          },
+        ]);
+
+      // Mock task counts query builder
+      mockQueryBuilder.getRawMany.mockResolvedValue([
         {
-          id: 'project-1',
-          name: 'Project Alpha',
-          status: ProjectStatus.ACTIVE,
-          owner: { id: userId, name: 'John Doe' },
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          projectId: 'project-1',
+          totalCount: '5',
+          assignedCount: '3',
         },
       ]);
-      mockRepository.findOne.mockResolvedValue({ role: 'ADMIN' });
-      mockRepository.count.mockResolvedValue(5);
 
       // Act
       const result = await service.getUserProjects(userId);
@@ -252,6 +270,7 @@ describe('DashboardService', () => {
       expect(result[0].id).toBe('project-1');
       expect(result[0].userRole).toBe('ADMIN');
       expect(result[0].taskCount).toBe(5);
+      expect(result[0].assignedTaskCount).toBe(3);
     });
   });
 });

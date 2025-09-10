@@ -164,22 +164,54 @@ export class DashboardService {
       order: { createdAt: 'DESC' },
     });
 
+    // Fetch all contributors for this user and these projects in one query
+    const contributors = await this.projectContributorRepository.find({
+      where: { userId, projectId: In(projectIds) },
+    });
+
+    // Create a map for quick lookup by projectId
+    const contributorMap = new Map<string, ProjectContributor>();
+    for (const contributor of contributors) {
+      contributorMap.set(contributor.projectId, contributor);
+    }
+
+    // Get all task counts in a single query
+    const taskCounts = await this.taskRepository
+      .createQueryBuilder('task')
+      .select('task.projectId', 'projectId')
+      .addSelect('COUNT(*)', 'totalCount')
+      .addSelect(
+        'COUNT(CASE WHEN task.assigneeId = :userId THEN 1 END)',
+        'assignedCount',
+      )
+      .where('task.projectId IN (:...projectIds)', { projectIds })
+      .setParameters({ userId })
+      .groupBy('task.projectId')
+      .getRawMany();
+
+    // Create a map for task counts lookup
+    const taskCountMap = new Map<
+      string,
+      { totalCount: number; assignedCount: number }
+    >();
+    for (const count of taskCounts) {
+      taskCountMap.set(count.projectId, {
+        totalCount: parseInt(count.totalCount),
+        assignedCount: parseInt(count.assignedCount),
+      });
+    }
+
     const projectDtos: DashboardProjectDto[] = [];
 
     for (const project of projectsWithOwner) {
-      // Get user role in project
-      const contributor = await this.projectContributorRepository.findOne({
-        where: { userId, projectId: project.id },
-      });
+      // Get user role in project from map
+      const contributor = contributorMap.get(project.id);
 
-      // Get task counts for this project
-      const taskCount = await this.taskRepository.count({
-        where: { projectId: project.id },
-      });
-
-      const assignedTaskCount = await this.taskRepository.count({
-        where: { projectId: project.id, assigneeId: userId },
-      });
+      // Get task counts from map
+      const counts = taskCountMap.get(project.id) || {
+        totalCount: 0,
+        assignedCount: 0,
+      };
 
       projectDtos.push({
         id: project.id,
@@ -191,8 +223,8 @@ export class DashboardService {
           name: project.owner.name,
         },
         userRole: contributor?.role || 'OWNER',
-        taskCount,
-        assignedTaskCount,
+        taskCount: counts.totalCount,
+        assignedTaskCount: counts.assignedCount,
         createdAt: project.createdAt,
         updatedAt: project.updatedAt,
       });

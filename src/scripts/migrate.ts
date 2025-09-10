@@ -8,9 +8,6 @@ if (process.env.NODE_ENV !== 'production') {
 const isProduction = process.env.NODE_ENV === 'production';
 const databaseUrl = process.env.DATABASE_URL || '';
 
-console.log('isProduction', isProduction);
-console.log('databaseUrl', databaseUrl);
-
 // Only use SSL for actual production databases (like Fly.io)
 // Local Docker databases don't need SSL
 const isFlyDatabase =

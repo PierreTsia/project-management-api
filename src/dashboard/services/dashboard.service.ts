@@ -362,15 +362,8 @@ export class DashboardService {
     _userId: string,
     _projectIds: string[],
   ): Promise<ActivityItem[]> {
-    // For now, return a simple mock. In a real implementation, you might want to
-    // track activity in a separate table or use audit logs
-    return [
-      {
-        type: 'task_completed',
-        description: 'Recent task activity',
-        timestamp: new Date(),
-      },
-    ];
+    // Recent activity tracking not yet implemented.
+    return [];
   }
 
   private getEmptySummary(): DashboardSummaryDto {

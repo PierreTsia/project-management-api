@@ -4,6 +4,7 @@ import { Task } from './entities/task.entity';
 import { Comment } from './entities/comment.entity';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
+import { GlobalTasksController } from './controllers/global-tasks.controller';
 import { CommentsService } from './services/comments.service';
 import { CommentsController } from './controllers/comments.controller';
 import { ProjectsModule } from '../projects/projects.module';
@@ -17,7 +18,7 @@ import { LoggerModule } from '../common/services/logger.module';
     ProjectsModule,
     LoggerModule,
   ],
-  controllers: [TasksController, CommentsController],
+  controllers: [TasksController, GlobalTasksController, CommentsController],
   providers: [TasksService, CommentsService, TaskStatusService, CustomLogger],
   exports: [TasksService, CommentsService],
 })

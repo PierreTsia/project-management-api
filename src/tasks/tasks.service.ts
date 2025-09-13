@@ -12,6 +12,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { SearchTasksDto } from './dto/search-tasks.dto';
+import { GlobalSearchTasksDto } from './dto/global-search-tasks.dto';
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskStatusService } from './services/task-status.service';
@@ -364,5 +365,251 @@ export class TasksService {
       page: searchDto.page,
       limit: searchDto.limit,
     };
+  }
+
+  /**
+   * Find all tasks across all projects accessible by the user
+   */
+  async findAllUserTasks(
+    userId: string,
+    searchDto: GlobalSearchTasksDto,
+  ): Promise<{ tasks: Task[]; total: number; page: number; limit: number }> {
+    this.logger.debug(
+      `Finding all user tasks for user ${userId} with filters: ${JSON.stringify(
+        searchDto,
+      )}`,
+    );
+
+    // Get user's accessible projects
+    const projects = await this.projectsService.findAll(userId);
+    const projectIds = projects.map((p) => p.id);
+
+    if (projectIds.length === 0) {
+      this.logger.debug(`User ${userId} has no accessible projects`);
+      return {
+        tasks: [],
+        total: 0,
+        page: searchDto.page || 1,
+        limit: searchDto.limit || 20,
+      };
+    }
+
+    return this.searchAllUserTasks(userId, searchDto, projectIds);
+  }
+
+  /**
+   * Search tasks across all projects accessible by the user
+   */
+  async searchAllUserTasks(
+    userId: string,
+    searchDto: GlobalSearchTasksDto,
+    projectIds?: string[],
+  ): Promise<{ tasks: Task[]; total: number; page: number; limit: number }> {
+    this.logger.debug(
+      `Searching all user tasks for user ${userId} with filters: ${JSON.stringify(
+        searchDto,
+      )}`,
+    );
+
+    // Get user's accessible projects if not provided
+    if (!projectIds) {
+      const projects = await this.projectsService.findAll(userId);
+      projectIds = projects.map((p) => p.id);
+    }
+
+    if (projectIds.length === 0) {
+      this.logger.debug(`User ${userId} has no accessible projects`);
+      return {
+        tasks: [],
+        total: 0,
+        page: searchDto.page || 1,
+        limit: searchDto.limit || 20,
+      };
+    }
+
+    const queryBuilder = this.taskRepository
+      .createQueryBuilder('task')
+      .leftJoinAndSelect('task.assignee', 'assignee')
+      .leftJoinAndSelect('task.project', 'project')
+      .where('task.projectId IN (:...projectIds)', { projectIds });
+
+    // Apply filters
+    this.applyGlobalSearchFilters(queryBuilder, searchDto, userId);
+
+    // Apply pagination
+    const page = searchDto.page || 1;
+    const limit = searchDto.limit || 20;
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    // Apply sorting
+    this.applySorting(queryBuilder, searchDto);
+
+    const [tasks, total] = await queryBuilder.getManyAndCount();
+
+    this.logger.log(
+      `Found ${tasks.length} tasks out of ${total} total for user ${userId}`,
+    );
+
+    return {
+      tasks,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Apply search filters to the query builder
+   */
+  private applyGlobalSearchFilters(
+    queryBuilder: any,
+    searchDto: GlobalSearchTasksDto,
+    userId: string,
+  ): void {
+    // Text search (case-insensitive)
+    if (searchDto.query) {
+      queryBuilder.andWhere(
+        '(task.title ILIKE :query OR task.description ILIKE :query)',
+        { query: `%${searchDto.query}%` },
+      );
+    }
+
+    // Status filter
+    if (searchDto.status) {
+      queryBuilder.andWhere('task.status = :status', {
+        status: searchDto.status,
+      });
+    }
+
+    // Priority filter
+    if (searchDto.priority) {
+      queryBuilder.andWhere('task.priority = :priority', {
+        priority: searchDto.priority,
+      });
+    }
+
+    // Assignee filter
+    if (searchDto.assigneeId) {
+      queryBuilder.andWhere('task.assigneeId = :assigneeId', {
+        assigneeId: searchDto.assigneeId,
+      });
+    }
+
+    // Project filter
+    if (searchDto.projectId) {
+      queryBuilder.andWhere('task.projectId = :projectId', {
+        projectId: searchDto.projectId,
+      });
+    }
+
+    // Due date range filter
+    if (searchDto.dueDateFrom) {
+      queryBuilder.andWhere('task.dueDate >= :dueDateFrom', {
+        dueDateFrom: searchDto.dueDateFrom,
+      });
+    }
+
+    if (searchDto.dueDateTo) {
+      queryBuilder.andWhere('task.dueDate <= :dueDateTo', {
+        dueDateTo: searchDto.dueDateTo,
+      });
+    }
+
+    // Created date range filter
+    if (searchDto.createdFrom) {
+      queryBuilder.andWhere('task.createdAt >= :createdFrom', {
+        createdFrom: searchDto.createdFrom,
+      });
+    }
+
+    if (searchDto.createdTo) {
+      queryBuilder.andWhere('task.createdAt <= :createdTo', {
+        createdTo: searchDto.createdTo,
+      });
+    }
+
+    // Assignee filter (me/unassigned/any)
+    if (searchDto.assigneeFilter) {
+      switch (searchDto.assigneeFilter) {
+        case 'me':
+          queryBuilder.andWhere('task.assigneeId = :userId', { userId });
+          break;
+        case 'unassigned':
+          queryBuilder.andWhere('task.assigneeId IS NULL');
+          break;
+        case 'any':
+          // No additional filter needed
+          break;
+      }
+    }
+
+    // Overdue filter
+    if (searchDto.isOverdue === true) {
+      queryBuilder
+        .andWhere('task.dueDate < NOW()')
+        .andWhere('task.status != :doneStatus', { doneStatus: 'DONE' });
+    }
+
+    // Has due date filter
+    if (searchDto.hasDueDate === true) {
+      queryBuilder.andWhere('task.dueDate IS NOT NULL');
+    } else if (searchDto.hasDueDate === false) {
+      queryBuilder.andWhere('task.dueDate IS NULL');
+    }
+  }
+
+  /**
+   * Apply sorting to the query builder
+   */
+  private applySorting(
+    queryBuilder: any,
+    searchDto: GlobalSearchTasksDto,
+  ): void {
+    const sortBy = searchDto.sortBy || 'createdAt';
+    const sortOrder = searchDto.sortOrder || 'DESC';
+
+    // Map sort fields to database columns
+    const sortFieldMap = {
+      createdAt: 'task.createdAt',
+      dueDate: 'task.dueDate',
+      priority: 'task.priority',
+      status: 'task.status',
+      title: 'task.title',
+    };
+
+    const sortField = sortFieldMap[sortBy] || 'task.createdAt';
+
+    // Handle special sorting for priority and status
+    if (sortBy === 'priority') {
+      // Custom priority sorting: HIGH > MEDIUM > LOW
+      queryBuilder.orderBy(
+        `CASE 
+          WHEN task.priority = 'HIGH' THEN 1 
+          WHEN task.priority = 'MEDIUM' THEN 2 
+          WHEN task.priority = 'LOW' THEN 3 
+          ELSE 4 
+        END`,
+        sortOrder,
+      );
+    } else if (sortBy === 'status') {
+      // Custom status sorting: TODO > IN_PROGRESS > DONE
+      queryBuilder.orderBy(
+        `CASE 
+          WHEN task.status = 'TODO' THEN 1 
+          WHEN task.status = 'IN_PROGRESS' THEN 2 
+          WHEN task.status = 'DONE' THEN 3 
+          ELSE 4 
+        END`,
+        sortOrder,
+      );
+    } else {
+      queryBuilder.orderBy(sortField, sortOrder);
+    }
+
+    // Add secondary sort for consistency
+    if (sortBy !== 'createdAt') {
+      queryBuilder.addOrderBy('task.createdAt', 'DESC');
+    }
   }
 }

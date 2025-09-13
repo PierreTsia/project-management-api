@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
+  Body,
   UseGuards,
   UseInterceptors,
   ClassSerializerInterceptor,
@@ -20,6 +22,10 @@ import { TasksService } from '../tasks.service';
 import { GlobalSearchTasksDto } from '../dto/global-search-tasks.dto';
 import { GlobalSearchTasksResponseDto } from '../dto/global-search-tasks-response.dto';
 import { TaskResponseDto } from '../dto/task-response.dto';
+import { BulkUpdateStatusDto } from '../dto/bulk-update-status.dto';
+import { BulkAssignTasksDto } from '../dto/bulk-assign-tasks.dto';
+import { BulkDeleteTasksDto } from '../dto/bulk-delete-tasks.dto';
+import { BulkOperationResponseDto } from '../dto/bulk-operation-response.dto';
 
 @ApiTags('Global Tasks')
 @ApiBearerAuth()
@@ -221,5 +227,92 @@ export class GlobalTasksController {
       hasNextPage,
       hasPreviousPage,
     };
+  }
+
+  @Post('bulk/status')
+  @ApiOperation({
+    summary: 'Bulk update task status',
+    description: 'Update the status of multiple tasks at once',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk status update completed',
+    type: BulkOperationResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - invalid data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  async bulkUpdateStatus(
+    @Request() req: { user: User },
+    @Body() bulkUpdateDto: BulkUpdateStatusDto,
+  ): Promise<BulkOperationResponseDto> {
+    return await this.tasksService.bulkUpdateStatus(req.user.id, bulkUpdateDto);
+  }
+
+  @Post('bulk/assign')
+  @ApiOperation({
+    summary: 'Bulk assign tasks',
+    description: 'Assign multiple tasks to a user at once',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk assignment completed',
+    type: BulkOperationResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - invalid data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  async bulkAssignTasks(
+    @Request() req: { user: User },
+    @Body() bulkAssignDto: BulkAssignTasksDto,
+  ): Promise<BulkOperationResponseDto> {
+    return await this.tasksService.bulkAssignTasks(req.user.id, bulkAssignDto);
+  }
+
+  @Post('bulk/delete')
+  @ApiOperation({
+    summary: 'Bulk delete tasks',
+    description: 'Delete multiple tasks at once',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Bulk deletion completed',
+    type: BulkOperationResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - invalid data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing token',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - insufficient permissions',
+  })
+  async bulkDeleteTasks(
+    @Request() req: { user: User },
+    @Body() bulkDeleteDto: BulkDeleteTasksDto,
+  ): Promise<BulkOperationResponseDto> {
+    return await this.tasksService.bulkDeleteTasks(req.user.id, bulkDeleteDto);
   }
 }

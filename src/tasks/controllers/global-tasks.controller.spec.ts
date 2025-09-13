@@ -39,6 +39,7 @@ describe('GlobalTasksController', () => {
       status: 'ACTIVE' as any,
       ownerId: 'user-123',
       owner: mockUser,
+      contributors: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     },

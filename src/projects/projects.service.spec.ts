@@ -67,6 +67,7 @@ describe('ProjectsService', () => {
     description: 'Test Description',
     status: ProjectStatus.ACTIVE,
     ownerId: 'user-1',
+    contributors: [],
     createdAt: new Date(),
     updatedAt: new Date(),
     owner: {

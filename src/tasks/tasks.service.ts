@@ -13,6 +13,13 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { SearchTasksDto } from './dto/search-tasks.dto';
 import { GlobalSearchTasksDto } from './dto/global-search-tasks.dto';
+import { BulkUpdateStatusDto } from './dto/bulk-update-status.dto';
+import { BulkAssignTasksDto } from './dto/bulk-assign-tasks.dto';
+import { BulkDeleteTasksDto } from './dto/bulk-delete-tasks.dto';
+import {
+  BulkOperationResponseDto,
+  BulkOperationResult,
+} from './dto/bulk-operation-response.dto';
 import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
 import { CustomLogger } from '../common/services/logger.service';
@@ -615,5 +622,271 @@ export class TasksService {
     if (sortBy !== 'createdAt') {
       queryBuilder.addOrderBy('task.createdAt', 'DESC');
     }
+  }
+
+  /**
+   * Bulk update status for multiple tasks
+   */
+  async bulkUpdateStatus(
+    userId: string,
+    bulkUpdateDto: BulkUpdateStatusDto,
+  ): Promise<BulkOperationResponseDto> {
+    this.logger.debug(
+      `Bulk updating status for ${bulkUpdateDto.taskIds.length} tasks to ${bulkUpdateDto.status}`,
+    );
+
+    const successfulTaskIds: string[] = [];
+    const errors: Array<{ taskId: string; error: string }> = [];
+
+    // Use transaction for atomicity
+    return await this.taskRepository.manager.transaction(
+      async (transactionalEntityManager) => {
+        for (const taskId of bulkUpdateDto.taskIds) {
+          try {
+            // Find task and verify user has access
+            const task = await transactionalEntityManager.findOne(Task, {
+              where: { id: taskId },
+              relations: ['project', 'project.contributors'],
+            });
+
+            if (!task) {
+              errors.push({ taskId, error: 'Task not found' });
+              continue;
+            }
+
+            // Check if user has access to the project
+            const hasAccess = task.project.contributors.some(
+              (contributor) => contributor.userId === userId,
+            );
+
+            if (!hasAccess) {
+              errors.push({ taskId, error: 'Insufficient permissions' });
+              continue;
+            }
+
+            // Check if user is the assignee (only assignees can update status)
+            if (task.assigneeId !== userId) {
+              errors.push({
+                taskId,
+                error: 'Only the assignee can update task status',
+              });
+              continue;
+            }
+
+            // Validate status transition
+            this.taskStatusService.validateAndThrowIfInvalid(
+              task.status,
+              bulkUpdateDto.status,
+            );
+
+            // Update task status
+            await transactionalEntityManager.update(Task, taskId, {
+              status: bulkUpdateDto.status,
+              updatedAt: new Date(),
+            });
+
+            successfulTaskIds.push(taskId);
+          } catch (error) {
+            this.logger.warn(
+              `Failed to update task ${taskId}: ${error.message}`,
+            );
+            errors.push({ taskId, error: error.message });
+          }
+        }
+
+        const result: BulkOperationResult = {
+          successCount: successfulTaskIds.length,
+          failureCount: errors.length,
+          totalCount: bulkUpdateDto.taskIds.length,
+          successfulTaskIds,
+          errors,
+          message: `Bulk status update completed: ${successfulTaskIds.length} successful, ${errors.length} failed`,
+        };
+
+        return {
+          result,
+          success: errors.length === 0,
+          timestamp: new Date().toISOString(),
+        };
+      },
+    );
+  }
+
+  /**
+   * Bulk assign tasks to a user
+   */
+  async bulkAssignTasks(
+    userId: string,
+    bulkAssignDto: BulkAssignTasksDto,
+  ): Promise<BulkOperationResponseDto> {
+    this.logger.debug(
+      `Bulk assigning ${bulkAssignDto.taskIds.length} tasks to user ${bulkAssignDto.assigneeId}`,
+    );
+
+    const successfulTaskIds: string[] = [];
+    const errors: Array<{ taskId: string; error: string }> = [];
+
+    // Use transaction for atomicity
+    return await this.taskRepository.manager.transaction(
+      async (transactionalEntityManager) => {
+        for (const taskId of bulkAssignDto.taskIds) {
+          try {
+            // Find task and verify user has access
+            const task = await transactionalEntityManager.findOne(Task, {
+              where: { id: taskId },
+              relations: ['project', 'project.contributors'],
+            });
+
+            if (!task) {
+              errors.push({ taskId, error: 'Task not found' });
+              continue;
+            }
+
+            // Check if user has access to the project and sufficient role
+            const userContributor = task.project.contributors.find(
+              (contributor) => contributor.userId === userId,
+            );
+
+            if (!userContributor) {
+              errors.push({ taskId, error: 'Insufficient permissions' });
+              continue;
+            }
+
+            // Check if user has WRITE role or higher to assign tasks
+            const hasWriteRole = ['WRITE', 'ADMIN', 'OWNER'].includes(
+              userContributor.role,
+            );
+            if (!hasWriteRole) {
+              errors.push({
+                taskId,
+                error: 'Insufficient role to assign tasks',
+              });
+              continue;
+            }
+
+            // Check if assignee is a project contributor
+            const assigneeIsContributor = task.project.contributors.some(
+              (contributor) => contributor.userId === bulkAssignDto.assigneeId,
+            );
+
+            if (!assigneeIsContributor) {
+              errors.push({
+                taskId,
+                error: 'Assignee is not a project contributor',
+              });
+              continue;
+            }
+
+            // Update task assignee
+            await transactionalEntityManager.update(Task, taskId, {
+              assigneeId: bulkAssignDto.assigneeId,
+              updatedAt: new Date(),
+            });
+
+            successfulTaskIds.push(taskId);
+          } catch (error) {
+            this.logger.warn(
+              `Failed to assign task ${taskId}: ${error.message}`,
+            );
+            errors.push({ taskId, error: error.message });
+          }
+        }
+
+        const result: BulkOperationResult = {
+          successCount: successfulTaskIds.length,
+          failureCount: errors.length,
+          totalCount: bulkAssignDto.taskIds.length,
+          successfulTaskIds,
+          errors,
+          message: `Bulk assignment completed: ${successfulTaskIds.length} successful, ${errors.length} failed`,
+        };
+
+        return {
+          result,
+          success: errors.length === 0,
+          timestamp: new Date().toISOString(),
+        };
+      },
+    );
+  }
+
+  /**
+   * Bulk delete tasks
+   */
+  async bulkDeleteTasks(
+    userId: string,
+    bulkDeleteDto: BulkDeleteTasksDto,
+  ): Promise<BulkOperationResponseDto> {
+    this.logger.debug(`Bulk deleting ${bulkDeleteDto.taskIds.length} tasks`);
+
+    const successfulTaskIds: string[] = [];
+    const errors: Array<{ taskId: string; error: string }> = [];
+
+    // Use transaction for atomicity
+    return await this.taskRepository.manager.transaction(
+      async (transactionalEntityManager) => {
+        for (const taskId of bulkDeleteDto.taskIds) {
+          try {
+            // Find task and verify user has access
+            const task = await transactionalEntityManager.findOne(Task, {
+              where: { id: taskId },
+              relations: ['project', 'project.contributors'],
+            });
+
+            if (!task) {
+              errors.push({ taskId, error: 'Task not found' });
+              continue;
+            }
+
+            // Check if user has access to the project and sufficient role
+            const userContributor = task.project.contributors.find(
+              (contributor) => contributor.userId === userId,
+            );
+
+            if (!userContributor) {
+              errors.push({ taskId, error: 'Insufficient permissions' });
+              continue;
+            }
+
+            // Check if user has ADMIN or OWNER role to delete tasks
+            const hasDeleteRole = ['ADMIN', 'OWNER'].includes(
+              userContributor.role,
+            );
+            if (!hasDeleteRole) {
+              errors.push({
+                taskId,
+                error: 'Insufficient role to delete tasks',
+              });
+              continue;
+            }
+
+            // Delete task
+            await transactionalEntityManager.delete(Task, taskId);
+
+            successfulTaskIds.push(taskId);
+          } catch (error) {
+            this.logger.warn(
+              `Failed to delete task ${taskId}: ${error.message}`,
+            );
+            errors.push({ taskId, error: error.message });
+          }
+        }
+
+        const result: BulkOperationResult = {
+          successCount: successfulTaskIds.length,
+          failureCount: errors.length,
+          totalCount: bulkDeleteDto.taskIds.length,
+          successfulTaskIds,
+          errors,
+          message: `Bulk deletion completed: ${successfulTaskIds.length} successful, ${errors.length} failed`,
+        };
+
+        return {
+          result,
+          success: errors.length === 0,
+          timestamp: new Date().toISOString(),
+        };
+      },
+    );
   }
 }

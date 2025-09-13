@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { ProjectContributor } from './project-contributor.entity';
 
 export enum ProjectStatus {
   ACTIVE = 'ACTIVE',
@@ -38,6 +40,9 @@ export class Project {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })
   owner: User;
+
+  @OneToMany(() => ProjectContributor, (contributor) => contributor.project)
+  contributors: ProjectContributor[];
 
   @CreateDateColumn()
   createdAt: Date;

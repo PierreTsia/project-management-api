@@ -18,6 +18,12 @@ import { TaskPriority } from './enums/task-priority.enum';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskStatusService } from './services/task-status.service';
 
+const mockTransactionalEntityManager = {
+  findOne: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+};
+
 const mockRepository = {
   create: jest.fn(),
   save: jest.fn(),
@@ -26,6 +32,9 @@ const mockRepository = {
   merge: jest.fn(),
   delete: jest.fn(),
   createQueryBuilder: jest.fn(),
+  manager: {
+    transaction: jest.fn(),
+  },
 };
 
 const mockI18nService = {
@@ -1169,6 +1178,314 @@ describe('TasksService', () => {
         'task.projectId = :projectId',
         { projectId: 'project-1' },
       );
+    });
+  });
+
+  describe('bulkUpdateStatus', () => {
+    const userId = 'user-1';
+    const bulkUpdateDto = {
+      taskIds: ['task-1', 'task-2'],
+      status: TaskStatus.DONE,
+      reason: 'Completed sprint',
+    };
+
+    beforeEach(() => {
+      // Mock transaction
+      const mockTransaction = jest.fn().mockImplementation(async (callback) => {
+        return callback(mockTransactionalEntityManager);
+      });
+      (mockRepository.manager.transaction as jest.Mock).mockImplementation(
+        mockTransaction,
+      );
+    });
+
+    it('should successfully update status for all tasks when user is assignee', async () => {
+      const mockTask1 = {
+        id: 'task-1',
+        assigneeId: userId,
+        status: TaskStatus.IN_PROGRESS,
+        project: { contributors: [{ userId }] },
+      };
+      const mockTask2 = {
+        id: 'task-2',
+        assigneeId: userId,
+        status: TaskStatus.IN_PROGRESS,
+        project: { contributors: [{ userId }] },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock)
+        .mockResolvedValueOnce(mockTask1)
+        .mockResolvedValueOnce(mockTask2);
+      (
+        mockTaskStatusService.validateAndThrowIfInvalid as jest.Mock
+      ).mockReturnValue(undefined);
+
+      const result = await service.bulkUpdateStatus(userId, bulkUpdateDto);
+
+      expect(result.success).toBe(true);
+      expect(result.result.successCount).toBe(2);
+      expect(result.result.failureCount).toBe(0);
+      expect(result.result.successfulTaskIds).toEqual(['task-1', 'task-2']);
+      expect(mockTransactionalEntityManager.update).toHaveBeenCalledTimes(2);
+    });
+
+    it('should fail when user is not assignee', async () => {
+      const mockTask = {
+        id: 'task-1',
+        assigneeId: 'other-user',
+        status: TaskStatus.IN_PROGRESS,
+        project: { contributors: [{ userId }] },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+
+      const result = await service.bulkUpdateStatus(userId, bulkUpdateDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.successCount).toBe(0);
+      expect(result.result.failureCount).toBe(2);
+      expect(result.result.errors).toHaveLength(2);
+      expect(result.result.errors[0].error).toBe(
+        'Only the assignee can update task status',
+      );
+    });
+
+    it('should fail when task not found', async () => {
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        null,
+      );
+
+      const result = await service.bulkUpdateStatus(userId, bulkUpdateDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.successCount).toBe(0);
+      expect(result.result.failureCount).toBe(2);
+      expect(result.result.errors[0].error).toBe('Task not found');
+    });
+
+    it('should fail when user has no access to project', async () => {
+      const mockTask = {
+        id: 'task-1',
+        assigneeId: userId,
+        status: TaskStatus.IN_PROGRESS,
+        project: { contributors: [{ userId: 'other-user' }] },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+
+      const result = await service.bulkUpdateStatus(userId, bulkUpdateDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.errors[0].error).toBe('Insufficient permissions');
+    });
+
+    it('should fail when status transition is invalid', async () => {
+      const mockTask = {
+        id: 'task-1',
+        assigneeId: userId,
+        status: TaskStatus.DONE,
+        project: { contributors: [{ userId }] },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+      (
+        mockTaskStatusService.validateAndThrowIfInvalid as jest.Mock
+      ).mockImplementation(() => {
+        throw new BadRequestException('Invalid status transition');
+      });
+
+      const result = await service.bulkUpdateStatus(userId, bulkUpdateDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.errors[0].error).toBe('Invalid status transition');
+    });
+  });
+
+  describe('bulkAssignTasks', () => {
+    const userId = 'user-1';
+    const assigneeId = 'assignee-1';
+    const bulkAssignDto = {
+      taskIds: ['task-1', 'task-2'],
+      assigneeId,
+      reason: 'Reassignment',
+    };
+
+    beforeEach(() => {
+      const mockTransaction = jest.fn().mockImplementation(async (callback) => {
+        return callback(mockTransactionalEntityManager);
+      });
+      (mockRepository.manager.transaction as jest.Mock).mockImplementation(
+        mockTransaction,
+      );
+    });
+
+    it('should successfully assign tasks when user has WRITE role and assignee is contributor', async () => {
+      const mockTask = {
+        id: 'task-1',
+        project: {
+          contributors: [
+            { userId, role: 'WRITE' },
+            { userId: assigneeId, role: 'READ' },
+          ],
+        },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+
+      const result = await service.bulkAssignTasks(userId, bulkAssignDto);
+
+      expect(result.success).toBe(true);
+      expect(result.result.successCount).toBe(2);
+      expect(result.result.failureCount).toBe(0);
+      expect(mockTransactionalEntityManager.update).toHaveBeenCalledTimes(2);
+    });
+
+    it('should fail when user has insufficient role', async () => {
+      const mockTask = {
+        id: 'task-1',
+        project: {
+          contributors: [
+            { userId, role: 'READ' },
+            { userId: assigneeId, role: 'READ' },
+          ],
+        },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+
+      const result = await service.bulkAssignTasks(userId, bulkAssignDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.errors[0].error).toBe(
+        'Insufficient role to assign tasks',
+      );
+    });
+
+    it('should fail when assignee is not project contributor', async () => {
+      const mockTask = {
+        id: 'task-1',
+        project: {
+          contributors: [{ userId, role: 'WRITE' }],
+        },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+
+      const result = await service.bulkAssignTasks(userId, bulkAssignDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.errors[0].error).toBe(
+        'Assignee is not a project contributor',
+      );
+    });
+
+    it('should fail when task not found', async () => {
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        null,
+      );
+
+      const result = await service.bulkAssignTasks(userId, bulkAssignDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.errors[0].error).toBe('Task not found');
+    });
+  });
+
+  describe('bulkDeleteTasks', () => {
+    const userId = 'user-1';
+    const bulkDeleteDto = {
+      taskIds: ['task-1', 'task-2'],
+      reason: 'Cleanup',
+    };
+
+    beforeEach(() => {
+      const mockTransaction = jest.fn().mockImplementation(async (callback) => {
+        return callback(mockTransactionalEntityManager);
+      });
+      (mockRepository.manager.transaction as jest.Mock).mockImplementation(
+        mockTransaction,
+      );
+    });
+
+    it('should successfully delete tasks when user has ADMIN role', async () => {
+      const mockTask = {
+        id: 'task-1',
+        project: {
+          contributors: [{ userId, role: 'ADMIN' }],
+        },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+
+      const result = await service.bulkDeleteTasks(userId, bulkDeleteDto);
+
+      expect(result.success).toBe(true);
+      expect(result.result.successCount).toBe(2);
+      expect(result.result.failureCount).toBe(0);
+      expect(mockTransactionalEntityManager.delete).toHaveBeenCalledTimes(2);
+    });
+
+    it('should fail when user has insufficient role', async () => {
+      const mockTask = {
+        id: 'task-1',
+        project: {
+          contributors: [{ userId, role: 'WRITE' }],
+        },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+
+      const result = await service.bulkDeleteTasks(userId, bulkDeleteDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.errors[0].error).toBe(
+        'Insufficient role to delete tasks',
+      );
+    });
+
+    it('should fail when task not found', async () => {
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        null,
+      );
+
+      const result = await service.bulkDeleteTasks(userId, bulkDeleteDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.errors[0].error).toBe('Task not found');
+    });
+
+    it('should fail when user has no access to project', async () => {
+      const mockTask = {
+        id: 'task-1',
+        project: {
+          contributors: [{ userId: 'other-user', role: 'ADMIN' }],
+        },
+      };
+
+      (mockTransactionalEntityManager.findOne as jest.Mock).mockResolvedValue(
+        mockTask,
+      );
+
+      const result = await service.bulkDeleteTasks(userId, bulkDeleteDto);
+
+      expect(result.success).toBe(false);
+      expect(result.result.errors[0].error).toBe('Insufficient permissions');
     });
   });
 });

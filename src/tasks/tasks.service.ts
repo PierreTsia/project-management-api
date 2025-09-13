@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { I18nService } from 'nestjs-i18n';
 import { Task } from './entities/task.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -13,6 +13,8 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { SearchTasksDto } from './dto/search-tasks.dto';
 import { GlobalSearchTasksDto } from './dto/global-search-tasks.dto';
+import { TaskStatus } from './enums/task-status.enum';
+import { TaskPriority } from './enums/task-priority.enum';
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskStatusService } from './services/task-status.service';
@@ -463,7 +465,7 @@ export class TasksService {
    * Apply search filters to the query builder
    */
   private applyGlobalSearchFilters(
-    queryBuilder: any,
+    queryBuilder: SelectQueryBuilder<Task>,
     searchDto: GlobalSearchTasksDto,
     userId: string,
   ): void {
@@ -548,7 +550,9 @@ export class TasksService {
     if (searchDto.isOverdue === true) {
       queryBuilder
         .andWhere('task.dueDate < NOW()')
-        .andWhere('task.status != :doneStatus', { doneStatus: 'DONE' });
+        .andWhere('task.status != :doneStatus', {
+          doneStatus: TaskStatus.DONE,
+        });
     }
 
     // Has due date filter
@@ -563,7 +567,7 @@ export class TasksService {
    * Apply sorting to the query builder
    */
   private applySorting(
-    queryBuilder: any,
+    queryBuilder: SelectQueryBuilder<Task>,
     searchDto: GlobalSearchTasksDto,
   ): void {
     const sortBy = searchDto.sortBy || 'createdAt';
@@ -585,9 +589,9 @@ export class TasksService {
       // Custom priority sorting: HIGH > MEDIUM > LOW
       queryBuilder.orderBy(
         `CASE 
-          WHEN task.priority = 'HIGH' THEN 1 
-          WHEN task.priority = 'MEDIUM' THEN 2 
-          WHEN task.priority = 'LOW' THEN 3 
+          WHEN task.priority = '${TaskPriority.HIGH}' THEN 1 
+          WHEN task.priority = '${TaskPriority.MEDIUM}' THEN 2 
+          WHEN task.priority = '${TaskPriority.LOW}' THEN 3 
           ELSE 4 
         END`,
         sortOrder,
@@ -596,9 +600,9 @@ export class TasksService {
       // Custom status sorting: TODO > IN_PROGRESS > DONE
       queryBuilder.orderBy(
         `CASE 
-          WHEN task.status = 'TODO' THEN 1 
-          WHEN task.status = 'IN_PROGRESS' THEN 2 
-          WHEN task.status = 'DONE' THEN 3 
+          WHEN task.status = '${TaskStatus.TODO}' THEN 1 
+          WHEN task.status = '${TaskStatus.IN_PROGRESS}' THEN 2 
+          WHEN task.status = '${TaskStatus.DONE}' THEN 3 
           ELSE 4 
         END`,
         sortOrder,

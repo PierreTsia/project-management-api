@@ -59,7 +59,7 @@ export class TasksService {
     if (createTaskDto.assigneeId) {
       const createdTask = await this.taskRepository.findOne({
         where: { id: savedTask.id },
-        relations: ['assignee'],
+        relations: ['assignee', 'project'],
       });
       this.logger.log(`Task created successfully with id: ${savedTask.id}`);
       return createdTask;
@@ -73,7 +73,7 @@ export class TasksService {
     this.logger.debug(`Finding all tasks for project ${projectId}`);
     return this.taskRepository.find({
       where: { projectId },
-      relations: ['assignee'],
+      relations: ['assignee', 'project'],
     });
   }
 
@@ -85,7 +85,7 @@ export class TasksService {
     this.logger.debug(`Finding task with id: ${id} for project ${projectId}`);
     const task = await this.taskRepository.findOne({
       where: { id, projectId },
-      relations: ['assignee'],
+      relations: ['assignee', 'project'],
     });
     if (!task) {
       this.logger.warn(
@@ -228,7 +228,7 @@ export class TasksService {
     // Reload the task with assignee relation
     const updatedTask = await this.taskRepository.findOne({
       where: { id: savedTask.id },
-      relations: ['assignee'],
+      relations: ['assignee', 'project'],
     });
 
     this.logger.log(`Task ${id} assigned successfully to user ${assigneeId}`);
@@ -253,7 +253,7 @@ export class TasksService {
     // Reload the task with assignee relation
     const updatedTask = await this.taskRepository.findOne({
       where: { id: savedTask.id },
-      relations: ['assignee'],
+      relations: ['assignee', 'project'],
     });
 
     this.logger.log(`Task ${id} unassigned successfully`);
@@ -324,6 +324,7 @@ export class TasksService {
     const queryBuilder = this.taskRepository
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.assignee', 'assignee')
+      .leftJoinAndSelect('task.project', 'project')
       .where('task.projectId = :projectId', { projectId });
 
     // Text search (case-insensitive)

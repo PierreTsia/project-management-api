@@ -61,6 +61,13 @@ export class TaskResponseDto {
   projectId: string;
 
   @Expose()
+  @ApiProperty({
+    description: 'Name of the project this task belongs to',
+    example: 'E-commerce Platform',
+  })
+  projectName: string;
+
+  @Expose()
   @Type(() => UserResponseDto)
   @ApiProperty({
     description: 'User this task is assigned to',
@@ -89,6 +96,11 @@ export class TaskResponseDto {
     // Transform assignee if it exists
     if (partial.assignee) {
       this.assignee = new UserResponseDto(partial.assignee);
+    }
+
+    // Map project name from the loaded project relation
+    if (partial.project?.name) {
+      this.projectName = partial.project.name;
     }
   }
 }

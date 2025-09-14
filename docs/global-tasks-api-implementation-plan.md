@@ -261,19 +261,19 @@ export class TaskStatisticsDto {
 ## 📋 Acceptance Criteria
 
 ### Phase 1 (Global Access)
-- [ ] Users can view all their tasks across projects
-- [ ] Advanced filtering works (project, status, priority, assignee, dates)
-- [ ] Sorting works for all supported fields
-- [ ] Pagination works smoothly
-- [ ] Permission validation works correctly
-- [ ] Mobile responsive API responses
+- [x] Users can view all their tasks across projects
+- [x] Advanced filtering works (project, status, priority, assignee, dates)
+- [x] Sorting works for all supported fields
+- [x] Pagination works smoothly
+- [x] Permission validation works correctly
+- [x] Mobile responsive API responses
 
 ### Phase 2 (Bulk Operations)
-- [ ] Bulk status updates work with transaction rollback
-- [ ] Bulk assignment works with permission validation
-- [ ] Bulk deletion works with confirmation
-- [ ] Error handling works for partial failures
-- [ ] Performance is acceptable for large batches
+- [x] Bulk status updates work with transaction rollback
+- [x] Bulk assignment works with permission validation
+- [x] Bulk deletion works with confirmation
+- [x] Error handling works for partial failures
+- [x] Performance is acceptable for large batches
 
 ### Phase 3 (Statistics)
 - [ ] Task statistics are accurate

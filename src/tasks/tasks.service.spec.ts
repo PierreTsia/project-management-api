@@ -303,7 +303,7 @@ describe('TasksService', () => {
       expect(result).toEqual(tasks);
       expect(mockRepository.find).toHaveBeenCalledWith({
         where: { projectId },
-        relations: ['assignee'],
+        relations: ['assignee', 'project'],
       });
       expect(mockLogger.debug).toHaveBeenCalledWith(
         `Finding all tasks for project ${projectId}`,
@@ -318,7 +318,7 @@ describe('TasksService', () => {
       expect(result).toEqual(mockTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
-        relations: ['assignee'],
+        relations: ['assignee', 'project'],
       });
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'Finding task with id: task-1 for project project-1',
@@ -448,7 +448,7 @@ describe('TasksService', () => {
       expect(result).toEqual(updatedTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
-        relations: ['assignee'],
+        relations: ['assignee', 'project'],
       });
       expect(
         mockTaskStatusService.validateAndThrowIfInvalid,
@@ -563,7 +563,7 @@ describe('TasksService', () => {
       expect(result).toEqual(assignedTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
-        relations: ['assignee'],
+        relations: ['assignee', 'project'],
       });
       expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
         'project-1',
@@ -670,7 +670,7 @@ describe('TasksService', () => {
       expect(result).toEqual(unassignedTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
-        relations: ['assignee'],
+        relations: ['assignee', 'project'],
       });
       expect(mockRepository.save).toHaveBeenCalledWith({
         ...taskWithAssignee,
@@ -734,7 +734,7 @@ describe('TasksService', () => {
       expect(result).toEqual(unassignedTask);
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'task-1', projectId: 'project-1' },
-        relations: ['assignee'],
+        relations: ['assignee', 'project'],
       });
     });
   });

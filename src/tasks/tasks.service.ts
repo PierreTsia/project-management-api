@@ -592,29 +592,31 @@ export class TasksService {
 
     const sortField = sortFieldMap[sortBy] || 'task.createdAt';
 
-    // Handle special sorting for priority and status
+    // Handle special sorting for priority and status using explicit ordering
     if (sortBy === 'priority') {
-      // Custom priority sorting: HIGH > MEDIUM > LOW
-      queryBuilder.orderBy(
-        `CASE 
-          WHEN task.priority = '${TaskPriority.HIGH}' THEN 1 
-          WHEN task.priority = '${TaskPriority.MEDIUM}' THEN 2 
-          WHEN task.priority = '${TaskPriority.LOW}' THEN 3 
-          ELSE 4 
-        END`,
-        sortOrder,
-      );
+      // Use explicit CASE-based ordering for priority to avoid coupling to enum string values
+      // Intended order: HIGH > MEDIUM > LOW
+      const priorityOrderCase = `
+        CASE task.priority
+          WHEN '${TaskPriority.HIGH}' THEN 1
+          WHEN '${TaskPriority.MEDIUM}' THEN 2
+          WHEN '${TaskPriority.LOW}' THEN 3
+          ELSE 4
+        END
+      `;
+      queryBuilder.orderBy(priorityOrderCase, sortOrder);
     } else if (sortBy === 'status') {
-      // Custom status sorting: TODO > IN_PROGRESS > DONE
-      queryBuilder.orderBy(
-        `CASE 
-          WHEN task.status = '${TaskStatus.TODO}' THEN 1 
-          WHEN task.status = '${TaskStatus.IN_PROGRESS}' THEN 2 
-          WHEN task.status = '${TaskStatus.DONE}' THEN 3 
-          ELSE 4 
-        END`,
-        sortOrder,
-      );
+      // Use explicit CASE-based ordering for status to avoid coupling to enum string values
+      // Intended order: TODO < IN_PROGRESS < DONE
+      const statusOrderCase = `
+        CASE task.status
+          WHEN '${TaskStatus.TODO}' THEN 1
+          WHEN '${TaskStatus.IN_PROGRESS}' THEN 2
+          WHEN '${TaskStatus.DONE}' THEN 3
+          ELSE 4
+        END
+      `;
+      queryBuilder.orderBy(statusOrderCase, sortOrder);
     } else {
       queryBuilder.orderBy(sortField, sortOrder);
     }

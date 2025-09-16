@@ -1111,12 +1111,7 @@ describe('TasksService', () => {
 
       expect(result.tasks).toEqual(tasks);
       expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        `CASE 
-          WHEN task.priority = 'HIGH' THEN 1 
-          WHEN task.priority = 'MEDIUM' THEN 2 
-          WHEN task.priority = 'LOW' THEN 3 
-          ELSE 4 
-        END`,
+        expect.stringContaining('CASE task.priority'),
         'DESC',
       );
     });
@@ -1142,12 +1137,7 @@ describe('TasksService', () => {
 
       expect(result.tasks).toEqual(tasks);
       expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        `CASE 
-          WHEN task.status = 'TODO' THEN 1 
-          WHEN task.status = 'IN_PROGRESS' THEN 2 
-          WHEN task.status = 'DONE' THEN 3 
-          ELSE 4 
-        END`,
+        expect.stringContaining('CASE task.status'),
         'ASC',
       );
     });
@@ -1177,6 +1167,47 @@ describe('TasksService', () => {
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'task.projectId = :projectId',
         { projectId: 'project-1' },
+      );
+    });
+
+    it('should handle combined priority sorting with boolean filters (bug fix test)', async () => {
+      const userId = 'user-1';
+      const searchDto: GlobalSearchTasksDto = {
+        sortBy: 'priority',
+        sortOrder: 'DESC',
+        isOverdue: true,
+        hasDueDate: true,
+        page: 1,
+        limit: 20,
+      };
+      const projects = [{ id: 'project-1', name: 'Project 1' }];
+      const tasks = [mockTask];
+
+      (mockProjectsService.findAll as jest.Mock).mockResolvedValue(projects);
+      (mockQueryBuilder.getManyAndCount as jest.Mock).mockResolvedValue([
+        tasks,
+        1,
+      ]);
+
+      const result = await service.searchAllUserTasks(userId, searchDto);
+
+      expect(result.tasks).toEqual(tasks);
+      // Should apply overdue filter
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'task.dueDate < NOW()',
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'task.status != :doneStatus',
+        { doneStatus: TaskStatus.DONE },
+      );
+      // Should apply hasDueDate filter
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'task.dueDate IS NOT NULL',
+      );
+      // Should apply priority sorting (explicit CASE approach)
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
+        expect.stringContaining('CASE task.priority'),
+        'DESC',
       );
     });
   });

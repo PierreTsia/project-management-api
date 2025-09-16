@@ -1111,8 +1111,8 @@ describe('TasksService', () => {
 
       expect(result.tasks).toEqual(tasks);
       expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'task.priority',
-        'ASC',
+        expect.stringContaining('CASE task.priority'),
+        'DESC',
       );
     });
 
@@ -1137,8 +1137,8 @@ describe('TasksService', () => {
 
       expect(result.tasks).toEqual(tasks);
       expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'task.status',
-        'DESC',
+        expect.stringContaining('CASE task.status'),
+        'ASC',
       );
     });
 
@@ -1204,10 +1204,10 @@ describe('TasksService', () => {
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'task.dueDate IS NOT NULL',
       );
-      // Should apply priority sorting (simplified approach)
+      // Should apply priority sorting (explicit CASE approach)
       expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'task.priority',
-        'ASC', // DESC priority sorting uses ASC string order (HIGH -> LOW)
+        expect.stringContaining('CASE task.priority'),
+        'DESC',
       );
     });
   });

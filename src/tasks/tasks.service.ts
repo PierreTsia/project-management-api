@@ -21,6 +21,7 @@ import {
   BulkOperationResult,
 } from './dto/bulk-operation-response.dto';
 import { TaskStatus } from './enums/task-status.enum';
+import { TaskPriority } from './enums/task-priority.enum';
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskStatusService } from './services/task-status.service';
@@ -591,23 +592,31 @@ export class TasksService {
 
     const sortField = sortFieldMap[sortBy] || 'task.createdAt';
 
-    // Handle special sorting for priority and status using simple string sorting
+    // Handle special sorting for priority and status using explicit ordering
     if (sortBy === 'priority') {
-      // For priority, we'll use simple string sorting which works well with enum values
-      // HIGH comes before LOW alphabetically, so we need to reverse for DESC
-      if (sortOrder === 'DESC') {
-        queryBuilder.orderBy('task.priority', 'ASC'); // HIGH -> LOW alphabetically
-      } else {
-        queryBuilder.orderBy('task.priority', 'DESC'); // LOW -> HIGH
-      }
+      // Use explicit CASE-based ordering for priority to avoid coupling to enum string values
+      // Intended order: HIGH > MEDIUM > LOW
+      const priorityOrderCase = `
+        CASE task.priority
+          WHEN '${TaskPriority.HIGH}' THEN 1
+          WHEN '${TaskPriority.MEDIUM}' THEN 2
+          WHEN '${TaskPriority.LOW}' THEN 3
+          ELSE 4
+        END
+      `;
+      queryBuilder.orderBy(priorityOrderCase, sortOrder);
     } else if (sortBy === 'status') {
-      // For status, we'll use simple string sorting
-      // DONE comes before IN_PROGRESS comes before TODO alphabetically
-      if (sortOrder === 'DESC') {
-        queryBuilder.orderBy('task.status', 'ASC'); // DONE -> IN_PROGRESS -> TODO
-      } else {
-        queryBuilder.orderBy('task.status', 'DESC'); // TODO -> IN_PROGRESS -> DONE
-      }
+      // Use explicit CASE-based ordering for status to avoid coupling to enum string values
+      // Intended order: TODO < IN_PROGRESS < DONE
+      const statusOrderCase = `
+        CASE task.status
+          WHEN '${TaskStatus.TODO}' THEN 1
+          WHEN '${TaskStatus.IN_PROGRESS}' THEN 2
+          WHEN '${TaskStatus.DONE}' THEN 3
+          ELSE 4
+        END
+      `;
+      queryBuilder.orderBy(statusOrderCase, sortOrder);
     } else {
       queryBuilder.orderBy(sortField, sortOrder);
     }

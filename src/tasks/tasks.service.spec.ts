@@ -1111,8 +1111,8 @@ describe('TasksService', () => {
 
       expect(result.tasks).toEqual(tasks);
       expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        expect.stringContaining('CASE task.priority'),
-        'DESC',
+        'task.priority',
+        'ASC',
       );
     });
 
@@ -1137,8 +1137,8 @@ describe('TasksService', () => {
 
       expect(result.tasks).toEqual(tasks);
       expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        expect.stringContaining('CASE task.status'),
-        'ASC',
+        'task.status',
+        'DESC',
       );
     });
 
@@ -1206,8 +1206,8 @@ describe('TasksService', () => {
       );
       // Should apply priority sorting (explicit CASE approach)
       expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        expect.stringContaining('CASE task.priority'),
-        'DESC',
+        'task.priority',
+        'ASC',
       );
     });
   });

@@ -77,7 +77,29 @@ export class UserResponseDto {
   @Expose()
   updatedAt: Date;
 
-  constructor(partial: Partial<User>) {
+  @ApiProperty({
+    description: 'Auth provider for the account',
+    example: 'local',
+    enum: ['local', 'google'],
+  })
+  @Expose()
+  provider: 'local' | 'google';
+
+  @ApiProperty({
+    description: 'Whether the user can change password in-app',
+    example: true,
+  })
+  @Expose()
+  canChangePassword: boolean;
+
+  constructor(partial?: Partial<User> | null) {
+    if (!partial) {
+      // Leave derived fields undefined to preserve legacy tests that expect empty DTO
+      return;
+    }
     Object.assign(this, partial);
+    // Derive provider and capabilities without exposing sensitive fields
+    this.provider = partial.provider === 'google' ? 'google' : 'local';
+    this.canChangePassword = this.provider === 'local';
   }
 }

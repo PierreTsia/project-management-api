@@ -62,6 +62,8 @@ describe('AttachmentsController', () => {
       isEmailConfirmed: true,
       createdAt: new Date(),
       updatedAt: new Date(),
+      provider: 'local',
+      canChangePassword: true,
     },
     uploadedAt: new Date(),
     updatedAt: new Date(),

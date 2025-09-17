@@ -77,7 +77,26 @@ export class UserResponseDto {
   @Expose()
   updatedAt: Date;
 
+  @ApiProperty({
+    description: 'Auth provider for the account',
+    example: 'local',
+    enum: ['local', 'google'],
+  })
+  @Expose()
+  provider: 'local' | 'google';
+
+  @ApiProperty({
+    description: 'Whether the user can change password in-app',
+    example: true,
+  })
+  @Expose()
+  canChangePassword: boolean;
+
   constructor(partial: Partial<User>) {
     Object.assign(this, partial);
+    // Derive provider and capabilities without exposing sensitive fields
+    const providerRaw = (partial as User).provider;
+    this.provider = providerRaw === 'google' ? 'google' : 'local';
+    this.canChangePassword = this.provider === 'local';
   }
 }

@@ -34,7 +34,7 @@ describe('UsersController', () => {
           useValue: {
             findOne: jest.fn(),
             uploadAvatar: jest.fn(),
-            updateName: jest.fn(),
+            updateProfile: jest.fn(),
           },
         },
         {
@@ -136,8 +136,8 @@ describe('UsersController', () => {
     });
   });
 
-  describe('updateName', () => {
-    it('should update user name successfully', async () => {
+  describe('updateProfile', () => {
+    it('should update user profile successfully', async () => {
       const mockUser = {
         id: 'user-id',
         email: 'test@example.com',
@@ -150,21 +150,30 @@ describe('UsersController', () => {
         isEmailConfirmed: false,
         refreshTokens: [],
       };
-      const updateNameDto = { name: 'New Name' };
+      const updateProfileDto = {
+        name: 'New Name',
+        bio: 'Test bio',
+        phone: '+15551234567',
+        dob: '1990-05-20',
+      };
       const mockAcceptLanguage = 'en';
-      const mockResult = { ...mockUser, name: 'New Name' };
+      const mockResult = {
+        ...mockUser,
+        ...updateProfileDto,
+        dob: new Date(updateProfileDto.dob),
+      };
 
-      jest.spyOn(usersService, 'updateName').mockResolvedValue(mockResult);
+      jest.spyOn(usersService, 'updateProfile').mockResolvedValue(mockResult);
 
-      const result = await controller.updateName(
+      const result = await controller.updateProfile(
         { user: mockUser },
-        updateNameDto,
+        updateProfileDto,
         mockAcceptLanguage,
       );
 
-      expect(usersService.updateName).toHaveBeenCalledWith(
+      expect(usersService.updateProfile).toHaveBeenCalledWith(
         mockUser.id,
-        updateNameDto,
+        updateProfileDto,
         mockAcceptLanguage,
       );
       expect(result).toEqual(mockResult);

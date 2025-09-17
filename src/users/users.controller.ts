@@ -25,7 +25,7 @@ import { User } from './entities/user.entity';
 import { UserResponseDto } from './dto/user-response.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from '../config/multer.config';
-import { UpdateNameDto } from './dto/update-name.dto';
+import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { I18nService } from 'nestjs-i18n';
 
 @ApiTags('Users')
@@ -115,21 +115,17 @@ export class UsersController {
   }
 
   @Patch('profile')
-  @ApiOperation({ summary: 'Update user name' })
+  @ApiOperation({ summary: 'Update user profile (name, bio, phone, dob)' })
   @ApiResponse({
     status: 200,
     description: 'User profile updated',
     type: User,
   })
-  async updateName(
+  async updateProfile(
     @Request() req: { user: User },
-    @Body() updateNameDto: UpdateNameDto,
+    @Body() body: UpdateUserProfileDto,
     @Headers('accept-language') acceptLanguage?: string,
   ) {
-    return this.usersService.updateName(
-      req.user.id,
-      updateNameDto,
-      acceptLanguage,
-    );
+    return this.usersService.updateProfile(req.user.id, body, acceptLanguage);
   }
 }

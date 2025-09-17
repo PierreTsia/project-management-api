@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
-import { UpdateNameDto } from './dto/update-name.dto';
+import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { I18nService } from 'nestjs-i18n';
 import { NotFoundException } from '@nestjs/common';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
@@ -421,22 +421,35 @@ describe('UsersService', () => {
     });
   });
 
-  describe('updateName', () => {
+  describe('updateProfile', () => {
     it('should throw NotFoundException if user not found', async () => {
       (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
 
+      const updateProfileDto: UpdateUserProfileDto = { name: 'New Name' };
+
       await expect(
-        service.updateName('non-existent', { name: 'New Name' }),
+        service.updateProfile('non-existent', updateProfileDto),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        'User not found for name update: non-existent',
+        'User not found for profile update: non-existent',
       );
     });
 
-    it('should update name and log the change', async () => {
-      const updateNameDto: UpdateNameDto = { name: 'New Name' };
-      const updatedUser = { ...mockUser, name: updateNameDto.name };
+    it('should update profile fields and log the change', async () => {
+      const updateProfileDto: UpdateUserProfileDto = {
+        name: 'New Name',
+        bio: 'Test bio',
+        phone: '+15551234567',
+        dob: '1990-05-20',
+      };
+      const updatedUser = {
+        ...mockUser,
+        name: updateProfileDto.name,
+        bio: updateProfileDto.bio,
+        phone: updateProfileDto.phone,
+        dob: new Date(updateProfileDto.dob),
+      };
 
       (usersRepository.findOne as jest.Mock)
         .mockResolvedValueOnce(mockUser)
@@ -444,15 +457,31 @@ describe('UsersService', () => {
         .mockResolvedValueOnce(updatedUser);
       (usersRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
 
-      const result = await service.updateName('user-1', updateNameDto);
+      const result = await service.updateProfile('user-1', updateProfileDto);
 
-      expect(result.name).toBe(updateNameDto.name);
+      expect(result.name).toBe(updateProfileDto.name);
+      expect(result.bio).toBe(updateProfileDto.bio);
+      expect(result.phone).toBe(updateProfileDto.phone);
+      expect(result.dob).toEqual(new Date(updateProfileDto.dob));
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Updating name for user user-1 from "${mockUser.name}" to "${updateNameDto.name}"`,
+        'Updating profile for user user-1 with fields: name, bio, phone, dob',
       );
       expect(mockLogger.log).toHaveBeenCalledWith(
-        'Name updated successfully for user user-1',
+        'Profile updated successfully for user user-1',
       );
+    });
+
+    it('should return existing user if no fields provided', async () => {
+      const updateProfileDto: UpdateUserProfileDto = { name: '' };
+      (usersRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
+
+      const result = await service.updateProfile('user-1', updateProfileDto);
+
+      expect(result).toBe(mockUser);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'No profile fields provided for update for user user-1; returning existing profile',
+      );
+      expect(usersRepository.update).not.toHaveBeenCalled();
     });
   });
 

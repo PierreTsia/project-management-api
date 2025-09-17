@@ -192,30 +192,25 @@ export class UsersService {
       });
     }
 
-    const updates: Partial<User> = Object.fromEntries(
-      [
-        ['name', updateUserProfileDto.name],
-        [
-          'bio',
-          updateUserProfileDto.bio === '' ? null : updateUserProfileDto.bio,
-        ],
-        [
-          'phone',
-          updateUserProfileDto.phone === '' ? null : updateUserProfileDto.phone,
-        ],
-        [
-          'dob',
-          updateUserProfileDto.dob === '' || updateUserProfileDto.dob === null
-            ? null
-            : typeof updateUserProfileDto.dob === 'string' &&
-                updateUserProfileDto.dob.trim() !== ''
-              ? new Date(updateUserProfileDto.dob)
-              : undefined,
-        ],
-      ].filter(([, value]) => value !== undefined),
+    const updates: Partial<User> = {
+      name: updateUserProfileDto.name?.trim() || undefined,
+      bio: updateUserProfileDto.bio === '' ? null : updateUserProfileDto.bio,
+      phone:
+        updateUserProfileDto.phone === '' ? null : updateUserProfileDto.phone,
+      dob:
+        updateUserProfileDto.dob === ''
+          ? null
+          : updateUserProfileDto.dob
+            ? new Date(updateUserProfileDto.dob)
+            : undefined,
+    };
+
+    // Filter out undefined values for actual updates
+    const actualUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([, value]) => value !== undefined),
     ) as Partial<User>;
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(actualUpdates).length === 0) {
       this.logger.debug(
         `No profile fields provided for update for user ${userId}; returning existing profile`,
       );
@@ -223,10 +218,10 @@ export class UsersService {
     }
 
     this.logger.debug(
-      `Updating profile for user ${userId} with fields: ${Object.keys(updates).join(', ')}`,
+      `Updating profile for user ${userId} with fields: ${Object.keys(actualUpdates).join(', ')}`,
     );
 
-    await this.update(userId, updates);
+    await this.update(userId, actualUpdates);
     const updatedUser = await this.findOne(userId);
     this.logger.log(`Profile updated successfully for user ${userId}`);
     return updatedUser;

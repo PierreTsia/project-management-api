@@ -9,5 +9,8 @@
   "description_too_long": "La description doit contenir au maximum 1000 caractères",
   "invalid_status": "Valeur de statut invalide",
   "invalid_role": "Valeur de rôle invalide",
-  "password_format": "Le mot de passe doit contenir au moins une majuscule, un chiffre et un caractère spécial"
+  "password_format": "Le mot de passe doit contenir au moins une majuscule, un chiffre et un caractère spécial",
+  "bio_too_long": "La bio doit contenir au maximum 280 caractères",
+  "phone_format": "Veuillez entrer un numéro de téléphone valide (E.164)",
+  "dob_format": "Veuillez entrer une date valide (AAAA-MM-JJ)"
 } 

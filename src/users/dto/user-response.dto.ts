@@ -92,11 +92,16 @@ export class UserResponseDto {
   @Expose()
   canChangePassword: boolean;
 
-  constructor(partial: Partial<User>) {
+  constructor(partial?: Partial<User> | null) {
+    if (!partial) {
+      // Leave derived fields undefined to preserve legacy tests that expect empty DTO
+      return;
+    }
     Object.assign(this, partial);
     // Derive provider and capabilities without exposing sensitive fields
-    const providerRaw = (partial as User).provider;
-    this.provider = providerRaw === 'google' ? 'google' : 'local';
-    this.canChangePassword = this.provider === 'local';
+    const providerRaw = partial.provider;
+    const normalizedProvider = providerRaw === 'google' ? 'google' : 'local';
+    this.provider = normalizedProvider;
+    this.canChangePassword = normalizedProvider === 'local';
   }
 }

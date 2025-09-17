@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { MoreThan, LessThan } from 'typeorm';
-import { UpdateNameDto } from './dto/update-name.dto';
+import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { I18nService } from 'nestjs-i18n';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CustomLogger } from '../common/services/logger.service';
@@ -175,15 +175,14 @@ export class UsersService {
     }
   }
 
-  async updateName(
+  async updateProfile(
     userId: string,
-    updateNameDto: UpdateNameDto,
+    updateUserProfileDto: UpdateUserProfileDto,
     acceptLanguage?: string,
   ): Promise<User> {
     const user = await this.findOne(userId);
-
     if (!user) {
-      this.logger.warn(`User not found for name update: ${userId}`);
+      this.logger.warn(`User not found for profile update: ${userId}`);
       throw new NotFoundException({
         status: 404,
         code: 'USER.NOT_FOUND',
@@ -193,12 +192,35 @@ export class UsersService {
       });
     }
 
+    const updates: Partial<User> = Object.fromEntries(
+      [
+        ['name', updateUserProfileDto.name],
+        ['bio', updateUserProfileDto.bio],
+        ['phone', updateUserProfileDto.phone],
+        [
+          'dob',
+          typeof updateUserProfileDto.dob === 'string' &&
+          updateUserProfileDto.dob.trim() !== ''
+            ? new Date(updateUserProfileDto.dob)
+            : undefined,
+        ],
+      ].filter(([, value]) => Boolean(value)),
+    ) as Partial<User>;
+
+    if (Object.keys(updates).length === 0) {
+      this.logger.debug(
+        `No profile fields provided for update for user ${userId}; returning existing profile`,
+      );
+      return user;
+    }
+
     this.logger.debug(
-      `Updating name for user ${userId} from "${user.name}" to "${updateNameDto.name}"`,
+      `Updating profile for user ${userId} with fields: ${Object.keys(updates).join(', ')}`,
     );
-    await this.update(userId, { name: updateNameDto.name });
+
+    await this.update(userId, updates);
     const updatedUser = await this.findOne(userId);
-    this.logger.log(`Name updated successfully for user ${userId}`);
+    this.logger.log(`Profile updated successfully for user ${userId}`);
     return updatedUser;
   }
 

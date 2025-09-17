@@ -9,5 +9,8 @@
   "description_too_long": "Description must be at most 1000 characters long",
   "invalid_status": "Invalid status value",
   "invalid_role": "Invalid role value",
-  "password_format": "Password must contain at least one uppercase letter, one number, and one special character"
+  "password_format": "Password must contain at least one uppercase letter, one number, and one special character",
+  "bio_too_long": "Bio must be at most 280 characters long",
+  "phone_format": "Please enter a valid phone number (E.164)",
+  "dob_format": "Please enter a valid date (YYYY-MM-DD)"
 } 

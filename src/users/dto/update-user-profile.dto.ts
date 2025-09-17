@@ -47,7 +47,7 @@ export class UpdateUserProfileDto {
   })
   @IsOptional()
   @IsString()
-  @Matches(/^\+?[1-9]\d{1,14}$/u, {
+  @Matches(/^\+[1-9]\d{7,14}$/u, {
     message: i18nValidationMessage('validation.phone_format'),
   })
   phone?: string;

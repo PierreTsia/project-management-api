@@ -195,16 +195,24 @@ export class UsersService {
     const updates: Partial<User> = Object.fromEntries(
       [
         ['name', updateUserProfileDto.name],
-        ['bio', updateUserProfileDto.bio],
-        ['phone', updateUserProfileDto.phone],
+        [
+          'bio',
+          updateUserProfileDto.bio === '' ? null : updateUserProfileDto.bio,
+        ],
+        [
+          'phone',
+          updateUserProfileDto.phone === '' ? null : updateUserProfileDto.phone,
+        ],
         [
           'dob',
-          typeof updateUserProfileDto.dob === 'string' &&
-          updateUserProfileDto.dob.trim() !== ''
-            ? new Date(updateUserProfileDto.dob)
-            : undefined,
+          updateUserProfileDto.dob === '' || updateUserProfileDto.dob === null
+            ? null
+            : typeof updateUserProfileDto.dob === 'string' &&
+                updateUserProfileDto.dob.trim() !== ''
+              ? new Date(updateUserProfileDto.dob)
+              : undefined,
         ],
-      ].filter(([, value]) => Boolean(value)),
+      ].filter(([, value]) => value !== undefined),
     ) as Partial<User>;
 
     if (Object.keys(updates).length === 0) {

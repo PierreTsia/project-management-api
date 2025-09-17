@@ -6,6 +6,7 @@ import {
   MaxLength,
   MinLength,
   IsISO8601,
+  ValidateIf,
 } from 'class-validator';
 import { i18nValidationMessage } from 'nestjs-i18n';
 
@@ -35,28 +36,31 @@ export class UpdateUserProfileDto {
     maxLength: 280,
   })
   @IsOptional()
+  @ValidateIf((o) => o.bio !== null && o.bio !== '')
   @IsString()
   @MaxLength(280, {
     message: i18nValidationMessage('validation.bio_too_long'),
   })
-  bio?: string;
+  bio?: string | null;
 
   @ApiPropertyOptional({
     description: 'Phone number in E.164 format',
     example: '+15551234567',
   })
   @IsOptional()
+  @ValidateIf((o) => o.phone !== null && o.phone !== '')
   @IsString()
   @Matches(/^\+[1-9]\d{7,14}$/u, {
     message: i18nValidationMessage('validation.phone_format'),
   })
-  phone?: string;
+  phone?: string | null;
 
   @ApiPropertyOptional({
     description: 'Date of birth as ISO 8601 date string (YYYY-MM-DD)',
     example: '1990-05-20',
   })
   @IsOptional()
+  @ValidateIf((o) => o.dob !== null && o.dob !== '')
   @IsISO8601({}, { message: i18nValidationMessage('validation.dob_format') })
-  dob?: string;
+  dob?: string | null;
 }

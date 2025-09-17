@@ -99,9 +99,7 @@ export class UserResponseDto {
     }
     Object.assign(this, partial);
     // Derive provider and capabilities without exposing sensitive fields
-    const providerRaw = partial.provider;
-    const normalizedProvider = providerRaw === 'google' ? 'google' : 'local';
-    this.provider = normalizedProvider;
-    this.canChangePassword = normalizedProvider === 'local';
+    this.provider = partial.provider === 'google' ? 'google' : 'local';
+    this.canChangePassword = this.provider === 'local';
   }
 }

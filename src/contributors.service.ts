@@ -6,6 +6,7 @@ import { ProjectContributor } from './projects/entities/project-contributor.enti
 import { CustomLogger } from './common/services/logger.service';
 import type { ContributorAggregateResponseDto } from './dto/contributor-aggregate-response.dto';
 import type { ContributorsListResponseDto } from './dto/contributors-list-response.dto';
+import { ProjectRole } from './projects/enums/project-role.enum';
 import type { ContributorProjectsResponseDto } from './dto/contributor-projects-response.dto';
 
 @Injectable()
@@ -29,7 +30,7 @@ export class ContributorsService {
     viewerUserId: string,
     query?: {
       q?: string;
-      role?: any;
+      role?: ProjectRole;
       projectId?: string;
       page?: string;
       pageSize?: string;

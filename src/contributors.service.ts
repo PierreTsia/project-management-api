@@ -57,38 +57,55 @@ export class ContributorsService {
       return { contributors: [], total: 0, page, limit };
     }
 
-    // Fetch contributors for those projects with user info
-    const qb = this.projectContributorRepository
+    // Build a query to find distinct user ids matching filters (for correct totals)
+    const userIdQb = this.projectContributorRepository
       .createQueryBuilder('pc')
-      .leftJoinAndSelect('pc.user', 'user')
-      .leftJoinAndSelect('pc.project', 'project')
+      .leftJoin('pc.user', 'user')
       .where('pc.projectId IN (:...projectIds)', { projectIds })
       .andWhere('user.id != :viewerUserId', { viewerUserId });
 
     if (query?.projectId) {
-      qb.andWhere('pc.projectId = :projectId', { projectId: query.projectId });
+      userIdQb.andWhere('pc.projectId = :projectId', {
+        projectId: query.projectId,
+      });
     }
     if (query?.role) {
-      qb.andWhere('pc.role = :role', { role: query.role });
+      userIdQb.andWhere('pc.role = :role', { role: query.role });
     }
     if (query?.q) {
-      qb.andWhere('(user.name ILIKE :q OR user.email ILIKE :q)', {
+      userIdQb.andWhere('(user.name ILIKE :q OR user.email ILIKE :q)', {
         q: `%${query.q}%`,
       });
     }
 
-    const skip = (page - 1) * limit;
-
-    // Sorting (SQL where possible)
     const sort = query?.sort ?? 'name';
     const order = query?.order ?? 'asc';
     if (sort === 'name') {
-      qb.orderBy('user.name', order.toUpperCase() as 'ASC' | 'DESC');
+      userIdQb.orderBy('user.name', order.toUpperCase() as 'ASC' | 'DESC');
     } else if (sort === 'joinedAt') {
-      qb.orderBy('pc.joinedAt', order.toUpperCase() as 'ASC' | 'DESC');
+      userIdQb.orderBy('pc.joinedAt', order.toUpperCase() as 'ASC' | 'DESC');
     }
 
-    const [rowsRaw, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    const skip = (page - 1) * limit;
+    const distinctUserIdsRaw = await userIdQb
+      .select('user.id', 'userId')
+      .distinct(true)
+      .getRawMany<{ userId: string }>();
+    const allUserIds = distinctUserIdsRaw.map((r) => r.userId);
+    const total = allUserIds.length;
+    const pagedUserIds = allUserIds.slice(skip, skip + limit);
+    if (pagedUserIds.length === 0) {
+      return { contributors: [], total, page, limit };
+    }
+
+    // Fetch all contributions for paged user ids
+    const rowsRaw = await this.projectContributorRepository
+      .createQueryBuilder('pc')
+      .leftJoinAndSelect('pc.user', 'user')
+      .leftJoinAndSelect('pc.project', 'project')
+      .where('pc.projectId IN (:...projectIds)', { projectIds })
+      .andWhere('user.id IN (:...pagedUserIds)', { pagedUserIds })
+      .getMany();
 
     // Aggregate by userId (functional, immutable style)
     const byUser = rowsRaw

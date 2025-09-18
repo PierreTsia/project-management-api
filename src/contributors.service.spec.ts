@@ -86,18 +86,25 @@ describe('ContributorsService', () => {
       where: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValueOnce([{ projectId: 'p1' }]),
     } as any;
-    const qbMain = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
+    const qbUserIds = {
+      leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValueOnce([[], 0]),
+      select: jest.fn().mockReturnThis(),
+      distinct: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ userId: 'u1' }]),
+    } as any;
+    const qbContrib = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValueOnce([]),
     } as any;
     (contributorRepo.createQueryBuilder as jest.Mock)
       .mockReturnValueOnce(qbViewer)
-      .mockReturnValueOnce(qbMain);
+      .mockReturnValueOnce(qbUserIds)
+      .mockReturnValueOnce(qbContrib);
 
     await service.listContributors('viewer-1', {
       q: 'john',
@@ -108,15 +115,14 @@ describe('ContributorsService', () => {
       order: 'asc',
     });
 
-    // projectId filter is only applied when provided; none in this query
-    expect(qbMain.andWhere).toHaveBeenCalledWith('pc.role = :role', {
+    expect(qbUserIds.andWhere).toHaveBeenCalledWith('pc.role = :role', {
       role: 'READ',
     });
-    expect(qbMain.andWhere).toHaveBeenCalledWith(
+    expect(qbUserIds.andWhere).toHaveBeenCalledWith(
       '(user.name ILIKE :q OR user.email ILIKE :q)',
       { q: '%john%' },
     );
-    expect(qbMain.orderBy).toHaveBeenCalledWith('user.name', 'ASC');
+    expect(qbUserIds.orderBy).toHaveBeenCalledWith('user.name', 'ASC');
   });
 
   it('sorts by projectsCount desc post-aggregation', async () => {
@@ -144,18 +150,27 @@ describe('ContributorsService', () => {
         role: 'READ',
       },
     ] as any[];
-    const qbMain = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
+    const qbUserIds = {
+      leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValueOnce([rows, rows.length]),
+      select: jest.fn().mockReturnThis(),
+      distinct: jest.fn().mockReturnThis(),
+      getRawMany: jest
+        .fn()
+        .mockResolvedValueOnce([{ userId: 'u1' }, { userId: 'u2' }]),
+    } as any;
+    const qbContrib = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValueOnce(rows),
     } as any;
     (contributorRepo.createQueryBuilder as jest.Mock)
       .mockReturnValueOnce(qbViewer)
-      .mockReturnValueOnce(qbMain);
+      .mockReturnValueOnce(qbUserIds)
+      .mockReturnValueOnce(qbContrib);
 
     const result = await service.listContributors('viewer-1', {
       page: '1',

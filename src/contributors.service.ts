@@ -36,6 +36,7 @@ export class ContributorsService {
       sort?: 'name' | 'joinedAt' | 'projectsCount';
       order?: 'asc' | 'desc';
     },
+    _acceptLanguage?: string,
   ): Promise<ContributorsListResponseDto> {
     this.logger.debug(
       `Listing contributors for viewer ${viewerUserId}`,
@@ -146,6 +147,7 @@ export class ContributorsService {
   public async listContributorProjects(
     targetUserId: string,
     viewerUserId: string,
+    _acceptLanguage?: string,
   ): Promise<ContributorProjectsResponseDto[]> {
     this.logger.debug(
       `Listing contributor projects for ${targetUserId}`,

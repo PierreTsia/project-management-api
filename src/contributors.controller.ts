@@ -2,6 +2,7 @@ import {
   ClassSerializerInterceptor,
   Controller,
   Get,
+  Headers,
   Param,
   Query,
   Request,
@@ -71,8 +72,13 @@ export class ContributorsController {
   public async list(
     @Request() req: { user: User },
     @Query() query: ListContributorsQueryDto,
+    @Headers('accept-language') acceptLanguage?: string,
   ): Promise<ContributorsListResponseDto> {
-    return this.contributorsService.listContributors(req.user.id, query);
+    return this.contributorsService.listContributors(
+      req.user.id,
+      query,
+      acceptLanguage,
+    );
   }
 
   @ApiOperation({ summary: 'List shared projects with a given contributor' })
@@ -86,10 +92,12 @@ export class ContributorsController {
   public async listProjects(
     @Param('userId') userId: string,
     @Request() req: { user: User },
+    @Headers('accept-language') acceptLanguage?: string,
   ): Promise<ContributorProjectsResponseDto[]> {
     return this.contributorsService.listContributorProjects(
       userId,
       req.user.id,
+      acceptLanguage,
     );
   }
 }

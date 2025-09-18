@@ -81,6 +81,9 @@ export class ContributorsService {
 
     const sort = query?.sort ?? 'name';
     const order = query?.order ?? 'asc';
+
+    // Add ORDER BY columns to SELECT list BEFORE calling distinct()
+    // Only add ORDER BY for sorts that can be done at the database level
     if (sort === 'name') {
       // When using DISTINCT, Postgres requires ORDER BY expressions to be in the select list
       userIdQb
@@ -92,9 +95,10 @@ export class ContributorsService {
         .addSelect('pc.joinedAt', 'joinedAt')
         .orderBy('pc.joinedAt', order.toUpperCase() as 'ASC' | 'DESC');
     }
+    // Note: 'projectsCount' sorting is handled in post-processing, not in the query
 
     const skip = (page - 1) * limit;
-    // Ensure we do not override previously added selects (name/joinedAt) by using addSelect here
+    // Apply distinct and add userId select
     const distinctUserIdsRaw = await userIdQb
       .distinct(true)
       .addSelect('user.id', 'userId')

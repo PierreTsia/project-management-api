@@ -24,6 +24,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
 import { CustomLogger } from './common/services/logger.service';
+import { ContributorsModule } from './contributors.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { CustomLogger } from './common/services/logger.service';
     DashboardModule,
     CloudinaryModule,
     LoggerModule,
+    ContributorsModule,
   ],
   controllers: [AppController],
   providers: [

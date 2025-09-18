@@ -183,4 +183,129 @@ describe('ContributorsService', () => {
     expect(result.contributors[0].user.id).toBe('u1');
     expect(result.contributors[1].user.id).toBe('u2');
   });
+
+  it('applies projectId filter and sorts by joinedAt desc', async () => {
+    const qbViewer = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ projectId: 'p1' }]),
+    } as any;
+    const qbUserIds = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      distinct: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ userId: 'u1' }]),
+    } as any;
+    const qbContrib = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValueOnce([]),
+    } as any;
+    (contributorRepo.createQueryBuilder as jest.Mock)
+      .mockReturnValueOnce(qbViewer)
+      .mockReturnValueOnce(qbUserIds)
+      .mockReturnValueOnce(qbContrib);
+
+    await service.listContributors('viewer-1', {
+      projectId: 'p1',
+      page: '1',
+      pageSize: '10',
+      sort: 'joinedAt',
+      order: 'desc',
+    });
+
+    expect(qbUserIds.andWhere).toHaveBeenCalledWith(
+      'pc.projectId = :projectId',
+      { projectId: 'p1' },
+    );
+    expect(qbUserIds.orderBy).toHaveBeenCalledWith('pc.joinedAt', 'DESC');
+  });
+
+  it('returns empty contributors when pagination slice is outside range', async () => {
+    const qbViewer = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ projectId: 'p1' }]),
+    } as any;
+    const qbUserIds = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      distinct: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ userId: 'u1' }]),
+    } as any;
+    (contributorRepo.createQueryBuilder as jest.Mock)
+      .mockReturnValueOnce(qbViewer)
+      .mockReturnValueOnce(qbUserIds);
+
+    const result = await service.listContributors('viewer-1', {
+      page: '2',
+      pageSize: '1',
+      sort: 'name',
+      order: 'asc',
+    });
+
+    expect(result).toEqual({ contributors: [], total: 1, page: 2, limit: 1 });
+  });
+
+  it('aggregates roles without duplicates and counts projects per user', async () => {
+    const qbViewer = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ projectId: 'p1' }]),
+    } as any;
+    const qbUserIds = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      distinct: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ userId: 'u1' }]),
+    } as any;
+    const rows = [
+      {
+        user: { id: 'u1', name: 'A', email: 'a@example.com' },
+        project: { id: 'p1', name: 'P1' },
+        role: 'READ',
+      },
+      {
+        user: { id: 'u1', name: 'A', email: 'a@example.com' },
+        project: { id: 'p2', name: 'P2' },
+        role: 'READ',
+      },
+      {
+        user: { id: 'u1', name: 'A', email: 'a@example.com' },
+        project: { id: 'p3', name: 'P3' },
+        role: 'WRITE',
+      },
+    ] as any[];
+    const qbContrib = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValueOnce(rows),
+    } as any;
+    (contributorRepo.createQueryBuilder as jest.Mock)
+      .mockReturnValueOnce(qbViewer)
+      .mockReturnValueOnce(qbUserIds)
+      .mockReturnValueOnce(qbContrib);
+
+    const result = await service.listContributors('viewer-1', {
+      page: '1',
+      pageSize: '10',
+      sort: 'name',
+      order: 'asc',
+    });
+
+    expect(result.contributors).toHaveLength(1);
+    expect(result.contributors[0].projectsCount).toBe(3);
+    expect(result.contributors[0].roles.sort()).toEqual(['READ', 'WRITE']);
+  });
 });

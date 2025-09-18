@@ -51,8 +51,10 @@ export class ContributorsService {
       .getRawMany<{ projectId: string }>();
 
     const projectIds = projectIdsResult.map((r) => r.projectId);
+    const page = Number(query?.page ?? 1);
+    const limit = Number(query?.pageSize ?? 20);
     if (projectIds.length === 0) {
-      return { contributors: [], total: 0, page: 1, limit: 20 };
+      return { contributors: [], total: 0, page, limit };
     }
 
     // Fetch contributors for those projects with user info
@@ -75,8 +77,6 @@ export class ContributorsService {
       });
     }
 
-    const page = Number(query?.page ?? 1);
-    const limit = Number(query?.pageSize ?? 20);
     const skip = (page - 1) * limit;
 
     // Sorting (SQL where possible)

@@ -108,9 +108,7 @@ describe('ContributorsService', () => {
       order: 'asc',
     });
 
-    expect(qbMain.andWhere).toHaveBeenCalledWith('pc.projectId = :projectId', {
-      projectId: undefined,
-    });
+    // projectId filter is only applied when provided; none in this query
     expect(qbMain.andWhere).toHaveBeenCalledWith('pc.role = :role', {
       role: 'READ',
     });

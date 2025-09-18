@@ -79,4 +79,95 @@ describe('ContributorsService', () => {
     );
     expect(result).toEqual([]);
   });
+
+  it('applies text search and role filters, orders by name asc', async () => {
+    const qbViewer = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ projectId: 'p1' }]),
+    } as any;
+    const qbMain = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValueOnce([[], 0]),
+    } as any;
+    (contributorRepo.createQueryBuilder as jest.Mock)
+      .mockReturnValueOnce(qbViewer)
+      .mockReturnValueOnce(qbMain);
+
+    await service.listContributors('viewer-1', {
+      q: 'john',
+      role: 'READ' as any,
+      page: '1',
+      pageSize: '10',
+      sort: 'name',
+      order: 'asc',
+    });
+
+    expect(qbMain.andWhere).toHaveBeenCalledWith('pc.projectId = :projectId', {
+      projectId: undefined,
+    });
+    expect(qbMain.andWhere).toHaveBeenCalledWith('pc.role = :role', {
+      role: 'READ',
+    });
+    expect(qbMain.andWhere).toHaveBeenCalledWith(
+      '(user.name ILIKE :q OR user.email ILIKE :q)',
+      { q: '%john%' },
+    );
+    expect(qbMain.orderBy).toHaveBeenCalledWith('user.name', 'ASC');
+  });
+
+  it('sorts by projectsCount desc post-aggregation', async () => {
+    const qbViewer = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValueOnce([{ projectId: 'p1' }]),
+    } as any;
+    const rows = [
+      // u1 appears twice (projectsCount 2)
+      {
+        user: { id: 'u1', name: 'A', email: 'a@example.com' },
+        project: { id: 'p1', name: 'P1' },
+        role: 'READ',
+      },
+      {
+        user: { id: 'u1', name: 'A', email: 'a@example.com' },
+        project: { id: 'p2', name: 'P2' },
+        role: 'WRITE',
+      },
+      // u2 appears once (projectsCount 1)
+      {
+        user: { id: 'u2', name: 'B', email: 'b@example.com' },
+        project: { id: 'p3', name: 'P3' },
+        role: 'READ',
+      },
+    ] as any[];
+    const qbMain = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValueOnce([rows, rows.length]),
+    } as any;
+    (contributorRepo.createQueryBuilder as jest.Mock)
+      .mockReturnValueOnce(qbViewer)
+      .mockReturnValueOnce(qbMain);
+
+    const result = await service.listContributors('viewer-1', {
+      page: '1',
+      pageSize: '10',
+      sort: 'projectsCount',
+      order: 'desc',
+    });
+
+    expect(result.contributors).toHaveLength(2);
+    expect(result.contributors[0].user.id).toBe('u1');
+    expect(result.contributors[1].user.id).toBe('u2');
+  });
 });

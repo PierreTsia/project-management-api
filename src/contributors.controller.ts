@@ -24,9 +24,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
-  SwaggerContributorsListDto,
-  SwaggerContributorProjectsDto,
-} from './dto/swagger-contributors.dto';
+  ApiContributorsListDto,
+  ApiContributorProjectsDto,
+} from './dto/contributors-api.dto';
 
 @ApiTags('Contributors')
 @ApiBearerAuth()
@@ -66,7 +66,7 @@ export class ContributorsController {
   })
   @ApiOkResponse({
     description: 'Contributors list with pagination meta',
-    type: SwaggerContributorsListDto,
+    type: ApiContributorsListDto,
   })
   @Get()
   public async list(
@@ -85,7 +85,7 @@ export class ContributorsController {
   @ApiParam({ name: 'userId', description: 'Contributor user ID' })
   @ApiOkResponse({
     description: 'Shared projects list',
-    type: SwaggerContributorProjectsDto,
+    type: ApiContributorProjectsDto,
     isArray: true,
   })
   @Get(':userId/projects')

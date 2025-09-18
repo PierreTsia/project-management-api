@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ProjectRole } from '../projects/enums/project-role.enum';
 
-export class SwaggerUserDto {
+export class ApiUserDto {
   @ApiProperty()
   id!: string;
 
@@ -15,7 +15,7 @@ export class SwaggerUserDto {
   avatarUrl?: string | null;
 }
 
-export class SwaggerProjectPreviewDto {
+export class ApiProjectPreviewDto {
   @ApiProperty()
   id!: string;
 
@@ -26,23 +26,23 @@ export class SwaggerProjectPreviewDto {
   role!: ProjectRole;
 }
 
-export class SwaggerContributorAggregateDto {
-  @ApiProperty({ type: SwaggerUserDto })
-  user!: SwaggerUserDto;
+export class ApiContributorAggregateDto {
+  @ApiProperty({ type: ApiUserDto })
+  user!: ApiUserDto;
 
   @ApiProperty()
   projectsCount!: number;
 
-  @ApiProperty({ type: SwaggerProjectPreviewDto, isArray: true })
-  projectsPreview!: SwaggerProjectPreviewDto[];
+  @ApiProperty({ type: ApiProjectPreviewDto, isArray: true })
+  projectsPreview!: ApiProjectPreviewDto[];
 
   @ApiProperty({ enum: ProjectRole, isArray: true })
   roles!: ProjectRole[];
 }
 
-export class SwaggerContributorsListDto {
-  @ApiProperty({ type: SwaggerContributorAggregateDto, isArray: true })
-  contributors!: SwaggerContributorAggregateDto[];
+export class ApiContributorsListDto {
+  @ApiProperty({ type: ApiContributorAggregateDto, isArray: true })
+  contributors!: ApiContributorAggregateDto[];
 
   @ApiProperty()
   total!: number;
@@ -54,7 +54,7 @@ export class SwaggerContributorsListDto {
   limit!: number;
 }
 
-export class SwaggerContributorProjectsDto {
+export class ApiContributorProjectsDto {
   @ApiProperty()
   projectId!: string;
 

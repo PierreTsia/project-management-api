@@ -24,6 +24,9 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
 import { CustomLogger } from './common/services/logger.service';
+import { ContributorsModule } from './contributors.module';
+import { ContributorsController } from './contributors.controller';
+import { ContributorsService } from './contributors.service';
 
 @Module({
   imports: [
@@ -58,8 +61,9 @@ import { CustomLogger } from './common/services/logger.service';
     DashboardModule,
     CloudinaryModule,
     LoggerModule,
+    ContributorsModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, ContributorsController],
   providers: [
     AppService,
     {
@@ -73,6 +77,7 @@ import { CustomLogger } from './common/services/logger.service';
       useFactory: (i18n) => new I18nValidationExceptionFilter(i18n),
       inject: [I18nService],
     },
+    ContributorsService,
   ],
 })
 export class AppModule {}

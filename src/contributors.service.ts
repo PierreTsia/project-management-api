@@ -82,15 +82,15 @@ export class ContributorsService {
     const sort = query?.sort ?? 'name';
     const order = query?.order ?? 'asc';
 
-    // Add ORDER BY columns to SELECT list BEFORE calling distinct()
-    // Only add ORDER BY for sorts that can be done at the database level
+    // Add all required columns to SELECT list BEFORE calling distinct()
+    // PostgreSQL requires ORDER BY expressions to be in the select list when using DISTINCT
+    userIdQb.addSelect('user.id', 'userId');
+
     if (sort === 'name') {
-      // When using DISTINCT, Postgres requires ORDER BY expressions to be in the select list
       userIdQb
         .addSelect('user.name', 'userName')
         .orderBy('user.name', order.toUpperCase() as 'ASC' | 'DESC');
     } else if (sort === 'joinedAt') {
-      // Include joinedAt in select list to satisfy DISTINCT + ORDER BY constraint
       userIdQb
         .addSelect('pc.joinedAt', 'joinedAt')
         .orderBy('pc.joinedAt', order.toUpperCase() as 'ASC' | 'DESC');
@@ -98,10 +98,9 @@ export class ContributorsService {
     // Note: 'projectsCount' sorting is handled in post-processing, not in the query
 
     const skip = (page - 1) * limit;
-    // Apply distinct and add userId select
+    // Apply distinct - all required columns are already in SELECT list
     const distinctUserIdsRaw = await userIdQb
       .distinct(true)
-      .addSelect('user.id', 'userId')
       .getRawMany<{ userId: string }>();
     const allUserIds = distinctUserIdsRaw.map((r) => r.userId);
     const total = allUserIds.length;

@@ -82,15 +82,22 @@ export class ContributorsService {
     const sort = query?.sort ?? 'name';
     const order = query?.order ?? 'asc';
     if (sort === 'name') {
-      userIdQb.orderBy('user.name', order.toUpperCase() as 'ASC' | 'DESC');
+      // When using DISTINCT, Postgres requires ORDER BY expressions to be in the select list
+      userIdQb
+        .addSelect('user.name', 'userName')
+        .orderBy('user.name', order.toUpperCase() as 'ASC' | 'DESC');
     } else if (sort === 'joinedAt') {
-      userIdQb.orderBy('pc.joinedAt', order.toUpperCase() as 'ASC' | 'DESC');
+      // Include joinedAt in select list to satisfy DISTINCT + ORDER BY constraint
+      userIdQb
+        .addSelect('pc.joinedAt', 'joinedAt')
+        .orderBy('pc.joinedAt', order.toUpperCase() as 'ASC' | 'DESC');
     }
 
     const skip = (page - 1) * limit;
+    // Ensure we do not override previously added selects (name/joinedAt) by using addSelect here
     const distinctUserIdsRaw = await userIdQb
-      .select('user.id', 'userId')
       .distinct(true)
+      .addSelect('user.id', 'userId')
       .getRawMany<{ userId: string }>();
     const allUserIds = distinctUserIdsRaw.map((r) => r.userId);
     const total = allUserIds.length;

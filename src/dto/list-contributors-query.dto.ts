@@ -1,4 +1,10 @@
-import { IsEnum, IsNumberString, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsNumberString,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { ProjectRole } from '../projects/enums/project-role.enum';
 
 export class ListContributorsQueryDto {
@@ -21,4 +27,12 @@ export class ListContributorsQueryDto {
   @IsOptional()
   @IsNumberString()
   pageSize?: string;
+
+  @IsOptional()
+  @IsIn(['name', 'joinedAt', 'projectsCount'])
+  sort?: 'name' | 'joinedAt' | 'projectsCount';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  order?: 'asc' | 'desc';
 }

@@ -18,6 +18,9 @@ export class ContributorsService {
     private readonly logger: CustomLogger,
   ) {}
 
+  // Set a clear logging context to avoid ambiguous/undefined log lines
+  private readonly context: string = 'ContributorsService';
+
   /**
    * Return an aggregated list of contributors accessible to the current user.
    * Placeholder implementation for scaffold.
@@ -30,9 +33,14 @@ export class ContributorsService {
       projectId?: string;
       page?: string;
       pageSize?: string;
+      sort?: 'name' | 'joinedAt' | 'projectsCount';
+      order?: 'asc' | 'desc';
     },
   ): Promise<ContributorsListResponseDto> {
-    this.logger.debug(`Listing contributors for viewer ${viewerUserId}`);
+    this.logger.debug(
+      `Listing contributors for viewer ${viewerUserId}`,
+      this.context,
+    );
 
     // Get accessible project ids (owned or contributor)
     const projectIdsResult = await this.projectContributorRepository
@@ -70,10 +78,19 @@ export class ContributorsService {
     const limit = Number(query?.pageSize ?? 20);
     const skip = (page - 1) * limit;
 
-    const [rows, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    // Sorting (SQL where possible)
+    const sort = query?.sort ?? 'name';
+    const order = query?.order ?? 'asc';
+    if (sort === 'name') {
+      qb.orderBy('user.name', order.toUpperCase() as 'ASC' | 'DESC');
+    } else if (sort === 'joinedAt') {
+      qb.orderBy('pc.joinedAt', order.toUpperCase() as 'ASC' | 'DESC');
+    }
+
+    const [rowsRaw, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
     // Aggregate by userId (functional, immutable style)
-    const byUser = rows
+    const byUser = rowsRaw
       .filter((pc) => pc.user)
       .reduce((acc, pc) => {
         const user = pc.user!;
@@ -110,7 +127,15 @@ export class ContributorsService {
         return acc;
       }, new Map<string, ContributorAggregateResponseDto>());
 
-    const contributors = Array.from(byUser.values());
+    let contributors = Array.from(byUser.values());
+    // Post-aggregation sort for projectsCount
+    if (sort === 'projectsCount') {
+      contributors = contributors.sort((a, b) =>
+        order === 'asc'
+          ? a.projectsCount - b.projectsCount
+          : b.projectsCount - a.projectsCount,
+      );
+    }
     return { contributors, total, page, limit };
   }
 
@@ -122,7 +147,10 @@ export class ContributorsService {
     targetUserId: string,
     viewerUserId: string,
   ): Promise<ContributorProjectsResponseDto[]> {
-    this.logger.debug(`Listing contributor projects for ${targetUserId}`);
+    this.logger.debug(
+      `Listing contributor projects for ${targetUserId}`,
+      this.context,
+    );
 
     // Compute viewer accessible projects
     const accessible = await this.projectContributorRepository

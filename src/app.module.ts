@@ -25,8 +25,6 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
 import { CustomLogger } from './common/services/logger.service';
 import { ContributorsModule } from './contributors.module';
-import { ContributorsController } from './contributors.controller';
-import { ContributorsService } from './contributors.service';
 
 @Module({
   imports: [
@@ -63,7 +61,7 @@ import { ContributorsService } from './contributors.service';
     LoggerModule,
     ContributorsModule,
   ],
-  controllers: [AppController, ContributorsController],
+  controllers: [AppController],
   providers: [
     AppService,
     {
@@ -77,7 +75,6 @@ import { ContributorsService } from './contributors.service';
       useFactory: (i18n) => new I18nValidationExceptionFilter(i18n),
       inject: [I18nService],
     },
-    ContributorsService,
   ],
 })
 export class AppModule {}

@@ -9,6 +9,5 @@ export interface ContributorAggregateResponseDto {
   };
   projectsCount: number;
   projectsPreview: Array<{ id: string; name: string; role: ProjectRole }>;
-  projectsOverflowCount: number;
   roles: Array<ProjectRole>;
 }

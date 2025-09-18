@@ -5,6 +5,7 @@ import { Project } from './projects/entities/project.entity';
 import { ProjectContributor } from './projects/entities/project-contributor.entity';
 import { CustomLogger } from './common/services/logger.service';
 import type { ContributorAggregateResponseDto } from './dto/contributor-aggregate-response.dto';
+import type { ContributorsListResponseDto } from './dto/contributors-list-response.dto';
 import type { ContributorProjectsResponseDto } from './dto/contributor-projects-response.dto';
 
 @Injectable()
@@ -23,7 +24,14 @@ export class ContributorsService {
    */
   public async listContributors(
     viewerUserId: string,
-  ): Promise<ContributorAggregateResponseDto[]> {
+    query?: {
+      q?: string;
+      role?: any;
+      projectId?: string;
+      page?: string;
+      pageSize?: string;
+    },
+  ): Promise<ContributorsListResponseDto> {
     this.logger.debug(`Listing contributors for viewer ${viewerUserId}`);
 
     // Get accessible project ids (owned or contributor)
@@ -35,16 +43,34 @@ export class ContributorsService {
 
     const projectIds = projectIdsResult.map((r) => r.projectId);
     if (projectIds.length === 0) {
-      return [];
+      return { contributors: [], total: 0, page: 1, limit: 20 };
     }
 
     // Fetch contributors for those projects with user info
-    const rows = await this.projectContributorRepository
+    const qb = this.projectContributorRepository
       .createQueryBuilder('pc')
       .leftJoinAndSelect('pc.user', 'user')
       .leftJoinAndSelect('pc.project', 'project')
       .where('pc.projectId IN (:...projectIds)', { projectIds })
-      .getMany();
+      .andWhere('user.id != :viewerUserId', { viewerUserId });
+
+    if (query?.projectId) {
+      qb.andWhere('pc.projectId = :projectId', { projectId: query.projectId });
+    }
+    if (query?.role) {
+      qb.andWhere('pc.role = :role', { role: query.role });
+    }
+    if (query?.q) {
+      qb.andWhere('(user.name ILIKE :q OR user.email ILIKE :q)', {
+        q: `%${query.q}%`,
+      });
+    }
+
+    const page = Number(query?.page ?? 1);
+    const limit = Number(query?.pageSize ?? 20);
+    const skip = (page - 1) * limit;
+
+    const [rows, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
     // Aggregate by userId (functional, immutable style)
     const byUser = rows
@@ -63,7 +89,6 @@ export class ContributorsService {
           },
           projectsCount: 0,
           projectsPreview: [],
-          projectsOverflowCount: 0,
           roles: [],
         };
 
@@ -76,19 +101,17 @@ export class ContributorsService {
             ]
           : current.projectsPreview;
 
-        const projectsOverflowCount = current.projectsOverflowCount;
-
         acc.set(key, {
           ...current,
           projectsCount: current.projectsCount + 1,
           projectsPreview,
-          projectsOverflowCount,
           roles,
         });
         return acc;
       }, new Map<string, ContributorAggregateResponseDto>());
 
-    return Array.from(byUser.values());
+    const contributors = Array.from(byUser.values());
+    return { contributors, total, page, limit };
   }
 
   /**

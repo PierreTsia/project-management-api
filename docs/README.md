@@ -20,3 +20,4 @@
 1. **New to task relationships?** Start with [Task Relationship Rules](./task-relationship-rules.md)
 2. **Need a quick reference?** Use [Task Relationship Cheat Sheet](./task-relationship-cheatsheet.md)
 3. **Implementing features?** Check [Task Relationship Validation Schema](./task-relationship-validation-schema.md)
+

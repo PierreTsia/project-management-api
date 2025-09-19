@@ -59,6 +59,7 @@
     "not_found": "Hierarchy relationship not found",
     "insufficient_permission": "You do not have permission to manage task hierarchy",
     "invalid": "Invalid hierarchy configuration",
-    "link_conflict": "This hierarchy relationship conflicts with existing task links"
+    "link_conflict": "This hierarchy relationship conflicts with existing task links",
+    "multiple_parents": "A task can only have one parent. Remove the existing parent relationship first."
   }
 }

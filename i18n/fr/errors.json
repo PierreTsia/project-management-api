@@ -59,6 +59,7 @@
     "not_found": "Relation hiérarchique non trouvée",
     "insufficient_permission": "Vous n'avez pas la permission de gérer la hiérarchie des tâches",
     "invalid": "Configuration de hiérarchie invalide",
-    "link_conflict": "Cette relation hiérarchique entre en conflit avec les liens de tâches existants"
+    "link_conflict": "Cette relation hiérarchique entre en conflit avec les liens de tâches existants",
+    "multiple_parents": "Une tâche ne peut avoir qu'un seul parent. Supprimez d'abord la relation parent existante."
   }
 } 

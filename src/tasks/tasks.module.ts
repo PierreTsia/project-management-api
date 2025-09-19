@@ -55,6 +55,7 @@ import {
   HierarchyConflictValidator as HierarchyConflictValidatorNew,
   LinkConflictValidatorForHierarchy,
 } from './services/validation/hierarchy-validators';
+import { MultipleParentValidator } from './services/validation/multiple-parent-validator';
 
 // Conflict Validators
 import { CircularDependencyDetector } from './services/validation/circular-dependency-detector';
@@ -108,6 +109,7 @@ export const TASK_LINK_LIMIT = 20;
     HierarchyDepthValidator,
     HierarchyConflictValidatorNew,
     LinkConflictValidatorForHierarchy,
+    MultipleParentValidator,
 
     // Conflict Validators
     CircularDependencyDetector,
@@ -167,9 +169,11 @@ export const TASK_LINK_LIMIT = 20;
         hierarchyDepthValidator: HierarchyDepthValidator,
         hierarchyConflictValidator: HierarchyConflictValidatorNew,
         linkConflictValidatorForHierarchy: LinkConflictValidatorForHierarchy,
+        multipleParentValidator: MultipleParentValidator,
       ) => {
         // Build the hierarchy validation chain
         selfHierarchyValidator
+          .setNext(multipleParentValidator)
           .setNext(circularHierarchyValidator)
           .setNext(hierarchyDepthValidator)
           .setNext(hierarchyConflictValidator)
@@ -192,6 +196,7 @@ export const TASK_LINK_LIMIT = 20;
         HierarchyDepthValidator,
         HierarchyConflictValidatorNew,
         LinkConflictValidatorForHierarchy,
+        MultipleParentValidator,
       ],
     },
   ],

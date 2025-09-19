@@ -11,7 +11,7 @@ import { TaskLinkResponseDto } from '../dto/task-link-response.dto';
 import { TaskLinkWithTaskDto } from '../dto/task-link-with-task.dto';
 import { TaskResponseDto } from '../dto/task-response.dto';
 import { I18nService } from 'nestjs-i18n';
-import { TaskRelationshipValidationChain } from './validation/task-relationship-validator';
+import { TaskRelationshipValidationChain } from './validation/task-relationship-validation-chain';
 import { Task } from '../entities/task.entity';
 import { CustomLogger } from '../../common/services/logger.service';
 

@@ -8,7 +8,7 @@ import { TaskLink } from '../entities/task-link.entity';
 import { Task } from '../entities/task.entity';
 import { CreateTaskLinkDto } from '../dto/create-task-link.dto';
 import { TaskLinkWithTaskDto } from '../dto/task-link-with-task.dto';
-import { TaskRelationshipValidationChain } from './validation/task-relationship-validator';
+import { TaskRelationshipValidationChain } from './validation/task-relationship-validation-chain';
 import { CustomLogger } from '../../common/services/logger.service';
 import { MockCustomLogger } from '../../test/mocks';
 

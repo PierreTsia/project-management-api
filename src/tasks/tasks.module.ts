@@ -29,7 +29,7 @@ import { TaskLinkController } from './controllers/task-link.controller';
 import { TaskHierarchyController } from './controllers/task-hierarchy.controller';
 
 // Validation Chains
-import { TaskRelationshipValidationChain } from './services/validation/task-relationship-validator';
+import { TaskRelationshipValidationChain } from './services/validation/task-relationship-validation-chain';
 import { HierarchyValidationChain } from './services/validation/hierarchy-validation-chain';
 
 // Global Validators

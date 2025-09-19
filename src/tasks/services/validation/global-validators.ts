@@ -3,7 +3,7 @@ import {
   ValidationHandler,
   ValidationRequest,
   ValidationResult,
-} from './task-relationship-validator';
+} from './task-relationship-validation-chain';
 import { CircularDependencyDetector } from './circular-dependency-detector';
 import { HierarchyConflictValidator } from './hierarchy-conflict-validator';
 

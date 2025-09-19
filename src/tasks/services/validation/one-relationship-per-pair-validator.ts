@@ -6,7 +6,7 @@ import {
   ValidationHandler,
   ValidationRequest,
   ValidationResult,
-} from './task-relationship-validator';
+} from './task-relationship-validation-chain';
 
 @Injectable()
 export class OneRelationshipPerPairValidator extends ValidationHandler {

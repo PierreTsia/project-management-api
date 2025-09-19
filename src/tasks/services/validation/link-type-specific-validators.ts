@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   LinkValidationStrategy,
   ValidationResult,
-} from './task-relationship-validator';
+} from './task-relationship-validation-chain';
 import { Task } from '../../entities/task.entity';
 
 @Injectable()

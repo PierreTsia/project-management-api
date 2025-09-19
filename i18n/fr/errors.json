@@ -49,5 +49,15 @@
     "invalid": "Configuration de lien invalide",
     "link_not_found": "Lien de tâche non trouvé",
     "insufficient_permission": "Vous n'avez pas la permission de gérer les liens de tâches"
+  },
+  "task_hierarchy": {
+    "self_parent": "Une tâche ne peut pas être son propre parent",
+    "already_exists": "Cette relation parent-enfant existe déjà",
+    "circular_hierarchy": "Créer cette hiérarchie créerait une relation circulaire",
+    "max_depth_exceeded": "Profondeur maximale de hiérarchie dépassée ({{maxDepth}} niveaux)",
+    "not_found": "Relation hiérarchique non trouvée",
+    "insufficient_permission": "Vous n'avez pas la permission de gérer la hiérarchie des tâches",
+    "invalid": "Configuration de hiérarchie invalide",
+    "link_conflict": "Cette relation hiérarchique entre en conflit avec les liens de tâches existants"
   }
 } 

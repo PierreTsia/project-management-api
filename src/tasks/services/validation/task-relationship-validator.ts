@@ -34,7 +34,7 @@ export abstract class ValidationHandler {
 }
 
 @Injectable()
-export class TaskRelationshipValidator {
+export class TaskRelationshipValidationChain {
   private linkValidators = new Map<TaskLinkType, LinkValidationStrategy>();
   private validationChain: ValidationHandler | undefined;
 

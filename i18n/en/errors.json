@@ -49,5 +49,15 @@
     "invalid": "Invalid link configuration",
     "link_not_found": "Task link not found",
     "insufficient_permission": "You do not have permission to manage task links"
+  },
+  "task_hierarchy": {
+    "self_parent": "A task cannot be its own parent",
+    "already_exists": "This parent-child relationship already exists",
+    "circular_hierarchy": "Creating this hierarchy would create a circular relationship",
+    "max_depth_exceeded": "Maximum hierarchy depth exceeded ({{maxDepth}} levels)",
+    "not_found": "Hierarchy relationship not found",
+    "insufficient_permission": "You do not have permission to manage task hierarchy",
+    "invalid": "Invalid hierarchy configuration",
+    "link_conflict": "This hierarchy relationship conflicts with existing task links"
   }
 }

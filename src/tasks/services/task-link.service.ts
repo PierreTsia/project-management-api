@@ -11,7 +11,7 @@ import { TaskLinkResponseDto } from '../dto/task-link-response.dto';
 import { TaskLinkWithTaskDto } from '../dto/task-link-with-task.dto';
 import { TaskResponseDto } from '../dto/task-response.dto';
 import { I18nService } from 'nestjs-i18n';
-import { TaskRelationshipValidator } from './validation/task-relationship-validator';
+import { TaskRelationshipValidationChain } from './validation/task-relationship-validator';
 import { Task } from '../entities/task.entity';
 
 @Injectable()
@@ -22,7 +22,7 @@ export class TaskLinkService {
     @InjectRepository(Task)
     private readonly taskRepository: Repository<Task>,
     private readonly i18n: I18nService,
-    private readonly relationshipValidator: TaskRelationshipValidator,
+    private readonly relationshipValidator: TaskRelationshipValidationChain,
   ) {}
 
   async createLink(

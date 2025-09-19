@@ -1,25 +1,216 @@
+// NestJS Core
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
+// External Modules
+import { ProjectsModule } from '../projects/projects.module';
+import { LoggerModule } from '../common/services/logger.module';
+
+// Entities
 import { Task } from './entities/task.entity';
 import { Comment } from './entities/comment.entity';
+import { TaskLink } from './entities/task-link.entity';
+import { TaskHierarchy } from './entities/task-hierarchy.entity';
+
+// Services
 import { TasksService } from './tasks.service';
+import { CommentsService } from './services/comments.service';
+import { TaskStatusService } from './services/task-status.service';
+import { TaskLinkService } from './services/task-link.service';
+import { TaskHierarchyService } from './services/task-hierarchy.service';
+import { TaskRelationshipHydrator } from './services/task-relationship-hydrator.service';
+import { CustomLogger } from '../common/services/logger.service';
+
+// Controllers
 import { TasksController } from './tasks.controller';
 import { GlobalTasksController } from './controllers/global-tasks.controller';
-import { CommentsService } from './services/comments.service';
 import { CommentsController } from './controllers/comments.controller';
-import { ProjectsModule } from '../projects/projects.module';
-import { TaskStatusService } from './services/task-status.service';
-import { CustomLogger } from '../common/services/logger.service';
-import { LoggerModule } from '../common/services/logger.module';
+import { TaskLinkController } from './controllers/task-link.controller';
+import { TaskHierarchyController } from './controllers/task-hierarchy.controller';
+
+// Validation Chains
+import { TaskRelationshipValidationChain } from './services/validation/task-relationship-validation-chain';
+import { HierarchyValidationChain } from './services/validation/hierarchy-validation-chain';
+
+// Global Validators
+import {
+  SameProjectValidator,
+  SelfLinkingValidator,
+  LinkLimitValidator,
+  CircularDependencyValidator,
+  HierarchyConflictValidatorHandler,
+} from './services/validation/global-validators';
+
+// Link Type Validators
+import {
+  BlocksTypeValidator,
+  DuplicatesTypeValidator,
+} from './services/validation/link-type-specific-validators';
+
+// Hierarchy Validators
+import {
+  SelfHierarchyValidator,
+  CircularHierarchyValidator,
+  HierarchyDepthValidator,
+  HierarchyConflictValidator as HierarchyConflictValidatorNew,
+  LinkConflictValidatorForHierarchy,
+} from './services/validation/hierarchy-validators';
+import { MultipleParentValidator } from './services/validation/multiple-parent-validator';
+
+// Conflict Validators
+import { CircularDependencyDetector } from './services/validation/circular-dependency-detector';
+import { HierarchyConflictValidator } from './services/validation/hierarchy-conflict-validator';
+import { LinkConflictValidator } from './services/validation/link-conflict-validator';
+import { OneRelationshipPerPairValidator } from './services/validation/one-relationship-per-pair-validator';
+
+export const TASK_LINK_LIMIT = 20;
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Task, Comment]),
+    TypeOrmModule.forFeature([Task, Comment, TaskLink, TaskHierarchy]),
     ProjectsModule,
     LoggerModule,
   ],
-  controllers: [TasksController, GlobalTasksController, CommentsController],
-  providers: [TasksService, CommentsService, TaskStatusService, CustomLogger],
-  exports: [TasksService, CommentsService],
+  controllers: [
+    TasksController,
+    GlobalTasksController,
+    CommentsController,
+    TaskLinkController,
+    TaskHierarchyController,
+  ],
+  providers: [
+    // Core Services
+    TasksService,
+    CommentsService,
+    TaskStatusService,
+    CustomLogger,
+    TaskLinkService,
+    TaskHierarchyService,
+    TaskRelationshipHydrator,
+
+    // Global Validators
+    SameProjectValidator,
+    SelfLinkingValidator,
+    {
+      provide: LinkLimitValidator,
+      useFactory: () => new LinkLimitValidator(TASK_LINK_LIMIT),
+    },
+    CircularDependencyValidator,
+    HierarchyConflictValidatorHandler,
+
+    // Link Type Validators
+    BlocksTypeValidator,
+    DuplicatesTypeValidator,
+    OneRelationshipPerPairValidator,
+
+    // Hierarchy Validators
+    SelfHierarchyValidator,
+    CircularHierarchyValidator,
+    HierarchyDepthValidator,
+    HierarchyConflictValidatorNew,
+    LinkConflictValidatorForHierarchy,
+    MultipleParentValidator,
+
+    // Conflict Validators
+    CircularDependencyDetector,
+    HierarchyConflictValidator,
+    LinkConflictValidator,
+
+    // Validation Chains (with factories)
+    {
+      provide: TaskRelationshipValidationChain,
+      useFactory: (
+        sameProjectValidator: SameProjectValidator,
+        selfLinkingValidator: SelfLinkingValidator,
+        linkLimitValidator: LinkLimitValidator,
+        circularDependencyValidator: CircularDependencyValidator,
+        hierarchyConflictValidator: HierarchyConflictValidatorHandler,
+        oneRelationshipPerPairValidator: OneRelationshipPerPairValidator,
+        blocksTypeValidator: BlocksTypeValidator,
+        duplicatesTypeValidator: DuplicatesTypeValidator,
+      ) => {
+        // Shared chain: order matters
+        sameProjectValidator
+          .setNext(selfLinkingValidator)
+          .setNext(oneRelationshipPerPairValidator)
+          .setNext(linkLimitValidator)
+          .setNext(circularDependencyValidator)
+          .setNext(hierarchyConflictValidator);
+        const relationshipValidator = new TaskRelationshipValidationChain();
+
+        relationshipValidator.setValidationChain(sameProjectValidator);
+        // Type-specific strategies
+        relationshipValidator.registerLinkValidator(
+          'BLOCKS',
+          blocksTypeValidator,
+        );
+        relationshipValidator.registerLinkValidator(
+          'DUPLICATES',
+          duplicatesTypeValidator,
+        );
+        return relationshipValidator;
+      },
+      inject: [
+        SameProjectValidator,
+        SelfLinkingValidator,
+        LinkLimitValidator,
+        CircularDependencyValidator,
+        HierarchyConflictValidatorHandler,
+        OneRelationshipPerPairValidator,
+        BlocksTypeValidator,
+        DuplicatesTypeValidator,
+      ],
+    },
+    {
+      provide: HierarchyValidationChain,
+      useFactory: (
+        selfHierarchyValidator: SelfHierarchyValidator,
+        circularHierarchyValidator: CircularHierarchyValidator,
+        hierarchyDepthValidator: HierarchyDepthValidator,
+        hierarchyConflictValidator: HierarchyConflictValidatorNew,
+        linkConflictValidatorForHierarchy: LinkConflictValidatorForHierarchy,
+        multipleParentValidator: MultipleParentValidator,
+      ) => {
+        // Build the hierarchy validation chain
+        selfHierarchyValidator
+          .setNext(multipleParentValidator)
+          .setNext(circularHierarchyValidator)
+          .setNext(hierarchyDepthValidator)
+          .setNext(hierarchyConflictValidator)
+          .setNext(linkConflictValidatorForHierarchy);
+
+        const hierarchyValidationChain = new HierarchyValidationChain(
+          selfHierarchyValidator,
+          circularHierarchyValidator,
+          hierarchyDepthValidator,
+          hierarchyConflictValidator,
+          linkConflictValidatorForHierarchy,
+        );
+
+        hierarchyValidationChain.setValidationChain(selfHierarchyValidator);
+        return hierarchyValidationChain;
+      },
+      inject: [
+        SelfHierarchyValidator,
+        CircularHierarchyValidator,
+        HierarchyDepthValidator,
+        HierarchyConflictValidatorNew,
+        LinkConflictValidatorForHierarchy,
+        MultipleParentValidator,
+      ],
+    },
+  ],
+  exports: [
+    // Core Services
+    TasksService,
+    CommentsService,
+    TaskLinkService,
+    TaskHierarchyService,
+    TaskRelationshipHydrator,
+
+    // Validation Chains
+    TaskRelationshipValidationChain,
+    HierarchyValidationChain,
+  ],
 })
 export class TasksModule {}

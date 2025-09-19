@@ -4,6 +4,8 @@ import { Task } from '../entities/task.entity';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
+import { TaskLinkWithTaskDto } from './task-link-with-task.dto';
+import { HierarchyTreeDto } from './hierarchy-tree.dto';
 
 @Exclude()
 export class TaskResponseDto {
@@ -90,7 +92,27 @@ export class TaskResponseDto {
   })
   updatedAt: Date;
 
-  constructor(partial: Partial<Task>) {
+  @Expose()
+  @ApiProperty({
+    description: 'Links associated with this task',
+    type: [TaskLinkWithTaskDto],
+    required: false,
+  })
+  links?: TaskLinkWithTaskDto[];
+
+  @Expose()
+  @ApiProperty({
+    description: 'Hierarchy relationships for this task (parents and children)',
+    type: () => HierarchyTreeDto,
+    required: false,
+  })
+  hierarchy?: HierarchyTreeDto;
+
+  constructor(
+    partial: Partial<Task>,
+    links?: TaskLinkWithTaskDto[],
+    hierarchy?: HierarchyTreeDto,
+  ) {
     Object.assign(this, partial);
 
     // Transform assignee if it exists
@@ -101,6 +123,14 @@ export class TaskResponseDto {
     // Map project name from the loaded project relation
     if (partial.project?.name) {
       this.projectName = partial.project.name;
+    }
+
+    if (links) {
+      this.links = links;
+    }
+
+    if (hierarchy) {
+      this.hierarchy = hierarchy;
     }
   }
 }

@@ -25,18 +25,89 @@ import { TaskStatus } from './enums/task-status.enum';
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskStatusService } from './services/task-status.service';
+import { TaskLink } from './entities/task-link.entity';
+import { TaskLinkDto } from './dto/task-link.dto';
+import { TaskLinkWithTaskDto } from './dto/task-link-with-task.dto';
+import { TaskResponseDto } from './dto/task-response.dto';
+import { TaskRelationshipHydrator } from './services/task-relationship-hydrator.service';
 
 @Injectable()
 export class TasksService {
   constructor(
     @InjectRepository(Task)
     private readonly taskRepository: Repository<Task>,
+    @InjectRepository(TaskLink)
+    private readonly taskLinkRepository: Repository<TaskLink>,
     private readonly i18n: I18nService,
     private readonly logger: CustomLogger,
     private readonly projectsService: ProjectsService,
     private readonly taskStatusService: TaskStatusService,
+    private readonly taskRelationshipHydrator: TaskRelationshipHydrator,
   ) {
     this.logger.setContext(TasksService.name);
+  }
+
+  async getTaskLinks(taskId: string): Promise<TaskLinkWithTaskDto[]> {
+    const links = await this.taskLinkRepository.find({
+      where: [{ sourceTaskId: taskId }, { targetTaskId: taskId }],
+      relations: [
+        'sourceTask',
+        'targetTask',
+        'sourceTask.assignee',
+        'sourceTask.project',
+        'targetTask.assignee',
+        'targetTask.project',
+      ],
+    });
+
+    return links.map((link) => {
+      return new TaskLinkWithTaskDto({
+        id: link.id,
+        projectId: link.projectId,
+        sourceTaskId: link.sourceTaskId,
+        targetTaskId: link.targetTaskId,
+        type: link.type,
+        createdAt: link.createdAt,
+        ...(link.sourceTask && {
+          sourceTask: new TaskResponseDto(link.sourceTask),
+        }),
+        ...(link.targetTask && {
+          targetTask: new TaskResponseDto(link.targetTask),
+        }),
+      });
+    });
+  }
+
+  async getLinksMap(taskIds: string[]): Promise<Map<string, TaskLinkDto[]>> {
+    if (!taskIds.length) return new Map();
+    const links = await this.taskLinkRepository.find({
+      where: taskIds.flatMap((id) => [
+        { sourceTaskId: id },
+        { targetTaskId: id },
+      ]),
+    });
+    const map = new Map<string, TaskLinkDto[]>();
+    for (const id of taskIds) map.set(id, []);
+    for (const l of links) {
+      const dto: TaskLinkDto = {
+        id: l.id,
+        projectId: l.projectId,
+        sourceTaskId: l.sourceTaskId,
+        targetTaskId: l.targetTaskId,
+        type: l.type,
+        createdAt: l.createdAt,
+      };
+      map.get(l.sourceTaskId)?.push(dto);
+      map.get(l.targetTaskId)?.push(dto);
+    }
+    return map;
+  }
+
+  async getTaskWithRelationships(taskId: string): Promise<{
+    links: TaskLinkWithTaskDto[];
+    hierarchy: any;
+  }> {
+    return this.taskRelationshipHydrator.hydrateTaskRelationships(taskId);
   }
 
   async create(createTaskDto: CreateTaskDto, projectId: string): Promise<Task> {
@@ -62,6 +133,7 @@ export class TasksService {
         relations: ['assignee', 'project'],
       });
       this.logger.log(`Task created successfully with id: ${savedTask.id}`);
+
       return createdTask;
     }
 
@@ -71,10 +143,12 @@ export class TasksService {
 
   async findAll(projectId: string): Promise<Task[]> {
     this.logger.debug(`Finding all tasks for project ${projectId}`);
-    return this.taskRepository.find({
+    const tasks = await this.taskRepository.find({
       where: { projectId },
       relations: ['assignee', 'project'],
     });
+
+    return tasks;
   }
 
   async findOne(
@@ -98,6 +172,7 @@ export class TasksService {
         }),
       );
     }
+
     return task;
   }
 
@@ -115,6 +190,7 @@ export class TasksService {
         }),
       );
     }
+
     return task;
   }
 
@@ -369,12 +445,7 @@ export class TasksService {
       `Found ${tasks.length} tasks out of ${total} total for project ${projectId}`,
     );
 
-    return {
-      tasks,
-      total,
-      page: searchDto.page,
-      limit: searchDto.limit,
-    };
+    return { tasks, total, page: searchDto.page, limit: searchDto.limit };
   }
 
   /**

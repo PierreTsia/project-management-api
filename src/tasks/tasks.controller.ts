@@ -74,7 +74,10 @@ export class TasksController {
     @Body() createTaskDto: CreateTaskDto,
   ): Promise<TaskResponseDto> {
     const task = await this.tasksService.create(createTaskDto, projectId);
-    return new TaskResponseDto(task);
+    return new TaskResponseDto(
+      task,
+      await this.tasksService.getTaskLinks(task.id),
+    );
   }
 
   @Get()
@@ -103,7 +106,12 @@ export class TasksController {
     @Param('projectId') projectId: string,
   ): Promise<TaskResponseDto[]> {
     const tasks = await this.tasksService.findAll(projectId);
-    return tasks.map((task) => new TaskResponseDto(task));
+    const linksMap = await this.tasksService.getLinksMap(
+      tasks.map((t) => t.id),
+    );
+    return tasks.map(
+      (task) => new TaskResponseDto(task, linksMap.get(task.id)),
+    );
   }
 
   @Get('search')
@@ -129,8 +137,13 @@ export class TasksController {
     @Query() searchDto: SearchTasksDto,
   ): Promise<SearchTasksResponseDto> {
     const result = await this.tasksService.searchTasks(projectId, searchDto);
+    const linksMap = await this.tasksService.getLinksMap(
+      result.tasks.map((t) => t.id),
+    );
     return {
-      tasks: result.tasks.map((task) => new TaskResponseDto(task)),
+      tasks: result.tasks.map(
+        (task) => new TaskResponseDto(task, linksMap.get(task.id)),
+      ),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -170,7 +183,14 @@ export class TasksController {
       projectId,
       acceptLanguage,
     );
-    return new TaskResponseDto(task);
+    const relationships = await this.tasksService.getTaskWithRelationships(
+      task.id,
+    );
+    return new TaskResponseDto(
+      task,
+      relationships.links,
+      relationships.hierarchy,
+    );
   }
 
   @Put(':taskId')

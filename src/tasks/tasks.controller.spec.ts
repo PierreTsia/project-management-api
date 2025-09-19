@@ -47,6 +47,9 @@ describe('TasksController', () => {
             assignTask: jest.fn(),
             unassignTask: jest.fn(),
             searchTasks: jest.fn(),
+            getTaskLinks: jest.fn(),
+            getLinksMap: jest.fn(),
+            getTaskWithRelationships: jest.fn(),
           },
         },
       ],
@@ -63,6 +66,16 @@ describe('TasksController', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  // Setup mock return values
+  beforeEach(() => {
+    (tasksService.getTaskLinks as jest.Mock).mockResolvedValue([]);
+    (tasksService.getLinksMap as jest.Mock).mockResolvedValue(new Map());
+    (tasksService.getTaskWithRelationships as jest.Mock).mockResolvedValue({
+      links: [],
+      hierarchy: { parents: [], children: [], parentCount: 0, childCount: 0 },
+    });
   });
 
   it('should be defined', () => {

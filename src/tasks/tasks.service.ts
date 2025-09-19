@@ -27,6 +27,8 @@ import { ProjectsService } from '../projects/projects.service';
 import { TaskStatusService } from './services/task-status.service';
 import { TaskLink } from './entities/task-link.entity';
 import { TaskLinkDto } from './dto/task-link.dto';
+import { TaskLinkWithTaskDto } from './dto/task-link-with-task.dto';
+import { TaskResponseDto } from './dto/task-response.dto';
 
 @Injectable()
 export class TasksService {
@@ -43,18 +45,35 @@ export class TasksService {
     this.logger.setContext(TasksService.name);
   }
 
-  async getTaskLinks(taskId: string): Promise<TaskLinkDto[]> {
+  async getTaskLinks(taskId: string): Promise<TaskLinkWithTaskDto[]> {
     const links = await this.taskLinkRepository.find({
       where: [{ sourceTaskId: taskId }, { targetTaskId: taskId }],
+      relations: [
+        'sourceTask',
+        'targetTask',
+        'sourceTask.assignee',
+        'sourceTask.project',
+        'targetTask.assignee',
+        'targetTask.project',
+      ],
     });
-    return links.map((l) => ({
-      id: l.id,
-      projectId: l.projectId,
-      sourceTaskId: l.sourceTaskId,
-      targetTaskId: l.targetTaskId,
-      type: l.type,
-      createdAt: l.createdAt,
-    }));
+
+    return links.map((link) => {
+      return new TaskLinkWithTaskDto({
+        id: link.id,
+        projectId: link.projectId,
+        sourceTaskId: link.sourceTaskId,
+        targetTaskId: link.targetTaskId,
+        type: link.type,
+        createdAt: link.createdAt,
+        ...(link.sourceTask && {
+          sourceTask: new TaskResponseDto(link.sourceTask),
+        }),
+        ...(link.targetTask && {
+          targetTask: new TaskResponseDto(link.targetTask),
+        }),
+      });
+    });
   }
 
   async getLinksMap(taskIds: string[]): Promise<Map<string, TaskLinkDto[]>> {

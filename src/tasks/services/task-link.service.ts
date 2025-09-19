@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 import { TaskLink } from '../entities/task-link.entity';
 import { CreateTaskLinkDto } from '../dto/create-task-link.dto';
 import { TaskLinkResponseDto } from '../dto/task-link-response.dto';
+import { TaskLinkWithTaskDto } from '../dto/task-link-with-task.dto';
+import { TaskResponseDto } from '../dto/task-response.dto';
 import { I18nService } from 'nestjs-i18n';
 import { TaskRelationshipValidator } from './validation/task-relationship-validator';
 import { Task } from '../entities/task.entity';
@@ -23,12 +25,32 @@ export class TaskLinkService {
     private readonly relationshipValidator: TaskRelationshipValidator,
   ) {}
 
-  async createLink(input: CreateTaskLinkDto): Promise<TaskLink> {
+  async createLink(
+    input: CreateTaskLinkDto,
+    acceptLanguage?: string,
+  ): Promise<TaskLink> {
     // Load minimal task projections to validate
     const [sourceTask, targetTask] = await Promise.all([
       this.taskRepository.findOne({ where: { id: input.sourceTaskId } }),
       this.taskRepository.findOne({ where: { id: input.targetTaskId } }),
     ]);
+
+    if (!sourceTask) {
+      throw new NotFoundException(
+        this.i18n.t('errors.tasks.task_not_found', {
+          args: { id: input.sourceTaskId, projectId: input.projectId },
+          lang: acceptLanguage,
+        }),
+      );
+    }
+    if (!targetTask) {
+      throw new NotFoundException(
+        this.i18n.t('errors.tasks.task_not_found', {
+          args: { id: input.targetTaskId, projectId: input.projectId },
+          lang: acceptLanguage,
+        }),
+      );
+    }
 
     // Basic link count check for limit (could be optimized with count query)
     const existing = await this.taskLinkRepository.count({
@@ -44,6 +66,7 @@ export class TaskLinkService {
       throw new BadRequestException(
         this.i18n.t('errors.task_links.link_limit_reached', {
           args: { limit: 20 },
+          lang: acceptLanguage,
         }),
       );
     }
@@ -56,7 +79,9 @@ export class TaskLinkService {
     });
     if (validation.valid === false) {
       throw new BadRequestException(
-        this.i18n.t(validation.reason || 'errors.task_links.invalid'),
+        this.i18n.t(validation.reason || 'errors.task_links.invalid', {
+          lang: acceptLanguage,
+        }),
       );
     }
 
@@ -111,5 +136,36 @@ export class TaskLinkService {
     );
     const unique = Array.from(new Set(related));
     return unique;
+  }
+
+  async listLinksWithTasks(taskId: string): Promise<TaskLinkWithTaskDto[]> {
+    const links = await this.taskLinkRepository.find({
+      where: [{ sourceTaskId: taskId }, { targetTaskId: taskId }],
+      relations: [
+        'sourceTask',
+        'targetTask',
+        'sourceTask.assignee',
+        'sourceTask.project',
+        'targetTask.assignee',
+        'targetTask.project',
+      ],
+    });
+
+    return links.map((link) => {
+      return new TaskLinkWithTaskDto({
+        id: link.id,
+        projectId: link.projectId,
+        sourceTaskId: link.sourceTaskId,
+        targetTaskId: link.targetTaskId,
+        type: link.type,
+        createdAt: link.createdAt,
+        ...(link.sourceTask && {
+          sourceTask: new TaskResponseDto(link.sourceTask),
+        }),
+        ...(link.targetTask && {
+          targetTask: new TaskResponseDto(link.targetTask),
+        }),
+      });
+    });
   }
 }

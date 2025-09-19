@@ -4,7 +4,7 @@ import { Task } from '../entities/task.entity';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
-import { TaskLinkDto } from './task-link.dto';
+import { TaskLinkWithTaskDto } from './task-link-with-task.dto';
 
 @Exclude()
 export class TaskResponseDto {
@@ -94,12 +94,12 @@ export class TaskResponseDto {
   @Expose()
   @ApiProperty({
     description: 'Links associated with this task',
-    type: [TaskLinkDto],
+    type: [TaskLinkWithTaskDto],
     required: false,
   })
-  links?: TaskLinkDto[];
+  links?: TaskLinkWithTaskDto[];
 
-  constructor(partial: Partial<Task>, links?: TaskLinkDto[]) {
+  constructor(partial: Partial<Task>, links?: TaskLinkWithTaskDto[]) {
     Object.assign(this, partial);
 
     // Transform assignee if it exists

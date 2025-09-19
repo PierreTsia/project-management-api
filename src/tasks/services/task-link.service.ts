@@ -10,15 +10,6 @@ import { CreateTaskLinkDto } from '../dto/create-task-link.dto';
 import { TaskLinkResponseDto } from '../dto/task-link-response.dto';
 import { I18nService } from 'nestjs-i18n';
 import { TaskRelationshipValidator } from './validation/task-relationship-validator';
-import {
-  SameProjectValidator,
-  SelfLinkingValidator,
-  LinkLimitValidator,
-} from './validation/global-validators';
-import {
-  BlocksLinkValidator,
-  DuplicatesLinkValidator,
-} from './validation/link-type-validators';
 import { Task } from '../entities/task.entity';
 
 @Injectable()
@@ -57,7 +48,7 @@ export class TaskLinkService {
       );
     }
 
-    const validation = this.relationshipValidator.canCreateLink({
+    const validation = await this.relationshipValidator.canCreateLink({
       sourceTask: sourceTask as Task,
       targetTask: targetTask as Task,
       linkType: input.type,

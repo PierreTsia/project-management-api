@@ -39,5 +39,15 @@
     "insufficient_permissions": "Vous n'avez pas la permission d'effectuer cette action sur les pièces jointes.",
     "not_found": "Pièce jointe introuvable.",
     "cannot_delete": "Vous ne pouvez supprimer que vos propres pièces jointes ou vous avez besoin de permissions d'administrateur."
+  },
+  "task_links": {
+    "not_same_project": "Les tâches doivent être dans le même projet pour créer un lien",
+    "self_link": "Une tâche ne peut pas être liée à elle-même",
+    "link_limit_reached": "Nombre maximum de liens par tâche atteint ({{limit}})",
+    "circular_dependency": "Créer ce lien créerait une dépendance circulaire",
+    "hierarchy_conflict": "Ce type de lien entre en conflit avec la relation hiérarchique des tâches",
+    "invalid": "Configuration de lien invalide",
+    "link_not_found": "Lien de tâche non trouvé",
+    "insufficient_permission": "Vous n'avez pas la permission de gérer les liens de tâches"
   }
 } 

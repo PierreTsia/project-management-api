@@ -20,11 +20,11 @@ import { TaskLinkDto } from '../dto/task-link.dto';
 import { TaskLinkResponseDto } from '../dto/task-link-response.dto';
 
 @ApiTags('Task Links')
-@Controller('projects/:projectId/tasks/:taskId/links')
+@Controller('projects/:projectId/tasks/:taskId')
 export class TaskLinkController {
   constructor(private readonly taskLinkService: TaskLinkService) {}
 
-  @Post()
+  @Post('links')
   @ApiOperation({ summary: 'Create a task link' })
   @ApiParam({ name: 'projectId', format: 'uuid' })
   @ApiParam({ name: 'taskId', format: 'uuid' })
@@ -43,7 +43,7 @@ export class TaskLinkController {
     return new TaskLinkDto(created);
   }
 
-  @Get()
+  @Get('links')
   @ApiOperation({ summary: 'List links for a task' })
   @ApiParam({ name: 'projectId', format: 'uuid' })
   @ApiParam({ name: 'taskId', format: 'uuid' })
@@ -51,15 +51,6 @@ export class TaskLinkController {
   async list(@Param('taskId') taskId: string): Promise<TaskLinkResponseDto> {
     const response = await this.taskLinkService.listLinksByTask(taskId);
     return new TaskLinkResponseDto(response);
-  }
-
-  @Get('/../../related')
-  @ApiOperation({ summary: 'List related task ids for a task' })
-  @ApiParam({ name: 'projectId', format: 'uuid' })
-  @ApiParam({ name: 'taskId', format: 'uuid' })
-  @ApiOkResponse({ type: [String] })
-  async listRelated(@Param('taskId') taskId: string): Promise<string[]> {
-    return this.taskLinkService.listRelatedTaskIds(taskId);
   }
 
   @Delete(':linkId')
@@ -80,5 +71,14 @@ export class TaskLinkController {
       linkId,
       acceptLanguage,
     );
+  }
+
+  @Get('related')
+  @ApiOperation({ summary: 'List related task ids for a task' })
+  @ApiParam({ name: 'projectId', format: 'uuid' })
+  @ApiParam({ name: 'taskId', format: 'uuid' })
+  @ApiOkResponse({ type: [String] })
+  async listRelated(@Param('taskId') taskId: string): Promise<string[]> {
+    return this.taskLinkService.listRelatedTaskIds(taskId);
   }
 }

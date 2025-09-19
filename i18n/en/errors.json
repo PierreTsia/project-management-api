@@ -39,5 +39,15 @@
     "insufficient_permissions": "You don't have permission to perform this action on attachments.",
     "not_found": "Attachment not found.",
     "cannot_delete": "You can only delete your own attachments or you need admin permissions."
+  },
+  "task_links": {
+    "not_same_project": "Tasks must be in the same project to create a link",
+    "self_link": "A task cannot be linked to itself",
+    "link_limit_reached": "Maximum number of links per task reached ({{limit}})",
+    "circular_dependency": "Creating this link would create a circular dependency",
+    "hierarchy_conflict": "This link type conflicts with the task hierarchy relationship",
+    "invalid": "Invalid link configuration",
+    "link_not_found": "Task link not found",
+    "insufficient_permission": "You do not have permission to manage task links"
   }
 }

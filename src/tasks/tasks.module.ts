@@ -20,7 +20,11 @@ import {
   SameProjectValidator,
   SelfLinkingValidator,
   LinkLimitValidator,
+  CircularDependencyValidator,
+  HierarchyConflictValidatorHandler,
 } from './services/validation/global-validators';
+import { CircularDependencyDetector } from './services/validation/circular-dependency-detector';
+import { HierarchyConflictValidator } from './services/validation/hierarchy-conflict-validator';
 import {
   BlocksLinkValidator,
   DuplicatesLinkValidator,
@@ -46,6 +50,7 @@ export const TASK_LINK_LIMIT = 20;
     TaskStatusService,
     CustomLogger,
     TaskLinkService,
+    TaskRelationshipValidator,
     // Validators
     SameProjectValidator,
     SelfLinkingValidator,
@@ -53,24 +58,32 @@ export const TASK_LINK_LIMIT = 20;
       provide: LinkLimitValidator,
       useFactory: () => new LinkLimitValidator(TASK_LINK_LIMIT),
     },
+    CircularDependencyDetector,
+    HierarchyConflictValidator,
+    CircularDependencyValidator,
+    HierarchyConflictValidatorHandler,
     BlocksLinkValidator,
     DuplicatesLinkValidator,
     {
       provide: TaskRelationshipValidator,
       useFactory: (
-        sharedSameProjectValidator: SameProjectValidator,
-        sharedSelfLinkingValidator: SelfLinkingValidator,
-        sharedLinkLimitValidator: LinkLimitValidator,
+        sameProjectValidator: SameProjectValidator,
+        selfLinkingValidator: SelfLinkingValidator,
+        linkLimitValidator: LinkLimitValidator,
+        circularDependencyValidator: CircularDependencyValidator,
+        hierarchyConflictValidator: HierarchyConflictValidatorHandler,
         blocksLinkValidator: BlocksLinkValidator,
         duplicatesLinkValidator: DuplicatesLinkValidator,
       ) => {
         // Shared chain: order matters
-        sharedSameProjectValidator
-          .setNext(sharedSelfLinkingValidator)
-          .setNext(sharedLinkLimitValidator);
+        sameProjectValidator
+          .setNext(selfLinkingValidator)
+          .setNext(linkLimitValidator)
+          .setNext(circularDependencyValidator)
+          .setNext(hierarchyConflictValidator);
         const relationshipValidator = new TaskRelationshipValidator();
 
-        relationshipValidator.setValidationChain(sharedSameProjectValidator);
+        relationshipValidator.setValidationChain(sameProjectValidator);
         // Type-specific strategies
         relationshipValidator.registerLinkValidator(
           'BLOCKS',
@@ -86,6 +99,8 @@ export const TASK_LINK_LIMIT = 20;
         SameProjectValidator,
         SelfLinkingValidator,
         LinkLimitValidator,
+        CircularDependencyValidator,
+        HierarchyConflictValidatorHandler,
         BlocksLinkValidator,
         DuplicatesLinkValidator,
       ],

@@ -23,12 +23,14 @@ export abstract class ValidationHandler {
     this.next = handler;
     return handler;
   }
-  handle(request: ValidationRequest): ValidationResult {
-    const result = this.validate(request);
+  async handle(request: ValidationRequest): Promise<ValidationResult> {
+    const result = await this.validate(request);
     if (result.valid === false) return result;
     return this.next?.handle(request) ?? { valid: true };
   }
-  protected abstract validate(request: ValidationRequest): ValidationResult;
+  protected abstract validate(
+    request: ValidationRequest,
+  ): ValidationResult | Promise<ValidationResult>;
 }
 
 @Injectable()
@@ -47,8 +49,8 @@ export class TaskRelationshipValidator {
     this.validationChain = first;
   }
 
-  canCreateLink(request: ValidationRequest): ValidationResult {
-    const chainResult = this.validationChain?.handle(request) ?? {
+  async canCreateLink(request: ValidationRequest): Promise<ValidationResult> {
+    const chainResult = (await this.validationChain?.handle(request)) ?? {
       valid: true,
     };
     if (chainResult.valid === false) return chainResult;

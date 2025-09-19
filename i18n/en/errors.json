@@ -48,7 +48,8 @@
     "hierarchy_conflict": "This link type conflicts with the task hierarchy relationship",
     "invalid": "Invalid link configuration",
     "link_not_found": "Task link not found",
-    "insufficient_permission": "You do not have permission to manage task links"
+    "insufficient_permission": "You do not have permission to manage task links",
+    "duplicate_relationship": "A relationship already exists between these tasks"
   },
   "task_hierarchy": {
     "self_parent": "A task cannot be its own parent",

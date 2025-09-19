@@ -48,7 +48,8 @@
     "hierarchy_conflict": "Ce type de lien entre en conflit avec la relation hiérarchique des tâches",
     "invalid": "Configuration de lien invalide",
     "link_not_found": "Lien de tâche non trouvé",
-    "insufficient_permission": "Vous n'avez pas la permission de gérer les liens de tâches"
+    "insufficient_permission": "Vous n'avez pas la permission de gérer les liens de tâches",
+    "duplicate_relationship": "Une relation existe déjà entre ces tâches"
   },
   "task_hierarchy": {
     "self_parent": "Une tâche ne peut pas être son propre parent",

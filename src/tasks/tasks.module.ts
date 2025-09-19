@@ -43,9 +43,9 @@ import {
 
 // Link Type Validators
 import {
-  BlocksLinkValidator,
-  DuplicatesLinkValidator,
-} from './services/validation/link-type-validators';
+  BlocksTypeValidator,
+  DuplicatesTypeValidator,
+} from './services/validation/link-type-specific-validators';
 
 // Hierarchy Validators
 import {
@@ -60,6 +60,7 @@ import {
 import { CircularDependencyDetector } from './services/validation/circular-dependency-detector';
 import { HierarchyConflictValidator } from './services/validation/hierarchy-conflict-validator';
 import { LinkConflictValidator } from './services/validation/link-conflict-validator';
+import { OneRelationshipPerPairValidator } from './services/validation/one-relationship-per-pair-validator';
 
 export const TASK_LINK_LIMIT = 20;
 
@@ -97,8 +98,9 @@ export const TASK_LINK_LIMIT = 20;
     HierarchyConflictValidatorHandler,
 
     // Link Type Validators
-    BlocksLinkValidator,
-    DuplicatesLinkValidator,
+    BlocksTypeValidator,
+    DuplicatesTypeValidator,
+    OneRelationshipPerPairValidator,
 
     // Hierarchy Validators
     SelfHierarchyValidator,
@@ -121,12 +123,14 @@ export const TASK_LINK_LIMIT = 20;
         linkLimitValidator: LinkLimitValidator,
         circularDependencyValidator: CircularDependencyValidator,
         hierarchyConflictValidator: HierarchyConflictValidatorHandler,
-        blocksLinkValidator: BlocksLinkValidator,
-        duplicatesLinkValidator: DuplicatesLinkValidator,
+        oneRelationshipPerPairValidator: OneRelationshipPerPairValidator,
+        blocksTypeValidator: BlocksTypeValidator,
+        duplicatesTypeValidator: DuplicatesTypeValidator,
       ) => {
         // Shared chain: order matters
         sameProjectValidator
           .setNext(selfLinkingValidator)
+          .setNext(oneRelationshipPerPairValidator)
           .setNext(linkLimitValidator)
           .setNext(circularDependencyValidator)
           .setNext(hierarchyConflictValidator);
@@ -136,11 +140,11 @@ export const TASK_LINK_LIMIT = 20;
         // Type-specific strategies
         relationshipValidator.registerLinkValidator(
           'BLOCKS',
-          blocksLinkValidator,
+          blocksTypeValidator,
         );
         relationshipValidator.registerLinkValidator(
           'DUPLICATES',
-          duplicatesLinkValidator,
+          duplicatesTypeValidator,
         );
         return relationshipValidator;
       },
@@ -150,8 +154,9 @@ export const TASK_LINK_LIMIT = 20;
         LinkLimitValidator,
         CircularDependencyValidator,
         HierarchyConflictValidatorHandler,
-        BlocksLinkValidator,
-        DuplicatesLinkValidator,
+        OneRelationshipPerPairValidator,
+        BlocksTypeValidator,
+        DuplicatesTypeValidator,
       ],
     },
     {

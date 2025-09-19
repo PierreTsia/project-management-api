@@ -14,6 +14,7 @@ import { TaskHierarchyDto } from '../dto/task-hierarchy.dto';
 import { HierarchyTreeDto } from '../dto/hierarchy-tree.dto';
 import { TaskResponseDto } from '../dto/task-response.dto';
 import { HierarchyValidationChain } from './validation/hierarchy-validation-chain';
+import { TaskLinkService } from './task-link.service';
 
 @Injectable()
 export class TaskHierarchyService {
@@ -25,6 +26,7 @@ export class TaskHierarchyService {
     private readonly i18n: I18nService,
     private readonly logger: CustomLogger,
     private readonly hierarchyValidationChain: HierarchyValidationChain,
+    private readonly taskLinkService: TaskLinkService,
   ) {
     this.logger.setContext(TaskHierarchyService.name);
   }
@@ -87,7 +89,13 @@ export class TaskHierarchyService {
       childTaskId: input.childTaskId,
     });
 
-    return this.taskHierarchyRepository.save(hierarchy);
+    const savedHierarchy = await this.taskHierarchyRepository.save(hierarchy);
+
+    this.logger.log(
+      `Hierarchy created successfully: ${savedHierarchy.id} (parent=${savedHierarchy.parentTaskId}, child=${savedHierarchy.childTaskId})`,
+    );
+
+    return savedHierarchy;
   }
 
   async deleteHierarchy(
@@ -113,6 +121,10 @@ export class TaskHierarchyService {
         }),
       );
     }
+
+    this.logger.log(
+      `Hierarchy deleted successfully: parent=${parentTaskId}, child=${childTaskId}`,
+    );
   }
 
   async getHierarchyForTask(taskId: string): Promise<HierarchyTreeDto> {
@@ -133,18 +145,28 @@ export class TaskHierarchyService {
       relations: ['parentTask', 'parentTask.assignee', 'parentTask.project'],
     });
 
-    return hierarchies.map((hierarchy) => {
-      return new TaskHierarchyDto({
-        id: hierarchy.id,
-        projectId: hierarchy.projectId,
-        parentTaskId: hierarchy.parentTaskId,
-        childTaskId: hierarchy.childTaskId,
-        createdAt: hierarchy.createdAt,
-        ...(hierarchy.parentTask && {
-          parentTask: new TaskResponseDto(hierarchy.parentTask),
-        }),
-      });
-    });
+    return Promise.all(
+      hierarchies.map(async (hierarchy) => {
+        let parentTaskDto: TaskResponseDto | undefined;
+
+        if (hierarchy.parentTask) {
+          // Get full task data with links
+          const links = await this.taskLinkService.listLinksWithTasks(
+            hierarchy.parentTask.id,
+          );
+          parentTaskDto = new TaskResponseDto(hierarchy.parentTask, links);
+        }
+
+        return new TaskHierarchyDto({
+          id: hierarchy.id,
+          projectId: hierarchy.projectId,
+          parentTaskId: hierarchy.parentTaskId,
+          childTaskId: hierarchy.childTaskId,
+          createdAt: hierarchy.createdAt,
+          ...(parentTaskDto && { parentTask: parentTaskDto }),
+        });
+      }),
+    );
   }
 
   async getChildrenForTask(taskId: string): Promise<TaskHierarchyDto[]> {
@@ -153,18 +175,28 @@ export class TaskHierarchyService {
       relations: ['childTask', 'childTask.assignee', 'childTask.project'],
     });
 
-    return hierarchies.map((hierarchy) => {
-      return new TaskHierarchyDto({
-        id: hierarchy.id,
-        projectId: hierarchy.projectId,
-        parentTaskId: hierarchy.parentTaskId,
-        childTaskId: hierarchy.childTaskId,
-        createdAt: hierarchy.createdAt,
-        ...(hierarchy.childTask && {
-          childTask: new TaskResponseDto(hierarchy.childTask),
-        }),
-      });
-    });
+    return Promise.all(
+      hierarchies.map(async (hierarchy) => {
+        let childTaskDto: TaskResponseDto | undefined;
+
+        if (hierarchy.childTask) {
+          // Get full task data with links
+          const links = await this.taskLinkService.listLinksWithTasks(
+            hierarchy.childTask.id,
+          );
+          childTaskDto = new TaskResponseDto(hierarchy.childTask, links);
+        }
+
+        return new TaskHierarchyDto({
+          id: hierarchy.id,
+          projectId: hierarchy.projectId,
+          parentTaskId: hierarchy.parentTaskId,
+          childTaskId: hierarchy.childTaskId,
+          createdAt: hierarchy.createdAt,
+          ...(childTaskDto && { childTask: childTaskDto }),
+        });
+      }),
+    );
   }
 
   async getAllParentsForTask(taskId: string): Promise<TaskHierarchyDto[]> {

@@ -13,6 +13,7 @@ import { TaskResponseDto } from '../dto/task-response.dto';
 import { I18nService } from 'nestjs-i18n';
 import { TaskRelationshipValidationChain } from './validation/task-relationship-validator';
 import { Task } from '../entities/task.entity';
+import { CustomLogger } from '../../common/services/logger.service';
 
 @Injectable()
 export class TaskLinkService {
@@ -23,12 +24,19 @@ export class TaskLinkService {
     private readonly taskRepository: Repository<Task>,
     private readonly i18n: I18nService,
     private readonly relationshipValidator: TaskRelationshipValidationChain,
-  ) {}
+    private readonly logger: CustomLogger,
+  ) {
+    this.logger.setContext(TaskLinkService.name);
+  }
 
   async createLink(
     input: CreateTaskLinkDto,
     acceptLanguage?: string,
   ): Promise<TaskLink> {
+    this.logger.log(
+      `Creating task link: ${input.sourceTaskId} -> ${input.targetTaskId} (${input.type}) in project ${input.projectId}`,
+    );
+
     // Load minimal task projections to validate
     const [sourceTask, targetTask] = await Promise.all([
       this.taskRepository.findOne({ where: { id: input.sourceTaskId } }),
@@ -36,6 +44,9 @@ export class TaskLinkService {
     ]);
 
     if (!sourceTask) {
+      this.logger.warn(
+        `Task link creation failed: source task not found: ${input.sourceTaskId} in project ${input.projectId}`,
+      );
       throw new NotFoundException(
         this.i18n.t('errors.tasks.task_not_found', {
           args: { id: input.sourceTaskId, projectId: input.projectId },
@@ -44,6 +55,9 @@ export class TaskLinkService {
       );
     }
     if (!targetTask) {
+      this.logger.warn(
+        `Task link creation failed: target task not found: ${input.targetTaskId} in project ${input.projectId}`,
+      );
       throw new NotFoundException(
         this.i18n.t('errors.tasks.task_not_found', {
           args: { id: input.targetTaskId, projectId: input.projectId },
@@ -63,6 +77,9 @@ export class TaskLinkService {
     });
     if (existing >= 40) {
       // 20 per task on both sides conservatively
+      this.logger.warn(
+        `Task link creation failed: link limit reached for task ${input.sourceTaskId} (${existing} existing links)`,
+      );
       throw new BadRequestException(
         this.i18n.t('errors.task_links.link_limit_reached', {
           args: { limit: 20 },
@@ -78,6 +95,9 @@ export class TaskLinkService {
       projectId: input.projectId,
     });
     if (validation.valid === false) {
+      this.logger.warn(
+        `Task link creation failed: validation error - ${validation.reason} for ${input.sourceTaskId} -> ${input.targetTaskId} (${input.type})`,
+      );
       throw new BadRequestException(
         this.i18n.t(validation.reason || 'errors.task_links.invalid', {
           lang: acceptLanguage,
@@ -91,7 +111,13 @@ export class TaskLinkService {
       targetTaskId: input.targetTaskId,
       type: input.type,
     });
-    return this.taskLinkRepository.save(entity);
+    const savedLink = await this.taskLinkRepository.save(entity);
+
+    this.logger.log(
+      `Task link created successfully: ${savedLink.id} (${savedLink.type})`,
+    );
+
+    return savedLink;
   }
 
   async listLinksByTask(taskId: string): Promise<TaskLinkResponseDto> {
@@ -108,6 +134,10 @@ export class TaskLinkService {
     linkId: string,
     acceptLanguage?: string,
   ): Promise<void> {
+    this.logger.log(
+      `Deleting task link: ${linkId} for task ${taskId} in project ${projectId}`,
+    );
+
     const link = await this.taskLinkRepository.findOne({
       where: [
         { id: linkId, projectId, sourceTaskId: taskId },
@@ -123,6 +153,8 @@ export class TaskLinkService {
       );
     }
     await this.taskLinkRepository.delete({ id: linkId });
+
+    this.logger.log(`Task link deleted successfully: ${linkId} (${link.type})`);
   }
 
   // Repository lookups used in createLink; no raw SQL helper needed.

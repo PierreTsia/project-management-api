@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  Post,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -43,5 +51,25 @@ export class TaskLinkController {
   async list(@Param('taskId') taskId: string): Promise<TaskLinkResponseDto> {
     const response = await this.taskLinkService.listLinksByTask(taskId);
     return new TaskLinkResponseDto(response);
+  }
+
+  @Delete(':linkId')
+  @ApiOperation({ summary: 'Delete a task link' })
+  @ApiParam({ name: 'projectId', format: 'uuid' })
+  @ApiParam({ name: 'taskId', format: 'uuid' })
+  @ApiParam({ name: 'linkId', format: 'uuid' })
+  @ApiOkResponse({ description: 'Deleted' })
+  async delete(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Param('linkId') linkId: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ): Promise<void> {
+    await this.taskLinkService.deleteLink(
+      projectId,
+      taskId,
+      linkId,
+      acceptLanguage,
+    );
   }
 }

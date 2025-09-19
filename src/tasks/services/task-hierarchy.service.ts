@@ -145,28 +145,37 @@ export class TaskHierarchyService {
       relations: ['parentTask', 'parentTask.assignee', 'parentTask.project'],
     });
 
-    return Promise.all(
-      hierarchies.map(async (hierarchy) => {
-        let parentTaskDto: TaskResponseDto | undefined;
+    if (hierarchies.length === 0) {
+      return [];
+    }
 
-        if (hierarchy.parentTask) {
-          // Get full task data with links
-          const links = await this.taskLinkService.listLinksWithTasks(
-            hierarchy.parentTask.id,
-          );
-          parentTaskDto = new TaskResponseDto(hierarchy.parentTask, links);
-        }
+    // Extract parent task IDs for batch link fetching
+    const parentTaskIds = hierarchies
+      .map((h) => h.parentTask?.id)
+      .filter((id): id is string => id !== undefined);
 
-        return new TaskHierarchyDto({
-          id: hierarchy.id,
-          projectId: hierarchy.projectId,
-          parentTaskId: hierarchy.parentTaskId,
-          childTaskId: hierarchy.childTaskId,
-          createdAt: hierarchy.createdAt,
-          ...(parentTaskDto && { parentTask: parentTaskDto }),
-        });
-      }),
-    );
+    // Batch fetch all links for parent tasks
+    const linksByTaskId =
+      await this.taskLinkService.batchListLinksWithTasks(parentTaskIds);
+
+    return hierarchies.map((hierarchy) => {
+      let parentTaskDto: TaskResponseDto | undefined;
+
+      if (hierarchy.parentTask) {
+        // Get links from the batch-fetched data
+        const links = linksByTaskId.get(hierarchy.parentTask.id) || [];
+        parentTaskDto = new TaskResponseDto(hierarchy.parentTask, links);
+      }
+
+      return new TaskHierarchyDto({
+        id: hierarchy.id,
+        projectId: hierarchy.projectId,
+        parentTaskId: hierarchy.parentTaskId,
+        childTaskId: hierarchy.childTaskId,
+        createdAt: hierarchy.createdAt,
+        ...(parentTaskDto && { parentTask: parentTaskDto }),
+      });
+    });
   }
 
   async getChildrenForTask(taskId: string): Promise<TaskHierarchyDto[]> {
@@ -175,28 +184,37 @@ export class TaskHierarchyService {
       relations: ['childTask', 'childTask.assignee', 'childTask.project'],
     });
 
-    return Promise.all(
-      hierarchies.map(async (hierarchy) => {
-        let childTaskDto: TaskResponseDto | undefined;
+    if (hierarchies.length === 0) {
+      return [];
+    }
 
-        if (hierarchy.childTask) {
-          // Get full task data with links
-          const links = await this.taskLinkService.listLinksWithTasks(
-            hierarchy.childTask.id,
-          );
-          childTaskDto = new TaskResponseDto(hierarchy.childTask, links);
-        }
+    // Extract child task IDs for batch link fetching
+    const childTaskIds = hierarchies
+      .map((h) => h.childTask?.id)
+      .filter((id): id is string => id !== undefined);
 
-        return new TaskHierarchyDto({
-          id: hierarchy.id,
-          projectId: hierarchy.projectId,
-          parentTaskId: hierarchy.parentTaskId,
-          childTaskId: hierarchy.childTaskId,
-          createdAt: hierarchy.createdAt,
-          ...(childTaskDto && { childTask: childTaskDto }),
-        });
-      }),
-    );
+    // Batch fetch all links for child tasks
+    const linksByTaskId =
+      await this.taskLinkService.batchListLinksWithTasks(childTaskIds);
+
+    return hierarchies.map((hierarchy) => {
+      let childTaskDto: TaskResponseDto | undefined;
+
+      if (hierarchy.childTask) {
+        // Get links from the batch-fetched data
+        const links = linksByTaskId.get(hierarchy.childTask.id) || [];
+        childTaskDto = new TaskResponseDto(hierarchy.childTask, links);
+      }
+
+      return new TaskHierarchyDto({
+        id: hierarchy.id,
+        projectId: hierarchy.projectId,
+        parentTaskId: hierarchy.parentTaskId,
+        childTaskId: hierarchy.childTaskId,
+        createdAt: hierarchy.createdAt,
+        ...(childTaskDto && { childTask: childTaskDto }),
+      });
+    });
   }
 
   async getAllParentsForTask(taskId: string): Promise<TaskHierarchyDto[]> {

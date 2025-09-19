@@ -158,6 +158,7 @@ describe('TaskHierarchyService', () => {
           provide: TaskLinkService,
           useValue: {
             listLinksWithTasks: jest.fn(),
+            batchListLinksWithTasks: jest.fn(),
           },
         },
         {
@@ -440,7 +441,9 @@ describe('TaskHierarchyService', () => {
       jest
         .spyOn(taskHierarchyRepository, 'find')
         .mockResolvedValue([mockHierarchyWithParent]);
-      jest.spyOn(taskLinkService, 'listLinksWithTasks').mockResolvedValue([]);
+      jest
+        .spyOn(taskLinkService, 'batchListLinksWithTasks')
+        .mockResolvedValue(new Map());
 
       const result = await service.getParentsForTask('task-123');
 
@@ -506,7 +509,9 @@ describe('TaskHierarchyService', () => {
       jest
         .spyOn(taskHierarchyRepository, 'find')
         .mockResolvedValue([mockHierarchyWithChild]);
-      jest.spyOn(taskLinkService, 'listLinksWithTasks').mockResolvedValue([]);
+      jest
+        .spyOn(taskLinkService, 'batchListLinksWithTasks')
+        .mockResolvedValue(new Map());
 
       const result = await service.getChildrenForTask('task-123');
 

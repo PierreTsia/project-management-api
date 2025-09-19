@@ -201,4 +201,68 @@ export class TaskLinkService {
       });
     });
   }
+
+  /**
+   * Batch fetch links for multiple tasks to avoid N+1 queries
+   * @param taskIds - Array of task IDs to fetch links for
+   * @returns Map of taskId -> TaskLinkWithTaskDto[] for efficient lookup
+   */
+  async batchListLinksWithTasks(
+    taskIds: string[],
+  ): Promise<Map<string, TaskLinkWithTaskDto[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const links = await this.taskLinkRepository.find({
+      where: taskIds.flatMap((taskId) => [
+        { sourceTaskId: taskId },
+        { targetTaskId: taskId },
+      ]),
+      relations: [
+        'sourceTask',
+        'targetTask',
+        'sourceTask.assignee',
+        'sourceTask.project',
+        'targetTask.assignee',
+        'targetTask.project',
+      ],
+    });
+
+    // Group links by task ID
+    const linksByTaskId = new Map<string, TaskLinkWithTaskDto[]>();
+
+    // Initialize empty arrays for all task IDs
+    taskIds.forEach((taskId) => {
+      linksByTaskId.set(taskId, []);
+    });
+
+    // Process each link and add to appropriate task groups
+    links.forEach((link) => {
+      const linkDto = new TaskLinkWithTaskDto({
+        id: link.id,
+        projectId: link.projectId,
+        sourceTaskId: link.sourceTaskId,
+        targetTaskId: link.targetTaskId,
+        type: link.type,
+        createdAt: link.createdAt,
+        ...(link.sourceTask && {
+          sourceTask: new TaskResponseDto(link.sourceTask),
+        }),
+        ...(link.targetTask && {
+          targetTask: new TaskResponseDto(link.targetTask),
+        }),
+      });
+
+      // Add to both source and target task groups
+      if (linksByTaskId.has(link.sourceTaskId)) {
+        linksByTaskId.get(link.sourceTaskId)!.push(linkDto);
+      }
+      if (linksByTaskId.has(link.targetTaskId)) {
+        linksByTaskId.get(link.targetTaskId)!.push(linkDto);
+      }
+    });
+
+    return linksByTaskId;
+  }
 }

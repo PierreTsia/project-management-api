@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { TasksService } from './tasks.service';
 import { Task } from './entities/task.entity';
+import { TaskLink } from './entities/task-link.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
@@ -17,6 +18,7 @@ import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskStatusService } from './services/task-status.service';
+import { TaskRelationshipHydrator } from './services/task-relationship-hydrator.service';
 
 const mockTransactionalEntityManager = {
   findOne: jest.fn(),
@@ -55,6 +57,10 @@ const mockProjectsService = {
 
 const mockTaskStatusService = {
   validateAndThrowIfInvalid: jest.fn(),
+};
+
+const mockTaskRelationshipHydrator = {
+  hydrateTaskRelationships: jest.fn(),
 };
 
 const mockQueryBuilder = {
@@ -97,10 +103,15 @@ describe('TasksService', () => {
       providers: [
         TasksService,
         { provide: getRepositoryToken(Task), useValue: mockRepository },
+        { provide: getRepositoryToken(TaskLink), useValue: mockRepository },
         { provide: I18nService, useValue: mockI18nService },
         { provide: CustomLogger, useValue: mockLogger },
         { provide: ProjectsService, useValue: mockProjectsService },
         { provide: TaskStatusService, useValue: mockTaskStatusService },
+        {
+          provide: TaskRelationshipHydrator,
+          useValue: mockTaskRelationshipHydrator,
+        },
       ],
     }).compile();
 

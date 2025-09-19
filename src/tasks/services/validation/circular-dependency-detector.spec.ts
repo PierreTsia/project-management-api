@@ -8,9 +8,10 @@ describe('CircularDependencyDetector', () => {
   let detector: CircularDependencyDetector;
   let taskLinkRepository: Repository<TaskLink>;
 
+  const PROJECT_ID = 'project-123';
   const mockTaskLink: TaskLink = {
     id: 'link-123',
-    projectId: 'project-123',
+    projectId: PROJECT_ID,
     sourceTaskId: 'task-123',
     targetTaskId: 'task-456',
     type: 'BLOCKS',
@@ -47,6 +48,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue([]);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'BLOCKS',
@@ -54,7 +56,10 @@ describe('CircularDependencyDetector', () => {
 
       expect(result).toEqual({ hasCycle: false });
       expect(taskLinkRepository.find).toHaveBeenCalledWith({
-        where: [{ sourceTaskId: 'task-123' }, { targetTaskId: 'task-456' }],
+        where: [
+          { projectId: PROJECT_ID, sourceTaskId: 'task-123' },
+          { projectId: PROJECT_ID, targetTaskId: 'task-456' },
+        ],
       });
     });
 
@@ -66,6 +71,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'BLOCKS',
@@ -81,6 +87,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'BLOCKS',
@@ -101,6 +108,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'BLOCKS',
@@ -125,6 +133,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'BLOCKS',
@@ -145,6 +154,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'DUPLICATES',
@@ -158,7 +168,12 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockRejectedValue(dbError);
 
       await expect(
-        detector.detectCircularDependency('task-123', 'task-456', 'BLOCKS'),
+        detector.detectCircularDependency(
+          PROJECT_ID,
+          'task-123',
+          'task-456',
+          'BLOCKS',
+        ),
       ).rejects.toThrow('Database connection failed');
     });
   });
@@ -167,11 +182,17 @@ describe('CircularDependencyDetector', () => {
     it('should return no cycle when task has no links', async () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue([]);
 
-      const result = await detector.hasCircularDependency('task-123');
+      const result = await detector.hasCircularDependency(
+        PROJECT_ID,
+        'task-123',
+      );
 
       expect(result).toEqual({ hasCycle: false });
       expect(taskLinkRepository.find).toHaveBeenCalledWith({
-        where: [{ sourceTaskId: 'task-123' }, { targetTaskId: 'task-123' }],
+        where: [
+          { projectId: PROJECT_ID, sourceTaskId: 'task-123' },
+          { projectId: PROJECT_ID, targetTaskId: 'task-123' },
+        ],
       });
     });
 
@@ -182,7 +203,10 @@ describe('CircularDependencyDetector', () => {
       ];
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
-      const result = await detector.hasCircularDependency('task-123');
+      const result = await detector.hasCircularDependency(
+        PROJECT_ID,
+        'task-123',
+      );
 
       expect(result.hasCycle).toBe(true);
       expect(result.cyclePath).toContain('task-123');
@@ -199,7 +223,10 @@ describe('CircularDependencyDetector', () => {
       ];
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
-      const result = await detector.hasCircularDependency('task-123');
+      const result = await detector.hasCircularDependency(
+        PROJECT_ID,
+        'task-123',
+      );
 
       expect(result).toEqual({ hasCycle: false });
     });
@@ -224,6 +251,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'BLOCKS',
@@ -250,6 +278,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'IS_BLOCKED_BY',
@@ -264,6 +293,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue([]);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'BLOCKS',
@@ -279,6 +309,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-123',
         'BLOCKS',
@@ -295,6 +326,7 @@ describe('CircularDependencyDetector', () => {
       (taskLinkRepository.find as jest.Mock).mockResolvedValue(existingLinks);
 
       const result = await detector.detectCircularDependency(
+        PROJECT_ID,
         'task-123',
         'task-456',
         'BLOCKS',

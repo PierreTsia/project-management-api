@@ -19,25 +19,30 @@ export class CircularDependencyDetector {
 
   /**
    * Detects circular dependencies using BFS algorithm
+   * @param projectId - The project ID to limit scope
    * @param sourceTaskId - The source task ID
    * @param targetTaskId - The target task ID
    * @param linkType - The type of link being created
    * @returns CircularDependencyResult indicating if a cycle would be created
    */
   async detectCircularDependency(
+    projectId: string,
     sourceTaskId: string,
     targetTaskId: string,
     linkType: TaskLinkType,
   ): Promise<CircularDependencyResult> {
     // Build adjacency list for all links in the project
     const links = await this.taskLinkRepository.find({
-      where: [{ sourceTaskId }, { targetTaskId }],
+      where: [
+        { projectId, sourceTaskId },
+        { projectId, targetTaskId },
+      ],
     });
 
     // Create a temporary link object for the potential new link
     const potentialLink = {
       id: 'temp',
-      projectId: '',
+      projectId,
       sourceTaskId,
       targetTaskId,
       type: linkType,
@@ -156,12 +161,19 @@ export class CircularDependencyDetector {
 
   /**
    * Checks if a specific task is involved in any circular dependency
+   * @param projectId - The project ID to limit scope
+   * @param taskId - The task ID to check
+   * @returns CircularDependencyResult indicating if the task is in a cycle
    */
   async hasCircularDependency(
+    projectId: string,
     taskId: string,
   ): Promise<CircularDependencyResult> {
     const links = await this.taskLinkRepository.find({
-      where: [{ sourceTaskId: taskId }, { targetTaskId: taskId }],
+      where: [
+        { projectId, sourceTaskId: taskId },
+        { projectId, targetTaskId: taskId },
+      ],
     });
 
     const graph = this.buildGraph(links);

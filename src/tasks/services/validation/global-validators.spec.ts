@@ -221,7 +221,7 @@ describe('Global Validators', () => {
       expect(result).toEqual({ valid: true });
       expect(
         circularDependencyDetector.detectCircularDependency,
-      ).toHaveBeenCalledWith('task-123', 'task-456', 'BLOCKS');
+      ).toHaveBeenCalledWith('project-123', 'task-123', 'task-456', 'BLOCKS');
     });
 
     it('should fail when circular dependency is detected', async () => {

@@ -48,6 +48,7 @@ export class CircularDependencyValidator extends ValidationHandler {
   protected async validate(req: ValidationRequest): Promise<ValidationResult> {
     const result =
       await this.circularDependencyDetector.detectCircularDependency(
+        req.projectId,
         req.sourceTask.id,
         req.targetTask.id,
         req.linkType,

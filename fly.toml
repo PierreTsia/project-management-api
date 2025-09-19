@@ -21,6 +21,6 @@ primary_region = 'cdg'
   cpu_kind = 'shared'
   cpus = 1
 
-# Automatically run DB migrations before each deploy
-[deploy]
-  release_command = "pnpm run migrate:prod"
+# Migrations are now run at app startup instead of as a release command
+# [deploy]
+#   release_command = "pnpm run migrate:prod"

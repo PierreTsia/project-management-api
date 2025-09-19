@@ -11,6 +11,7 @@ import { TaskLinkWithTaskDto } from '../dto/task-link-with-task.dto';
 import { TaskRelationshipValidationChain } from './validation/task-relationship-validation-chain';
 import { CustomLogger } from '../../common/services/logger.service';
 import { MockCustomLogger } from '../../test/mocks';
+import { TASK_LINK_LIMIT } from '../tasks.module';
 
 describe('TaskLinkService', () => {
   let service: TaskLinkService;
@@ -260,7 +261,7 @@ describe('TaskLinkService', () => {
       expect(i18nService.t).toHaveBeenCalledWith(
         'errors.task_links.link_limit_reached',
         {
-          args: { limit: 20 },
+          args: { limit: TASK_LINK_LIMIT },
           lang: 'en-US',
         },
       );

@@ -14,6 +14,7 @@ import { I18nService } from 'nestjs-i18n';
 import { TaskRelationshipValidationChain } from './validation/task-relationship-validation-chain';
 import { Task } from '../entities/task.entity';
 import { CustomLogger } from '../../common/services/logger.service';
+import { TASK_LINK_LIMIT } from '../tasks.module';
 
 @Injectable()
 export class TaskLinkService {
@@ -75,14 +76,14 @@ export class TaskLinkService {
         { targetTaskId: input.targetTaskId },
       ],
     });
-    if (existing >= 40) {
-      // 20 per task on both sides conservatively
+    if (existing >= TASK_LINK_LIMIT * 2) {
+      // TASK_LINK_LIMIT per task on both sides conservatively
       this.logger.warn(
         `Task link creation failed: link limit reached for task ${input.sourceTaskId} (${existing} existing links)`,
       );
       throw new BadRequestException(
         this.i18n.t('errors.task_links.link_limit_reached', {
-          args: { limit: 20 },
+          args: { limit: TASK_LINK_LIMIT },
           lang: acceptLanguage,
         }),
       );

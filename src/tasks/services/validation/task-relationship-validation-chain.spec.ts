@@ -18,6 +18,7 @@ import {
 import { CircularDependencyDetector } from './circular-dependency-detector';
 import { HierarchyConflictValidator } from './hierarchy-conflict-validator';
 import { Task } from '../../entities/task.entity';
+import { TASK_LINK_LIMIT } from '../../tasks.module';
 import { TaskLinkType } from '../../enums/task-link-type.enum';
 
 describe('TaskRelationshipValidationChain', () => {
@@ -89,7 +90,7 @@ describe('TaskRelationshipValidationChain', () => {
         SelfLinkingValidator,
         {
           provide: LinkLimitValidator,
-          useFactory: () => new LinkLimitValidator(20),
+          useFactory: () => new LinkLimitValidator(TASK_LINK_LIMIT),
         },
         {
           provide: CircularDependencyDetector,

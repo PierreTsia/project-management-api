@@ -11,6 +11,7 @@ import { CircularDependencyDetector } from './circular-dependency-detector';
 import { HierarchyConflictValidator } from './hierarchy-conflict-validator';
 import { Task } from '../../entities/task.entity';
 import { TaskLinkType } from '../../enums/task-link-type.enum';
+import { TASK_LINK_LIMIT } from '../../tasks.module';
 
 describe('Global Validators', () => {
   let module: TestingModule;
@@ -76,7 +77,7 @@ describe('Global Validators', () => {
         SelfLinkingValidator,
         {
           provide: LinkLimitValidator,
-          useFactory: () => new LinkLimitValidator(20),
+          useFactory: () => new LinkLimitValidator(TASK_LINK_LIMIT),
         },
         {
           provide: CircularDependencyDetector,

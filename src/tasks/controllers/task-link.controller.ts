@@ -53,6 +53,15 @@ export class TaskLinkController {
     return new TaskLinkResponseDto(response);
   }
 
+  @Get('/../../related')
+  @ApiOperation({ summary: 'List related task ids for a task' })
+  @ApiParam({ name: 'projectId', format: 'uuid' })
+  @ApiParam({ name: 'taskId', format: 'uuid' })
+  @ApiOkResponse({ type: [String] })
+  async listRelated(@Param('taskId') taskId: string): Promise<string[]> {
+    return this.taskLinkService.listRelatedTaskIds(taskId);
+  }
+
   @Delete(':linkId')
   @ApiOperation({ summary: 'Delete a task link' })
   @ApiParam({ name: 'projectId', format: 'uuid' })

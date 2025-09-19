@@ -33,6 +33,9 @@ export class CreateTaskLinkDto {
     enumName: 'TaskLinkType',
     example: 'BLOCKS',
   })
-  @IsIn(TASK_LINK_TYPES as readonly string[])
+  @IsIn(TASK_LINK_TYPES as readonly string[], {
+    message:
+      'Invalid link type. Valid types are: BLOCKS, IS_BLOCKED_BY, SPLITS_TO, SPLITS_FROM, RELATES_TO, DUPLICATES, IS_DUPLICATED_BY',
+  })
   type: TaskLinkType;
 }

@@ -78,7 +78,7 @@ export class TaskLinkController {
     return new TaskLinkResponseDto(response);
   }
 
-  @Delete(':linkId')
+  @Delete('links/:linkId')
   @UseGuards(ProjectPermissionGuard)
   @RequireProjectRole(ProjectRole.WRITE)
   @HttpCode(HttpStatus.NO_CONTENT)

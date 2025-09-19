@@ -12,5 +12,6 @@
   "password_format": "Le mot de passe doit contenir au moins une majuscule, un chiffre et un caractère spécial",
   "bio_too_long": "La bio doit contenir au maximum 280 caractères",
   "phone_format": "Veuillez entrer un numéro de téléphone valide (E.164)",
-  "dob_format": "Veuillez entrer une date valide (AAAA-MM-JJ)"
+  "dob_format": "Veuillez entrer une date valide (AAAA-MM-JJ)",
+  "invalid_link_type": "type doit être l'une des valeurs suivantes : BLOCKS, IS_BLOCKED_BY, SPLITS_TO, SPLITS_FROM, RELATES_TO, DUPLICATES, IS_DUPLICATED_BY"
 } 

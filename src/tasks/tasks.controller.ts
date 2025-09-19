@@ -183,9 +183,13 @@ export class TasksController {
       projectId,
       acceptLanguage,
     );
+    const relationships = await this.tasksService.getTaskWithRelationships(
+      task.id,
+    );
     return new TaskResponseDto(
       task,
-      await this.tasksService.getTaskLinks(task.id),
+      relationships.links,
+      relationships.hierarchy,
     );
   }
 

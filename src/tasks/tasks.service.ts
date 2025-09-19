@@ -29,6 +29,7 @@ import { TaskLink } from './entities/task-link.entity';
 import { TaskLinkDto } from './dto/task-link.dto';
 import { TaskLinkWithTaskDto } from './dto/task-link-with-task.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
+import { TaskRelationshipHydrator } from './services/task-relationship-hydrator.service';
 
 @Injectable()
 export class TasksService {
@@ -41,6 +42,7 @@ export class TasksService {
     private readonly logger: CustomLogger,
     private readonly projectsService: ProjectsService,
     private readonly taskStatusService: TaskStatusService,
+    private readonly taskRelationshipHydrator: TaskRelationshipHydrator,
   ) {
     this.logger.setContext(TasksService.name);
   }
@@ -99,6 +101,13 @@ export class TasksService {
       map.get(l.targetTaskId)?.push(dto);
     }
     return map;
+  }
+
+  async getTaskWithRelationships(taskId: string): Promise<{
+    links: TaskLinkWithTaskDto[];
+    hierarchy: any;
+  }> {
+    return this.taskRelationshipHydrator.hydrateTaskRelationships(taskId);
   }
 
   async create(createTaskDto: CreateTaskDto, projectId: string): Promise<Task> {

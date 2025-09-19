@@ -103,8 +103,8 @@ export class LinkConflictValidator {
         break;
 
       case 'RELATES_TO':
-        // This is generally allowed
-        break;
+        // Tasks with existing relationships should not be in hierarchy
+        return 'Tasks with existing relationships cannot be in a parent-child hierarchy. Remove the existing relationship first.';
 
       default:
         break;

@@ -12,5 +12,6 @@
   "password_format": "Password must contain at least one uppercase letter, one number, and one special character",
   "bio_too_long": "Bio must be at most 280 characters long",
   "phone_format": "Please enter a valid phone number (E.164)",
-  "dob_format": "Please enter a valid date (YYYY-MM-DD)"
+  "dob_format": "Please enter a valid date (YYYY-MM-DD)",
+  "invalid_link_type": "type must be one of the following values: BLOCKS, IS_BLOCKED_BY, SPLITS_TO, SPLITS_FROM, RELATES_TO, DUPLICATES, IS_DUPLICATED_BY"
 } 

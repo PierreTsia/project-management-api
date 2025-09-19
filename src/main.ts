@@ -28,7 +28,16 @@ async function bootstrap() {
   });
 
   // Enable validation
-  app.useGlobalPipes(new I18nValidationPipe());
+  app.useGlobalPipes(
+    new I18nValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
   // Swagger setup
   const config = new DocumentBuilder()

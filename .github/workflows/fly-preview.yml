@@ -13,6 +13,8 @@ env:
 jobs:
   review_app:
     runs-on: ubuntu-latest
+    # Skip deployment - uncomment the line below to re-enable
+    if: false
     outputs:
       url: ${{ steps.deploy.outputs.url }}
     # Only run one deployment at a time per PR.

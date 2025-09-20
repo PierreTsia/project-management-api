@@ -552,4 +552,114 @@ describe('TaskLinkService', () => {
       expect(result[0].targetTask).toBeUndefined();
     });
   });
+
+  describe('bidirectional links', () => {
+    it('should create both original and inverse links when creating a link', async () => {
+      const createLinkDto: CreateTaskLinkDto = {
+        projectId: 'project-123',
+        sourceTaskId: 'task-123',
+        targetTaskId: 'task-456',
+        type: 'IS_BLOCKED_BY',
+      };
+
+      const originalLink = { ...mockTaskLink, type: 'IS_BLOCKED_BY' as any };
+      const inverseLink = {
+        ...mockTaskLink,
+        id: 'link-456',
+        sourceTaskId: 'task-456',
+        targetTaskId: 'task-123',
+        type: 'BLOCKS' as any,
+      };
+
+      jest
+        .spyOn(taskRepository, 'findOne')
+        .mockResolvedValueOnce(mockTask)
+        .mockResolvedValueOnce({ ...mockTask, id: 'task-456' });
+      jest.spyOn(taskLinkRepository, 'findOne').mockResolvedValue(null); // No existing link
+      jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(0);
+      jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+        valid: true,
+      });
+      jest
+        .spyOn(taskLinkRepository, 'create')
+        .mockReturnValueOnce(originalLink)
+        .mockReturnValueOnce(inverseLink);
+      jest
+        .spyOn(taskLinkRepository, 'save')
+        .mockResolvedValueOnce(originalLink)
+        .mockResolvedValueOnce(inverseLink);
+
+      const result = await service.createLink(createLinkDto);
+
+      expect(result).toEqual(originalLink);
+      expect(taskLinkRepository.save).toHaveBeenCalledTimes(2);
+      // The first call should be with the original link entity
+      expect(taskLinkRepository.save).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          projectId: 'project-123',
+          sourceTaskId: 'task-123',
+          targetTaskId: 'task-456',
+          type: 'IS_BLOCKED_BY',
+        }),
+      );
+      // The second call should be with the inverse link entity
+      expect(taskLinkRepository.save).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          projectId: 'project-123',
+          sourceTaskId: 'task-456',
+          targetTaskId: 'task-123',
+          type: 'BLOCKS',
+        }),
+      );
+    });
+
+    it('should delete both original and inverse links when deleting a link', async () => {
+      const originalLink = { ...mockTaskLink, type: 'IS_BLOCKED_BY' as any };
+      const inverseLink = {
+        ...mockTaskLink,
+        id: 'link-456',
+        sourceTaskId: 'task-456',
+        targetTaskId: 'task-123',
+        type: 'BLOCKS' as any,
+      };
+
+      jest
+        .spyOn(taskLinkRepository, 'findOne')
+        .mockResolvedValueOnce(originalLink)
+        .mockResolvedValueOnce(inverseLink);
+      jest.spyOn(taskLinkRepository, 'delete').mockResolvedValue({
+        affected: 1,
+      } as any);
+
+      await service.deleteLink('project-123', 'task-123', 'link-123');
+
+      expect(taskLinkRepository.delete).toHaveBeenCalledTimes(2);
+      expect(taskLinkRepository.delete).toHaveBeenNthCalledWith(1, {
+        id: 'link-123',
+      });
+      expect(taskLinkRepository.delete).toHaveBeenNthCalledWith(2, {
+        id: 'link-456',
+      });
+    });
+
+    it('should handle all relationship types correctly', () => {
+      const testCases = [
+        { input: 'IS_BLOCKED_BY', expected: 'BLOCKS' },
+        { input: 'BLOCKS', expected: 'IS_BLOCKED_BY' },
+        { input: 'SPLITS_TO', expected: 'SPLITS_FROM' },
+        { input: 'SPLITS_FROM', expected: 'SPLITS_TO' },
+        { input: 'DUPLICATES', expected: 'IS_DUPLICATED_BY' },
+        { input: 'IS_DUPLICATED_BY', expected: 'DUPLICATES' },
+        { input: 'RELATES_TO', expected: 'RELATES_TO' },
+      ];
+
+      testCases.forEach(({ input, expected }) => {
+        // Access private method for testing
+        const result = (service as any).getInverseLinkType(input);
+        expect(result).toBe(expected);
+      });
+    });
+  });
 });

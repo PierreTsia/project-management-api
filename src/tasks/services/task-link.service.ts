@@ -104,12 +104,6 @@ export class TaskLinkService {
         },
         {
           projectId: input.projectId,
-          sourceTaskId: input.targetTaskId,
-          targetTaskId: input.sourceTaskId,
-          type: input.type,
-        },
-        {
-          projectId: input.projectId,
           sourceTaskId: input.sourceTaskId,
           targetTaskId: input.targetTaskId,
           type: inverseLinkType,

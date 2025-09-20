@@ -315,12 +315,6 @@ describe('TaskLinkService', () => {
             },
             {
               projectId: 'project-123',
-              sourceTaskId: 'task-456',
-              targetTaskId: 'task-123',
-              type: 'BLOCKS',
-            },
-            {
-              projectId: 'project-123',
               sourceTaskId: 'task-123',
               targetTaskId: 'task-456',
               type: 'IS_BLOCKED_BY',

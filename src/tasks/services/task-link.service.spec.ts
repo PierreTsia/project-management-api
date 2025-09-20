@@ -287,6 +287,244 @@ describe('TaskLinkService', () => {
       );
     });
 
+    describe('duplicate link prevention', () => {
+      it('should throw BadRequestException when exact duplicate link exists', async () => {
+        jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
+        jest
+          .spyOn(taskLinkRepository, 'findOne')
+          .mockResolvedValue(mockTaskLink);
+        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+
+        await expect(
+          service.createLink(mockCreateTaskLinkDto, 'en-US'),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(i18nService.t).toHaveBeenCalledWith(
+          'errors.task_links.already_exists',
+          {
+            lang: 'en-US',
+          },
+        );
+        expect(taskLinkRepository.findOne).toHaveBeenCalledWith({
+          where: [
+            {
+              projectId: 'project-123',
+              sourceTaskId: 'task-123',
+              targetTaskId: 'task-456',
+              type: 'BLOCKS',
+            },
+            {
+              projectId: 'project-123',
+              sourceTaskId: 'task-456',
+              targetTaskId: 'task-123',
+              type: 'BLOCKS',
+            },
+            {
+              projectId: 'project-123',
+              sourceTaskId: 'task-123',
+              targetTaskId: 'task-456',
+              type: 'IS_BLOCKED_BY',
+            },
+            {
+              projectId: 'project-123',
+              sourceTaskId: 'task-456',
+              targetTaskId: 'task-123',
+              type: 'IS_BLOCKED_BY',
+            },
+          ],
+        });
+      });
+
+      it('should throw BadRequestException when reverse direction duplicate exists', async () => {
+        const reverseLink = {
+          ...mockTaskLink,
+          sourceTaskId: 'task-456',
+          targetTaskId: 'task-123',
+          type: 'BLOCKS' as any,
+        };
+
+        jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
+        jest
+          .spyOn(taskLinkRepository, 'findOne')
+          .mockResolvedValue(reverseLink);
+        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+
+        await expect(
+          service.createLink(mockCreateTaskLinkDto, 'en-US'),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(i18nService.t).toHaveBeenCalledWith(
+          'errors.task_links.already_exists',
+          {
+            lang: 'en-US',
+          },
+        );
+      });
+
+      it('should throw BadRequestException when inverse type duplicate exists', async () => {
+        const inverseLink = {
+          ...mockTaskLink,
+          type: 'IS_BLOCKED_BY' as any,
+        };
+
+        jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
+        jest
+          .spyOn(taskLinkRepository, 'findOne')
+          .mockResolvedValue(inverseLink);
+        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+
+        await expect(
+          service.createLink(mockCreateTaskLinkDto, 'en-US'),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(i18nService.t).toHaveBeenCalledWith(
+          'errors.task_links.already_exists',
+          {
+            lang: 'en-US',
+          },
+        );
+      });
+
+      it('should throw BadRequestException when inverse type reverse direction duplicate exists', async () => {
+        const inverseReverseLink = {
+          ...mockTaskLink,
+          sourceTaskId: 'task-456',
+          targetTaskId: 'task-123',
+          type: 'IS_BLOCKED_BY' as any,
+        };
+
+        jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
+        jest
+          .spyOn(taskLinkRepository, 'findOne')
+          .mockResolvedValue(inverseReverseLink);
+        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+
+        await expect(
+          service.createLink(mockCreateTaskLinkDto, 'en-US'),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(i18nService.t).toHaveBeenCalledWith(
+          'errors.task_links.already_exists',
+          {
+            lang: 'en-US',
+          },
+        );
+      });
+
+      it('should allow creating link when no duplicates exist', async () => {
+        jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
+        jest.spyOn(taskLinkRepository, 'findOne').mockResolvedValue(null); // No existing link
+        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+        jest
+          .spyOn(relationshipValidator, 'canCreateLink')
+          .mockResolvedValue({ valid: true });
+        jest.spyOn(taskLinkRepository, 'create').mockReturnValue(mockTaskLink);
+        jest.spyOn(taskLinkRepository, 'save').mockResolvedValue(mockTaskLink);
+
+        const result = await service.createLink(mockCreateTaskLinkDto, 'en-US');
+
+        expect(result).toEqual(mockTaskLink);
+        expect(taskLinkRepository.save).toHaveBeenCalledTimes(2); // Original + inverse
+      });
+
+      it('should test duplicate prevention for SPLITS_TO relationship', async () => {
+        const splitsToDto: CreateTaskLinkDto = {
+          projectId: 'project-123',
+          sourceTaskId: 'task-123',
+          targetTaskId: 'task-456',
+          type: 'SPLITS_TO' as any,
+        };
+
+        const existingSplitsFromLink = {
+          ...mockTaskLink,
+          sourceTaskId: 'task-456',
+          targetTaskId: 'task-123',
+          type: 'SPLITS_FROM' as any,
+        };
+
+        jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
+        jest
+          .spyOn(taskLinkRepository, 'findOne')
+          .mockResolvedValue(existingSplitsFromLink);
+        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+
+        await expect(service.createLink(splitsToDto, 'en-US')).rejects.toThrow(
+          BadRequestException,
+        );
+
+        expect(i18nService.t).toHaveBeenCalledWith(
+          'errors.task_links.already_exists',
+          {
+            lang: 'en-US',
+          },
+        );
+      });
+
+      it('should test duplicate prevention for DUPLICATES relationship', async () => {
+        const duplicatesDto: CreateTaskLinkDto = {
+          projectId: 'project-123',
+          sourceTaskId: 'task-123',
+          targetTaskId: 'task-456',
+          type: 'DUPLICATES' as any,
+        };
+
+        const existingIsDuplicatedByLink = {
+          ...mockTaskLink,
+          type: 'IS_DUPLICATED_BY' as any,
+        };
+
+        jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
+        jest
+          .spyOn(taskLinkRepository, 'findOne')
+          .mockResolvedValue(existingIsDuplicatedByLink);
+        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+
+        await expect(
+          service.createLink(duplicatesDto, 'en-US'),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(i18nService.t).toHaveBeenCalledWith(
+          'errors.task_links.already_exists',
+          {
+            lang: 'en-US',
+          },
+        );
+      });
+
+      it('should test duplicate prevention for RELATES_TO relationship (symmetric)', async () => {
+        const relatesToDto: CreateTaskLinkDto = {
+          projectId: 'project-123',
+          sourceTaskId: 'task-123',
+          targetTaskId: 'task-456',
+          type: 'RELATES_TO' as any,
+        };
+
+        const existingRelatesToLink = {
+          ...mockTaskLink,
+          sourceTaskId: 'task-456',
+          targetTaskId: 'task-123',
+          type: 'RELATES_TO' as any,
+        };
+
+        jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
+        jest
+          .spyOn(taskLinkRepository, 'findOne')
+          .mockResolvedValue(existingRelatesToLink);
+        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+
+        await expect(service.createLink(relatesToDto, 'en-US')).rejects.toThrow(
+          BadRequestException,
+        );
+
+        expect(i18nService.t).toHaveBeenCalledWith(
+          'errors.task_links.already_exists',
+          {
+            lang: 'en-US',
+          },
+        );
+      });
+    });
+
     it('should handle accept-language header', async () => {
       jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
       jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);

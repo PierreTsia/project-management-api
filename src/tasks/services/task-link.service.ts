@@ -92,18 +92,39 @@ export class TaskLinkService {
       );
     }
 
-    // Check if link already exists to prevent duplicates
+    // Check if link already exists to prevent duplicates (bidirectional)
+    const inverseLinkType = this.getInverseLinkType(input.type);
     const existingLink = await this.taskLinkRepository.findOne({
-      where: {
-        projectId: input.projectId,
-        sourceTaskId: input.sourceTaskId,
-        targetTaskId: input.targetTaskId,
-        type: input.type,
-      },
+      where: [
+        {
+          projectId: input.projectId,
+          sourceTaskId: input.sourceTaskId,
+          targetTaskId: input.targetTaskId,
+          type: input.type,
+        },
+        {
+          projectId: input.projectId,
+          sourceTaskId: input.targetTaskId,
+          targetTaskId: input.sourceTaskId,
+          type: input.type,
+        },
+        {
+          projectId: input.projectId,
+          sourceTaskId: input.sourceTaskId,
+          targetTaskId: input.targetTaskId,
+          type: inverseLinkType,
+        },
+        {
+          projectId: input.projectId,
+          sourceTaskId: input.targetTaskId,
+          targetTaskId: input.sourceTaskId,
+          type: inverseLinkType,
+        },
+      ],
     });
     if (existingLink) {
       this.logger.warn(
-        `Task link already exists: ${input.sourceTaskId} -> ${input.targetTaskId} (${input.type})`,
+        `Task link already exists: ${input.sourceTaskId} <-> ${input.targetTaskId} (${input.type})`,
       );
       throw new BadRequestException(
         this.i18n.t('errors.task_links.already_exists', {

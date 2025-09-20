@@ -49,6 +49,7 @@ import {
 import { DuplicateLinkValidator } from './services/validation/duplicate-link-validator';
 import { LinkLimitValidator as NewLinkLimitValidator } from './services/validation/link-limit-validator';
 import { ValidationChainFactory } from './services/validation/validation-chain-factory';
+import { HierarchyValidationChainFactory } from './services/validation/hierarchy-validation-chain-factory';
 
 // Hierarchy Validators
 import {
@@ -108,6 +109,7 @@ export const TASK_LINK_LIMIT = 20;
     DuplicateLinkValidator,
     NewLinkLimitValidator,
     ValidationChainFactory,
+    HierarchyValidationChainFactory,
 
     // Hierarchy Validators
     SelfHierarchyValidator,
@@ -165,6 +167,7 @@ export const TASK_LINK_LIMIT = 20;
     {
       provide: HierarchyValidationChain,
       useFactory: (
+        hierarchyValidationChainFactory: HierarchyValidationChainFactory,
         selfHierarchyValidator: SelfHierarchyValidator,
         circularHierarchyValidator: CircularHierarchyValidator,
         hierarchyDepthValidator: HierarchyDepthValidator,
@@ -172,26 +175,17 @@ export const TASK_LINK_LIMIT = 20;
         linkConflictValidatorForHierarchy: LinkConflictValidatorForHierarchy,
         multipleParentValidator: MultipleParentValidator,
       ) => {
-        // Build the hierarchy validation chain
-        selfHierarchyValidator
-          .setNext(multipleParentValidator)
-          .setNext(circularHierarchyValidator)
-          .setNext(hierarchyDepthValidator)
-          .setNext(hierarchyConflictValidator)
-          .setNext(linkConflictValidatorForHierarchy);
-
-        const hierarchyValidationChain = new HierarchyValidationChain(
+        return hierarchyValidationChainFactory.createHierarchyValidationChain(
           selfHierarchyValidator,
           circularHierarchyValidator,
           hierarchyDepthValidator,
           hierarchyConflictValidator,
           linkConflictValidatorForHierarchy,
+          multipleParentValidator,
         );
-
-        hierarchyValidationChain.setValidationChain(selfHierarchyValidator);
-        return hierarchyValidationChain;
       },
       inject: [
+        HierarchyValidationChainFactory,
         SelfHierarchyValidator,
         CircularHierarchyValidator,
         HierarchyDepthValidator,

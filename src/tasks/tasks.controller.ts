@@ -232,7 +232,14 @@ export class TasksController {
       updateTaskDto,
       acceptLanguage,
     );
-    return new TaskResponseDto(task);
+    const relationships = await this.tasksService.getTaskWithRelationships(
+      task.id,
+    );
+    return new TaskResponseDto(
+      task,
+      relationships.links,
+      relationships.hierarchy,
+    );
   }
 
   @Delete(':taskId')

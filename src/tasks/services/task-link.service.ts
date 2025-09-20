@@ -15,7 +15,6 @@ import { I18nService } from 'nestjs-i18n';
 import { TaskRelationshipValidationChain } from './validation/task-relationship-validation-chain';
 import { Task } from '../entities/task.entity';
 import { CustomLogger } from '../../common/services/logger.service';
-import { TASK_LINK_LIMIT } from '../tasks.module';
 
 @Injectable()
 export class TaskLinkService {
@@ -92,63 +91,7 @@ export class TaskLinkService {
       );
     }
 
-    // Check if link already exists to prevent duplicates (bidirectional)
-    const inverseLinkType = this.getInverseLinkType(input.type);
-    const existingLink = await this.taskLinkRepository.findOne({
-      where: [
-        {
-          projectId: input.projectId,
-          sourceTaskId: input.sourceTaskId,
-          targetTaskId: input.targetTaskId,
-          type: input.type,
-        },
-        {
-          projectId: input.projectId,
-          sourceTaskId: input.sourceTaskId,
-          targetTaskId: input.targetTaskId,
-          type: inverseLinkType,
-        },
-        {
-          projectId: input.projectId,
-          sourceTaskId: input.targetTaskId,
-          targetTaskId: input.sourceTaskId,
-          type: inverseLinkType,
-        },
-      ],
-    });
-    if (existingLink) {
-      this.logger.warn(
-        `Task link already exists: ${input.sourceTaskId} <-> ${input.targetTaskId} (${input.type})`,
-      );
-      throw new BadRequestException(
-        this.i18n.t('errors.task_links.already_exists', {
-          lang: acceptLanguage,
-        }),
-      );
-    }
-
-    // Basic link count check for limit (could be optimized with count query)
-    const existing = await this.taskLinkRepository.count({
-      where: [
-        { sourceTaskId: input.sourceTaskId },
-        { targetTaskId: input.sourceTaskId },
-        { sourceTaskId: input.targetTaskId },
-        { targetTaskId: input.targetTaskId },
-      ],
-    });
-    if (existing >= TASK_LINK_LIMIT * 2) {
-      // TASK_LINK_LIMIT per task on both sides conservatively
-      this.logger.warn(
-        `Task link creation failed: link limit reached for task ${input.sourceTaskId} (${existing} existing links)`,
-      );
-      throw new BadRequestException(
-        this.i18n.t('errors.task_links.link_limit_reached', {
-          args: { limit: TASK_LINK_LIMIT },
-          lang: acceptLanguage,
-        }),
-      );
-    }
-
+    // Delegate ALL validation to the validation chain
     const validation = await this.relationshipValidator.canCreateLink({
       sourceTask: sourceTask as Task,
       targetTask: targetTask as Task,
@@ -177,6 +120,7 @@ export class TaskLinkService {
       await this.taskLinkRepository.save(originalEntity);
 
     // Create the inverse link
+    const inverseLinkType = this.getInverseLinkType(input.type);
     const inverseEntity = this.taskLinkRepository.create({
       projectId: input.projectId,
       sourceTaskId: input.targetTaskId,

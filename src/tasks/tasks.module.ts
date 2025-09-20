@@ -46,6 +46,7 @@ import {
   BlocksTypeValidator,
   DuplicatesTypeValidator,
 } from './services/validation/link-type-specific-validators';
+import { DuplicateLinkValidator } from './services/validation/duplicate-link-validator';
 
 // Hierarchy Validators
 import {
@@ -102,6 +103,7 @@ export const TASK_LINK_LIMIT = 20;
     BlocksTypeValidator,
     DuplicatesTypeValidator,
     OneRelationshipPerPairValidator,
+    DuplicateLinkValidator,
 
     // Hierarchy Validators
     SelfHierarchyValidator,
@@ -122,18 +124,20 @@ export const TASK_LINK_LIMIT = 20;
       useFactory: (
         sameProjectValidator: SameProjectValidator,
         selfLinkingValidator: SelfLinkingValidator,
-        linkLimitValidator: LinkLimitValidator,
         circularDependencyValidator: CircularDependencyValidator,
         hierarchyConflictValidator: HierarchyConflictValidatorHandler,
         oneRelationshipPerPairValidator: OneRelationshipPerPairValidator,
         blocksTypeValidator: BlocksTypeValidator,
         duplicatesTypeValidator: DuplicatesTypeValidator,
+        duplicateLinkValidator: DuplicateLinkValidator,
+        linkLimitValidator: LinkLimitValidator,
       ) => {
         // Shared chain: order matters
         sameProjectValidator
           .setNext(selfLinkingValidator)
-          .setNext(oneRelationshipPerPairValidator)
+          .setNext(duplicateLinkValidator)
           .setNext(linkLimitValidator)
+          .setNext(oneRelationshipPerPairValidator)
           .setNext(circularDependencyValidator)
           .setNext(hierarchyConflictValidator);
         const relationshipValidator = new TaskRelationshipValidationChain();
@@ -153,12 +157,13 @@ export const TASK_LINK_LIMIT = 20;
       inject: [
         SameProjectValidator,
         SelfLinkingValidator,
-        LinkLimitValidator,
         CircularDependencyValidator,
         HierarchyConflictValidatorHandler,
         OneRelationshipPerPairValidator,
         BlocksTypeValidator,
         DuplicatesTypeValidator,
+        DuplicateLinkValidator,
+        LinkLimitValidator,
       ],
     },
     {

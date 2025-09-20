@@ -11,7 +11,6 @@ import { TaskLinkWithTaskDto } from '../dto/task-link-with-task.dto';
 import { TaskRelationshipValidationChain } from './validation/task-relationship-validation-chain';
 import { CustomLogger } from '../../common/services/logger.service';
 import { MockCustomLogger } from '../../test/mocks';
-import { TASK_LINK_LIMIT } from '../tasks.module';
 
 describe('TaskLinkService', () => {
   let service: TaskLinkService;
@@ -178,7 +177,6 @@ describe('TaskLinkService', () => {
   describe('createLink', () => {
     it('should create a task link successfully', async () => {
       jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-      jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
       jest
         .spyOn(relationshipValidator, 'canCreateLink')
         .mockResolvedValue({ valid: true });
@@ -194,7 +192,6 @@ describe('TaskLinkService', () => {
       expect(taskRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockCreateTaskLinkDto.targetTaskId },
       });
-      expect(taskLinkRepository.count).toHaveBeenCalled();
       expect(relationshipValidator.canCreateLink).toHaveBeenCalledWith({
         sourceTask: mockTask,
         targetTask: mockTask,
@@ -252,7 +249,10 @@ describe('TaskLinkService', () => {
 
     it('should throw BadRequestException when link limit reached', async () => {
       jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-      jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(45);
+      jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+        valid: false,
+        reason: 'errors.task_links.link_limit_reached',
+      });
 
       await expect(
         service.createLink(mockCreateTaskLinkDto, 'en-US'),
@@ -261,7 +261,6 @@ describe('TaskLinkService', () => {
       expect(i18nService.t).toHaveBeenCalledWith(
         'errors.task_links.link_limit_reached',
         {
-          args: { limit: TASK_LINK_LIMIT },
           lang: 'en-US',
         },
       );
@@ -269,7 +268,6 @@ describe('TaskLinkService', () => {
 
     it('should throw BadRequestException when validation fails', async () => {
       jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-      jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
       jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
         valid: false,
         reason: 'errors.task_links.circular_dependency',
@@ -290,10 +288,10 @@ describe('TaskLinkService', () => {
     describe('duplicate link prevention', () => {
       it('should throw BadRequestException when exact duplicate link exists', async () => {
         jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-        jest
-          .spyOn(taskLinkRepository, 'findOne')
-          .mockResolvedValue(mockTaskLink);
-        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+        jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+          valid: false,
+          reason: 'errors.task_links.already_exists',
+        });
 
         await expect(
           service.createLink(mockCreateTaskLinkDto, 'en-US'),
@@ -305,43 +303,14 @@ describe('TaskLinkService', () => {
             lang: 'en-US',
           },
         );
-        expect(taskLinkRepository.findOne).toHaveBeenCalledWith({
-          where: [
-            {
-              projectId: 'project-123',
-              sourceTaskId: 'task-123',
-              targetTaskId: 'task-456',
-              type: 'BLOCKS',
-            },
-            {
-              projectId: 'project-123',
-              sourceTaskId: 'task-123',
-              targetTaskId: 'task-456',
-              type: 'IS_BLOCKED_BY',
-            },
-            {
-              projectId: 'project-123',
-              sourceTaskId: 'task-456',
-              targetTaskId: 'task-123',
-              type: 'IS_BLOCKED_BY',
-            },
-          ],
-        });
       });
 
       it('should throw BadRequestException when reverse direction duplicate exists', async () => {
-        const reverseLink = {
-          ...mockTaskLink,
-          sourceTaskId: 'task-456',
-          targetTaskId: 'task-123',
-          type: 'BLOCKS' as any,
-        };
-
         jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-        jest
-          .spyOn(taskLinkRepository, 'findOne')
-          .mockResolvedValue(reverseLink);
-        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+        jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+          valid: false,
+          reason: 'errors.task_links.already_exists',
+        });
 
         await expect(
           service.createLink(mockCreateTaskLinkDto, 'en-US'),
@@ -356,16 +325,11 @@ describe('TaskLinkService', () => {
       });
 
       it('should throw BadRequestException when inverse type duplicate exists', async () => {
-        const inverseLink = {
-          ...mockTaskLink,
-          type: 'IS_BLOCKED_BY' as any,
-        };
-
         jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-        jest
-          .spyOn(taskLinkRepository, 'findOne')
-          .mockResolvedValue(inverseLink);
-        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+        jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+          valid: false,
+          reason: 'errors.task_links.already_exists',
+        });
 
         await expect(
           service.createLink(mockCreateTaskLinkDto, 'en-US'),
@@ -380,18 +344,11 @@ describe('TaskLinkService', () => {
       });
 
       it('should throw BadRequestException when inverse type reverse direction duplicate exists', async () => {
-        const inverseReverseLink = {
-          ...mockTaskLink,
-          sourceTaskId: 'task-456',
-          targetTaskId: 'task-123',
-          type: 'IS_BLOCKED_BY' as any,
-        };
-
         jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-        jest
-          .spyOn(taskLinkRepository, 'findOne')
-          .mockResolvedValue(inverseReverseLink);
-        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+        jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+          valid: false,
+          reason: 'errors.task_links.already_exists',
+        });
 
         await expect(
           service.createLink(mockCreateTaskLinkDto, 'en-US'),
@@ -407,8 +364,6 @@ describe('TaskLinkService', () => {
 
       it('should allow creating link when no duplicates exist', async () => {
         jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-        jest.spyOn(taskLinkRepository, 'findOne').mockResolvedValue(null); // No existing link
-        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
         jest
           .spyOn(relationshipValidator, 'canCreateLink')
           .mockResolvedValue({ valid: true });
@@ -429,18 +384,11 @@ describe('TaskLinkService', () => {
           type: 'SPLITS_TO' as any,
         };
 
-        const existingSplitsFromLink = {
-          ...mockTaskLink,
-          sourceTaskId: 'task-456',
-          targetTaskId: 'task-123',
-          type: 'SPLITS_FROM' as any,
-        };
-
         jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-        jest
-          .spyOn(taskLinkRepository, 'findOne')
-          .mockResolvedValue(existingSplitsFromLink);
-        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+        jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+          valid: false,
+          reason: 'errors.task_links.already_exists',
+        });
 
         await expect(service.createLink(splitsToDto, 'en-US')).rejects.toThrow(
           BadRequestException,
@@ -462,16 +410,11 @@ describe('TaskLinkService', () => {
           type: 'DUPLICATES' as any,
         };
 
-        const existingIsDuplicatedByLink = {
-          ...mockTaskLink,
-          type: 'IS_DUPLICATED_BY' as any,
-        };
-
         jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-        jest
-          .spyOn(taskLinkRepository, 'findOne')
-          .mockResolvedValue(existingIsDuplicatedByLink);
-        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+        jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+          valid: false,
+          reason: 'errors.task_links.already_exists',
+        });
 
         await expect(
           service.createLink(duplicatesDto, 'en-US'),
@@ -493,18 +436,11 @@ describe('TaskLinkService', () => {
           type: 'RELATES_TO' as any,
         };
 
-        const existingRelatesToLink = {
-          ...mockTaskLink,
-          sourceTaskId: 'task-456',
-          targetTaskId: 'task-123',
-          type: 'RELATES_TO' as any,
-        };
-
         jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-        jest
-          .spyOn(taskLinkRepository, 'findOne')
-          .mockResolvedValue(existingRelatesToLink);
-        jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
+        jest.spyOn(relationshipValidator, 'canCreateLink').mockResolvedValue({
+          valid: false,
+          reason: 'errors.task_links.already_exists',
+        });
 
         await expect(service.createLink(relatesToDto, 'en-US')).rejects.toThrow(
           BadRequestException,
@@ -521,7 +457,6 @@ describe('TaskLinkService', () => {
 
     it('should handle accept-language header', async () => {
       jest.spyOn(taskRepository, 'findOne').mockResolvedValue(mockTask);
-      jest.spyOn(taskLinkRepository, 'count').mockResolvedValue(5);
       jest
         .spyOn(relationshipValidator, 'canCreateLink')
         .mockResolvedValue({ valid: true });

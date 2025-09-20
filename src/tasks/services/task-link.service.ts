@@ -177,17 +177,16 @@ export class TaskLinkService {
       await this.taskLinkRepository.save(originalEntity);
 
     // Create the inverse link
-    const inverseType = this.getInverseLinkType(input.type);
     const inverseEntity = this.taskLinkRepository.create({
       projectId: input.projectId,
       sourceTaskId: input.targetTaskId,
       targetTaskId: input.sourceTaskId,
-      type: inverseType,
+      type: inverseLinkType,
     });
     await this.taskLinkRepository.save(inverseEntity);
 
     this.logger.log(
-      `Bidirectional task links created successfully: ${savedOriginalLink.id} (${savedOriginalLink.type}) and inverse (${inverseType})`,
+      `Bidirectional task links created successfully: ${savedOriginalLink.id} (${savedOriginalLink.type}) and inverse (${inverseLinkType})`,
     );
 
     return savedOriginalLink;

@@ -882,6 +882,28 @@ describe('TaskLinkService', () => {
       });
     });
 
+    it('should log warning when inverse link is not found during deletion', async () => {
+      const originalLink = { ...mockTaskLink, type: 'IS_BLOCKED_BY' as any };
+
+      jest
+        .spyOn(taskLinkRepository, 'findOne')
+        .mockResolvedValueOnce(originalLink)
+        .mockResolvedValueOnce(null); // Inverse link not found
+      jest.spyOn(taskLinkRepository, 'delete').mockResolvedValue({
+        affected: 1,
+      } as any);
+
+      await service.deleteLink('project-123', 'task-123', 'link-123');
+
+      expect(taskLinkRepository.delete).toHaveBeenCalledTimes(1);
+      expect(taskLinkRepository.delete).toHaveBeenCalledWith({
+        id: 'link-123',
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Inverse task link not found for deletion: linkId=link-123, projectId=project-123, sourceTaskId=task-456, targetTaskId=task-123, type=BLOCKS. This may indicate a data consistency issue.',
+      );
+    });
+
     it('should handle all relationship types correctly', () => {
       const testCases = [
         { input: 'IS_BLOCKED_BY', expected: 'BLOCKS' },

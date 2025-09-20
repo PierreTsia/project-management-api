@@ -247,6 +247,10 @@ export class TaskLinkService {
     await this.taskLinkRepository.delete({ id: linkId });
     if (inverseLink) {
       await this.taskLinkRepository.delete({ id: inverseLink.id });
+    } else {
+      this.logger.warn(
+        `Inverse task link not found for deletion: linkId=${linkId}, projectId=${projectId}, sourceTaskId=${link.targetTaskId}, targetTaskId=${link.sourceTaskId}, type=${inverseType}. This may indicate a data consistency issue.`,
+      );
     }
 
     this.logger.log(

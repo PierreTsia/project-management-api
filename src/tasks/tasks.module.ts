@@ -47,6 +47,8 @@ import {
   DuplicatesTypeValidator,
 } from './services/validation/link-type-specific-validators';
 import { DuplicateLinkValidator } from './services/validation/duplicate-link-validator';
+import { LinkLimitValidator as NewLinkLimitValidator } from './services/validation/link-limit-validator';
+import { ValidationChainFactory } from './services/validation/validation-chain-factory';
 
 // Hierarchy Validators
 import {
@@ -104,6 +106,8 @@ export const TASK_LINK_LIMIT = 20;
     DuplicatesTypeValidator,
     OneRelationshipPerPairValidator,
     DuplicateLinkValidator,
+    NewLinkLimitValidator,
+    ValidationChainFactory,
 
     // Hierarchy Validators
     SelfHierarchyValidator,
@@ -122,6 +126,7 @@ export const TASK_LINK_LIMIT = 20;
     {
       provide: TaskRelationshipValidationChain,
       useFactory: (
+        validationChainFactory: ValidationChainFactory,
         sameProjectValidator: SameProjectValidator,
         selfLinkingValidator: SelfLinkingValidator,
         circularDependencyValidator: CircularDependencyValidator,
@@ -130,31 +135,22 @@ export const TASK_LINK_LIMIT = 20;
         blocksTypeValidator: BlocksTypeValidator,
         duplicatesTypeValidator: DuplicatesTypeValidator,
         duplicateLinkValidator: DuplicateLinkValidator,
-        linkLimitValidator: LinkLimitValidator,
+        newLinkLimitValidator: NewLinkLimitValidator,
       ) => {
-        // Shared chain: order matters
-        sameProjectValidator
-          .setNext(selfLinkingValidator)
-          .setNext(duplicateLinkValidator)
-          .setNext(linkLimitValidator)
-          .setNext(oneRelationshipPerPairValidator)
-          .setNext(circularDependencyValidator)
-          .setNext(hierarchyConflictValidator);
-        const relationshipValidator = new TaskRelationshipValidationChain();
-
-        relationshipValidator.setValidationChain(sameProjectValidator);
-        // Type-specific strategies
-        relationshipValidator.registerLinkValidator(
-          'BLOCKS',
+        return validationChainFactory.createValidationChain(
+          sameProjectValidator,
+          selfLinkingValidator,
+          circularDependencyValidator,
+          hierarchyConflictValidator,
+          oneRelationshipPerPairValidator,
           blocksTypeValidator,
-        );
-        relationshipValidator.registerLinkValidator(
-          'DUPLICATES',
           duplicatesTypeValidator,
+          duplicateLinkValidator,
+          newLinkLimitValidator,
         );
-        return relationshipValidator;
       },
       inject: [
+        ValidationChainFactory,
         SameProjectValidator,
         SelfLinkingValidator,
         CircularDependencyValidator,
@@ -163,7 +159,7 @@ export const TASK_LINK_LIMIT = 20;
         BlocksTypeValidator,
         DuplicatesTypeValidator,
         DuplicateLinkValidator,
-        LinkLimitValidator,
+        NewLinkLimitValidator,
       ],
     },
     {

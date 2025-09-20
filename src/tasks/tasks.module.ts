@@ -46,6 +46,10 @@ import {
   BlocksTypeValidator,
   DuplicatesTypeValidator,
 } from './services/validation/link-type-specific-validators';
+import { DuplicateLinkValidator } from './services/validation/duplicate-link-validator';
+import { LinkLimitValidator as NewLinkLimitValidator } from './services/validation/link-limit-validator';
+import { ValidationChainFactory } from './services/validation/validation-chain-factory';
+import { HierarchyValidationChainFactory } from './services/validation/hierarchy-validation-chain-factory';
 
 // Hierarchy Validators
 import {
@@ -102,6 +106,10 @@ export const TASK_LINK_LIMIT = 20;
     BlocksTypeValidator,
     DuplicatesTypeValidator,
     OneRelationshipPerPairValidator,
+    DuplicateLinkValidator,
+    NewLinkLimitValidator,
+    ValidationChainFactory,
+    HierarchyValidationChainFactory,
 
     // Hierarchy Validators
     SelfHierarchyValidator,
@@ -120,50 +128,46 @@ export const TASK_LINK_LIMIT = 20;
     {
       provide: TaskRelationshipValidationChain,
       useFactory: (
+        validationChainFactory: ValidationChainFactory,
         sameProjectValidator: SameProjectValidator,
         selfLinkingValidator: SelfLinkingValidator,
-        linkLimitValidator: LinkLimitValidator,
         circularDependencyValidator: CircularDependencyValidator,
         hierarchyConflictValidator: HierarchyConflictValidatorHandler,
         oneRelationshipPerPairValidator: OneRelationshipPerPairValidator,
         blocksTypeValidator: BlocksTypeValidator,
         duplicatesTypeValidator: DuplicatesTypeValidator,
+        duplicateLinkValidator: DuplicateLinkValidator,
+        newLinkLimitValidator: NewLinkLimitValidator,
       ) => {
-        // Shared chain: order matters
-        sameProjectValidator
-          .setNext(selfLinkingValidator)
-          .setNext(oneRelationshipPerPairValidator)
-          .setNext(linkLimitValidator)
-          .setNext(circularDependencyValidator)
-          .setNext(hierarchyConflictValidator);
-        const relationshipValidator = new TaskRelationshipValidationChain();
-
-        relationshipValidator.setValidationChain(sameProjectValidator);
-        // Type-specific strategies
-        relationshipValidator.registerLinkValidator(
-          'BLOCKS',
+        return validationChainFactory.createValidationChain(
+          sameProjectValidator,
+          selfLinkingValidator,
+          circularDependencyValidator,
+          hierarchyConflictValidator,
+          oneRelationshipPerPairValidator,
           blocksTypeValidator,
-        );
-        relationshipValidator.registerLinkValidator(
-          'DUPLICATES',
           duplicatesTypeValidator,
+          duplicateLinkValidator,
+          newLinkLimitValidator,
         );
-        return relationshipValidator;
       },
       inject: [
+        ValidationChainFactory,
         SameProjectValidator,
         SelfLinkingValidator,
-        LinkLimitValidator,
         CircularDependencyValidator,
         HierarchyConflictValidatorHandler,
         OneRelationshipPerPairValidator,
         BlocksTypeValidator,
         DuplicatesTypeValidator,
+        DuplicateLinkValidator,
+        NewLinkLimitValidator,
       ],
     },
     {
       provide: HierarchyValidationChain,
       useFactory: (
+        hierarchyValidationChainFactory: HierarchyValidationChainFactory,
         selfHierarchyValidator: SelfHierarchyValidator,
         circularHierarchyValidator: CircularHierarchyValidator,
         hierarchyDepthValidator: HierarchyDepthValidator,
@@ -171,26 +175,17 @@ export const TASK_LINK_LIMIT = 20;
         linkConflictValidatorForHierarchy: LinkConflictValidatorForHierarchy,
         multipleParentValidator: MultipleParentValidator,
       ) => {
-        // Build the hierarchy validation chain
-        selfHierarchyValidator
-          .setNext(multipleParentValidator)
-          .setNext(circularHierarchyValidator)
-          .setNext(hierarchyDepthValidator)
-          .setNext(hierarchyConflictValidator)
-          .setNext(linkConflictValidatorForHierarchy);
-
-        const hierarchyValidationChain = new HierarchyValidationChain(
+        return hierarchyValidationChainFactory.createHierarchyValidationChain(
           selfHierarchyValidator,
           circularHierarchyValidator,
           hierarchyDepthValidator,
           hierarchyConflictValidator,
           linkConflictValidatorForHierarchy,
+          multipleParentValidator,
         );
-
-        hierarchyValidationChain.setValidationChain(selfHierarchyValidator);
-        return hierarchyValidationChain;
       },
       inject: [
+        HierarchyValidationChainFactory,
         SelfHierarchyValidator,
         CircularHierarchyValidator,
         HierarchyDepthValidator,

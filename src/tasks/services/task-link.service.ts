@@ -10,11 +10,11 @@ import { CreateTaskLinkDto } from '../dto/create-task-link.dto';
 import { TaskLinkResponseDto } from '../dto/task-link-response.dto';
 import { TaskLinkWithTaskDto } from '../dto/task-link-with-task.dto';
 import { TaskResponseDto } from '../dto/task-response.dto';
+import { TaskLinkType } from '../enums/task-link-type.enum';
 import { I18nService } from 'nestjs-i18n';
 import { TaskRelationshipValidationChain } from './validation/task-relationship-validation-chain';
 import { Task } from '../entities/task.entity';
 import { CustomLogger } from '../../common/services/logger.service';
-import { TASK_LINK_LIMIT } from '../tasks.module';
 
 @Injectable()
 export class TaskLinkService {
@@ -30,12 +30,36 @@ export class TaskLinkService {
     this.logger.setContext(TaskLinkService.name);
   }
 
+  /**
+   * Get the inverse relationship type for bidirectional links
+   */
+  private getInverseLinkType(type: TaskLinkType): TaskLinkType {
+    switch (type) {
+      case 'IS_BLOCKED_BY':
+        return 'BLOCKS';
+      case 'BLOCKS':
+        return 'IS_BLOCKED_BY';
+      case 'SPLITS_TO':
+        return 'SPLITS_FROM';
+      case 'SPLITS_FROM':
+        return 'SPLITS_TO';
+      case 'DUPLICATES':
+        return 'IS_DUPLICATED_BY';
+      case 'IS_DUPLICATED_BY':
+        return 'DUPLICATES';
+      case 'RELATES_TO':
+        return 'RELATES_TO'; // Symmetric relationship
+      default:
+        return type;
+    }
+  }
+
   async createLink(
     input: CreateTaskLinkDto,
     acceptLanguage?: string,
   ): Promise<TaskLink> {
     this.logger.log(
-      `Creating task link: ${input.sourceTaskId} -> ${input.targetTaskId} (${input.type}) in project ${input.projectId}`,
+      `Creating bidirectional task link: ${input.sourceTaskId} -> ${input.targetTaskId} (${input.type}) in project ${input.projectId}`,
     );
 
     // Load minimal task projections to validate
@@ -67,28 +91,7 @@ export class TaskLinkService {
       );
     }
 
-    // Basic link count check for limit (could be optimized with count query)
-    const existing = await this.taskLinkRepository.count({
-      where: [
-        { sourceTaskId: input.sourceTaskId },
-        { targetTaskId: input.sourceTaskId },
-        { sourceTaskId: input.targetTaskId },
-        { targetTaskId: input.targetTaskId },
-      ],
-    });
-    if (existing >= TASK_LINK_LIMIT * 2) {
-      // TASK_LINK_LIMIT per task on both sides conservatively
-      this.logger.warn(
-        `Task link creation failed: link limit reached for task ${input.sourceTaskId} (${existing} existing links)`,
-      );
-      throw new BadRequestException(
-        this.i18n.t('errors.task_links.link_limit_reached', {
-          args: { limit: TASK_LINK_LIMIT },
-          lang: acceptLanguage,
-        }),
-      );
-    }
-
+    // Delegate ALL validation to the validation chain
     const validation = await this.relationshipValidator.canCreateLink({
       sourceTask: sourceTask as Task,
       targetTask: targetTask as Task,
@@ -106,19 +109,31 @@ export class TaskLinkService {
       );
     }
 
-    const entity = this.taskLinkRepository.create({
+    // Create the original link
+    const originalEntity = this.taskLinkRepository.create({
       projectId: input.projectId,
       sourceTaskId: input.sourceTaskId,
       targetTaskId: input.targetTaskId,
       type: input.type,
     });
-    const savedLink = await this.taskLinkRepository.save(entity);
+    const savedOriginalLink =
+      await this.taskLinkRepository.save(originalEntity);
+
+    // Create the inverse link
+    const inverseLinkType = this.getInverseLinkType(input.type);
+    const inverseEntity = this.taskLinkRepository.create({
+      projectId: input.projectId,
+      sourceTaskId: input.targetTaskId,
+      targetTaskId: input.sourceTaskId,
+      type: inverseLinkType,
+    });
+    await this.taskLinkRepository.save(inverseEntity);
 
     this.logger.log(
-      `Task link created successfully: ${savedLink.id} (${savedLink.type})`,
+      `Bidirectional task links created successfully: ${savedOriginalLink.id} (${savedOriginalLink.type}) and inverse (${inverseLinkType})`,
     );
 
-    return savedLink;
+    return savedOriginalLink;
   }
 
   async listLinksByTask(taskId: string): Promise<TaskLinkResponseDto> {
@@ -136,7 +151,7 @@ export class TaskLinkService {
     acceptLanguage?: string,
   ): Promise<void> {
     this.logger.log(
-      `Deleting task link: ${linkId} for task ${taskId} in project ${projectId}`,
+      `Deleting bidirectional task link: ${linkId} for task ${taskId} in project ${projectId}`,
     );
 
     const link = await this.taskLinkRepository.findOne({
@@ -153,9 +168,31 @@ export class TaskLinkService {
         }),
       );
     }
-    await this.taskLinkRepository.delete({ id: linkId });
 
-    this.logger.log(`Task link deleted successfully: ${linkId} (${link.type})`);
+    // Find and delete both the original link and its inverse
+    const inverseType = this.getInverseLinkType(link.type);
+    const inverseLink = await this.taskLinkRepository.findOne({
+      where: {
+        projectId,
+        sourceTaskId: link.targetTaskId,
+        targetTaskId: link.sourceTaskId,
+        type: inverseType,
+      },
+    });
+
+    // Delete both links
+    await this.taskLinkRepository.delete({ id: linkId });
+    if (inverseLink) {
+      await this.taskLinkRepository.delete({ id: inverseLink.id });
+    } else {
+      this.logger.warn(
+        `Inverse task link not found for deletion: linkId=${linkId}, projectId=${projectId}, sourceTaskId=${link.targetTaskId}, targetTaskId=${link.sourceTaskId}, type=${inverseType}. This may indicate a data consistency issue.`,
+      );
+    }
+
+    this.logger.log(
+      `Bidirectional task links deleted successfully: ${linkId} (${link.type}) and inverse (${inverseType})`,
+    );
   }
 
   // Repository lookups used in createLink; no raw SQL helper needed.

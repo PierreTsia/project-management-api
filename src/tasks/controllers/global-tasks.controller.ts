@@ -55,6 +55,12 @@ export class GlobalTasksController {
     description: 'User tasks retrieved successfully',
     type: GlobalSearchTasksResponseDto,
   })
+  @ApiQuery({
+    name: 'includeArchived',
+    required: false,
+    type: Boolean,
+    description: 'Include tasks from archived projects (default: false)',
+  })
   @ApiResponse({
     status: 400,
     description: 'Bad request - invalid query parameters',
@@ -199,6 +205,12 @@ export class GlobalTasksController {
     required: false,
     type: Boolean,
     description: 'Filter for tasks with due dates only',
+  })
+  @ApiQuery({
+    name: 'includeArchived',
+    required: false,
+    type: Boolean,
+    description: 'Include tasks from archived projects (default: false)',
   })
   @ApiQuery({
     name: 'page',

@@ -21,6 +21,7 @@ import {
   BulkOperationResult,
 } from './dto/bulk-operation-response.dto';
 import { TaskStatus } from './enums/task-status.enum';
+import { ProjectStatus } from '../projects/entities/project.entity';
 
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectsService } from '../projects/projects.service';
@@ -529,6 +530,13 @@ export class TasksService {
       .leftJoinAndSelect('task.assignee', 'assignee')
       .leftJoinAndSelect('task.project', 'project')
       .where('task.projectId IN (:...projectIds)', { projectIds });
+
+    // By default, restrict to ACTIVE projects unless includeArchived is true
+    if (searchDto.includeArchived !== true) {
+      queryBuilder.andWhere('project.status = :activeStatus', {
+        activeStatus: ProjectStatus.ACTIVE,
+      });
+    }
 
     // Apply filters
     this.applyGlobalSearchFilters(queryBuilder, searchDto, userId);

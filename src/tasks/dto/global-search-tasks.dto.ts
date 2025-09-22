@@ -161,6 +161,17 @@ export class GlobalSearchTasksDto {
   hasDueDate?: boolean;
 
   @ApiProperty({
+    description: 'Include tasks from archived projects',
+    example: false,
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  includeArchived?: boolean;
+
+  @ApiProperty({
     description: 'Page number (1-based)',
     example: 1,
     default: 1,

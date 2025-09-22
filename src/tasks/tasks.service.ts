@@ -493,26 +493,18 @@ export class TasksService {
       )}`,
     );
 
-    // Get user's accessible projects if not provided
+    // Resolve project scope if not provided
     if (!projectIds) {
-      const projects = await this.projectsService.findAll(userId);
-      const accessibleProjectIds = projects.map((p) => p.id);
-
-      // Validate requested projectIds if present on DTO
-      const requestedIds = searchDto.projectIds;
-      if (requestedIds && requestedIds.length > 0) {
-        const invalid = requestedIds.filter(
-          (id) => !accessibleProjectIds.includes(id),
-        );
-        if (invalid.length > 0) {
-          throw new ForbiddenException(
-            `Insufficient permissions for projectIds: ${invalid.join(', ')}`,
-          );
-        }
-        projectIds = requestedIds;
-      } else {
-        projectIds = accessibleProjectIds;
-      }
+      const accessibleProjectIds =
+        await this.getAccessibleProjectIdsForUser(userId);
+      this.validateUserHasAccessToRequestedProjects(
+        searchDto.projectIds,
+        accessibleProjectIds,
+      );
+      projectIds = this.selectProjectIdsForQuery(
+        searchDto.projectIds,
+        accessibleProjectIds,
+      );
     }
 
     if (projectIds.length === 0) {
@@ -562,6 +554,37 @@ export class TasksService {
       page,
       limit,
     };
+  }
+
+  private async getAccessibleProjectIdsForUser(
+    userId: string,
+  ): Promise<string[]> {
+    const projects = await this.projectsService.findAll(userId);
+    return projects.map((project) => project.id);
+  }
+
+  private validateUserHasAccessToRequestedProjects(
+    requestedIds: string[] | undefined,
+    accessibleProjectIds: string[],
+  ): void {
+    if (!requestedIds || requestedIds.length === 0) return;
+    const invalid = requestedIds.filter(
+      (id) => !accessibleProjectIds.includes(id),
+    );
+    if (invalid.length > 0) {
+      throw new ForbiddenException(
+        `Insufficient permissions for projectIds: ${invalid.join(', ')}`,
+      );
+    }
+  }
+
+  private selectProjectIdsForQuery(
+    requestedIds: string[] | undefined,
+    accessibleProjectIds: string[],
+  ): string[] {
+    return requestedIds && requestedIds.length > 0
+      ? requestedIds
+      : accessibleProjectIds;
   }
 
   /**

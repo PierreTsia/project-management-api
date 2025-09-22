@@ -96,6 +96,31 @@ const mockContributors = [
 ];
 
 describe('TasksService', () => {
+  describe('searchAllUserTasks (projectIds permission)', () => {
+    it('throws ForbiddenException when requested projectIds include inaccessible ids', async () => {
+      (mockProjectsService.findAll as jest.Mock).mockResolvedValue([
+        { id: 'p1' },
+        { id: 'p2' },
+      ]);
+
+      // minimal QB mock for this test; it won't be reached due to exception
+      (mockRepository.createQueryBuilder as jest.Mock).mockImplementation(
+        () => ({
+          leftJoinAndSelect: () => ({
+            leftJoinAndSelect: () => ({ where: () => ({}) }),
+          }),
+        }),
+      );
+
+      await expect(
+        service.searchAllUserTasks('u1', {
+          page: 1,
+          limit: 20,
+          projectIds: ['p1', 'pX'],
+        } as any),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
   let service: TasksService;
 
   beforeEach(async () => {
@@ -1153,13 +1178,13 @@ describe('TasksService', () => {
       );
     });
 
-    it('should handle projectId filter', async () => {
+    it('should handle projectIds filter (narrow to provided ids)', async () => {
       const userId = 'user-1';
       const searchDto = {
-        projectId: 'project-1',
+        projectIds: ['project-1'],
         page: 1,
         limit: 10,
-      };
+      } as unknown as GlobalSearchTasksDto;
       const projects = [
         { id: 'project-1', name: 'Project 1' },
         { id: 'project-2', name: 'Project 2' },
@@ -1175,9 +1200,10 @@ describe('TasksService', () => {
       const result = await service.searchAllUserTasks(userId, searchDto);
 
       expect(result.tasks).toEqual(tasks);
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'task.projectId = :projectId',
-        { projectId: 'project-1' },
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith('task');
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'task.projectId IN (:...projectIds)',
+        { projectIds: ['project-1'] },
       );
     });
 

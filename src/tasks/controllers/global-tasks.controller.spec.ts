@@ -182,6 +182,34 @@ describe('GlobalTasksController', () => {
         hasPreviousPage: false,
       });
     });
+
+    it('passes includeArchived flag through to service', async () => {
+      const searchDto: GlobalSearchTasksDto = {
+        page: 1,
+        limit: 10,
+        includeArchived: true,
+      };
+
+      const mockResult = {
+        tasks: [mockTask],
+        total: 1,
+        page: 1,
+        limit: 10,
+      };
+
+      mockTasksService.searchAllUserTasks.mockResolvedValue(mockResult);
+
+      await controller.searchAllUserTasks({ user: mockUser }, searchDto);
+
+      expect(tasksService.searchAllUserTasks).toHaveBeenCalledWith(
+        mockUser.id,
+        searchDto,
+      );
+      expect(
+        (mockTasksService.searchAllUserTasks as jest.Mock).mock.calls[0][1]
+          .includeArchived,
+      ).toBe(true);
+    });
   });
 
   describe('legacy param rejection', () => {

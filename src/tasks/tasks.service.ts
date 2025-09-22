@@ -498,7 +498,7 @@ export class TasksService {
       const accessibleProjectIds = projects.map((p) => p.id);
 
       // Validate requested projectIds if present on DTO
-      const requestedIds: string[] | undefined = searchDto.projectIds;
+      const requestedIds = searchDto.projectIds;
       if (requestedIds && requestedIds.length > 0) {
         const invalid = requestedIds.filter(
           (id) => !accessibleProjectIds.includes(id),

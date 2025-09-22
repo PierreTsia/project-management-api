@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -41,10 +42,24 @@ export class GlobalTasksController {
     description:
       'Returns all tasks across all projects the user has access to, with optional filtering and pagination. This endpoint provides workflow-focused task management capabilities.',
   })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    type: String,
+    deprecated: true,
+    description:
+      'Deprecated. Use projectIds[]. Sending this param will result in HTTP 400.',
+  })
   @ApiResponse({
     status: 200,
     description: 'User tasks retrieved successfully',
     type: GlobalSearchTasksResponseDto,
+  })
+  @ApiQuery({
+    name: 'includeArchived',
+    required: false,
+    type: Boolean,
+    description: 'Include tasks from archived projects (default: false)',
   })
   @ApiResponse({
     status: 400,
@@ -61,7 +76,12 @@ export class GlobalTasksController {
   async findAllUserTasks(
     @Request() req: { user: User },
     @Query() searchDto: GlobalSearchTasksDto,
+    @Query('projectId') legacyProjectId?: string,
   ): Promise<GlobalSearchTasksResponseDto> {
+    // Reject legacy projectId if sent
+    if (typeof legacyProjectId === 'string') {
+      throw new BadRequestException('Use projectIds[] query param');
+    }
     const result = await this.tasksService.findAllUserTasks(
       req.user.id,
       searchDto,
@@ -89,6 +109,14 @@ export class GlobalTasksController {
       'Advanced search and filtering for tasks across all projects the user has access to. Supports text search, status/priority filtering, date ranges, and custom sorting.',
   })
   @ApiQuery({
+    name: 'projectId',
+    required: false,
+    type: String,
+    deprecated: true,
+    description:
+      'Deprecated. Use projectIds[]. Sending this param will result in HTTP 400.',
+  })
+  @ApiQuery({
     name: 'query',
     required: false,
     type: String,
@@ -113,10 +141,12 @@ export class GlobalTasksController {
     description: 'Filter by specific assignee ID',
   })
   @ApiQuery({
-    name: 'projectId',
+    name: 'projectIds',
     required: false,
+    isArray: true,
     type: String,
-    description: 'Filter by specific project ID',
+    description:
+      'Filter by list of project IDs. If omitted or empty, search across ALL accessible projects.',
   })
   @ApiQuery({
     name: 'dueDateFrom',
@@ -177,6 +207,12 @@ export class GlobalTasksController {
     description: 'Filter for tasks with due dates only',
   })
   @ApiQuery({
+    name: 'includeArchived',
+    required: false,
+    type: Boolean,
+    description: 'Include tasks from archived projects (default: false)',
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
@@ -208,7 +244,12 @@ export class GlobalTasksController {
   async searchAllUserTasks(
     @Request() req: { user: User },
     @Query() searchDto: GlobalSearchTasksDto,
+    @Query('projectId') legacyProjectId?: string,
   ): Promise<GlobalSearchTasksResponseDto> {
+    // Reject legacy projectId if sent
+    if (typeof legacyProjectId === 'string') {
+      throw new BadRequestException('Use projectIds[] query param');
+    }
     const result = await this.tasksService.searchAllUserTasks(
       req.user.id,
       searchDto,

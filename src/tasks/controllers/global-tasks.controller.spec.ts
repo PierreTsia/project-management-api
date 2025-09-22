@@ -7,6 +7,7 @@ import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
 import { GlobalSearchTasksDto } from '../dto/global-search-tasks.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { BadRequestException } from '@nestjs/common';
 
 describe('GlobalTasksController', () => {
   let controller: GlobalTasksController;
@@ -180,6 +181,50 @@ describe('GlobalTasksController', () => {
         hasNextPage: false,
         hasPreviousPage: false,
       });
+    });
+
+    it('passes includeArchived flag through to service', async () => {
+      const searchDto: GlobalSearchTasksDto = {
+        page: 1,
+        limit: 10,
+        includeArchived: true,
+      };
+
+      const mockResult = {
+        tasks: [mockTask],
+        total: 1,
+        page: 1,
+        limit: 10,
+      };
+
+      mockTasksService.searchAllUserTasks.mockResolvedValue(mockResult);
+
+      await controller.searchAllUserTasks({ user: mockUser }, searchDto);
+
+      expect(tasksService.searchAllUserTasks).toHaveBeenCalledWith(
+        mockUser.id,
+        searchDto,
+      );
+      expect(
+        (mockTasksService.searchAllUserTasks as jest.Mock).mock.calls[0][1]
+          .includeArchived,
+      ).toBe(true);
+    });
+  });
+
+  describe('legacy param rejection', () => {
+    it('findAllUserTasks should 400 when legacy projectId is sent', async () => {
+      const dto: GlobalSearchTasksDto = { page: 1, limit: 20 };
+      await expect(
+        controller.findAllUserTasks({ user: mockUser }, dto, 'proj-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('searchAllUserTasks should 400 when legacy projectId is sent', async () => {
+      const dto: GlobalSearchTasksDto = { page: 1, limit: 20 };
+      await expect(
+        controller.searchAllUserTasks({ user: mockUser }, dto, 'proj-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

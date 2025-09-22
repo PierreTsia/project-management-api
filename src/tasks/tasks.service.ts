@@ -21,6 +21,7 @@ import {
   BulkOperationResult,
 } from './dto/bulk-operation-response.dto';
 import { TaskStatus } from './enums/task-status.enum';
+import { ProjectStatus } from '../projects/entities/project.entity';
 
 import { CustomLogger } from '../common/services/logger.service';
 import { ProjectsService } from '../projects/projects.service';
@@ -492,10 +493,18 @@ export class TasksService {
       )}`,
     );
 
-    // Get user's accessible projects if not provided
+    // Resolve project scope if not provided
     if (!projectIds) {
-      const projects = await this.projectsService.findAll(userId);
-      projectIds = projects.map((p) => p.id);
+      const accessibleProjectIds =
+        await this.getAccessibleProjectIdsForUser(userId);
+      this.validateUserHasAccessToRequestedProjects(
+        searchDto.projectIds,
+        accessibleProjectIds,
+      );
+      projectIds = this.selectProjectIdsForQuery(
+        searchDto.projectIds,
+        accessibleProjectIds,
+      );
     }
 
     if (projectIds.length === 0) {
@@ -513,6 +522,13 @@ export class TasksService {
       .leftJoinAndSelect('task.assignee', 'assignee')
       .leftJoinAndSelect('task.project', 'project')
       .where('task.projectId IN (:...projectIds)', { projectIds });
+
+    // By default, restrict to ACTIVE projects unless includeArchived is true
+    if (searchDto.includeArchived !== true) {
+      queryBuilder.andWhere('project.status = :activeStatus', {
+        activeStatus: ProjectStatus.ACTIVE,
+      });
+    }
 
     // Apply filters
     this.applyGlobalSearchFilters(queryBuilder, searchDto, userId);
@@ -538,6 +554,37 @@ export class TasksService {
       page,
       limit,
     };
+  }
+
+  private async getAccessibleProjectIdsForUser(
+    userId: string,
+  ): Promise<string[]> {
+    const projects = await this.projectsService.findAll(userId);
+    return projects.map((project) => project.id);
+  }
+
+  private validateUserHasAccessToRequestedProjects(
+    requestedIds: string[] | undefined,
+    accessibleProjectIds: string[],
+  ): void {
+    if (!requestedIds || requestedIds.length === 0) return;
+    const invalid = requestedIds.filter(
+      (id) => !accessibleProjectIds.includes(id),
+    );
+    if (invalid.length > 0) {
+      throw new ForbiddenException(
+        `Insufficient permissions for projectIds: ${invalid.join(', ')}`,
+      );
+    }
+  }
+
+  private selectProjectIdsForQuery(
+    requestedIds: string[] | undefined,
+    accessibleProjectIds: string[],
+  ): string[] {
+    return requestedIds && requestedIds.length > 0
+      ? requestedIds
+      : accessibleProjectIds;
   }
 
   /**
@@ -577,12 +624,7 @@ export class TasksService {
       });
     }
 
-    // Project filter
-    if (searchDto.projectId) {
-      queryBuilder.andWhere('task.projectId = :projectId', {
-        projectId: searchDto.projectId,
-      });
-    }
+    // Project filter (removed single projectId; handled via projectIds at top-level where clause)
 
     // Due date range filter
     if (searchDto.dueDateFrom) {

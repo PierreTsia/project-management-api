@@ -10,7 +10,8 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { ArrayMaxSize, IsArray } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
 
@@ -55,13 +56,23 @@ export class GlobalSearchTasksDto {
   assigneeId?: string;
 
   @ApiProperty({
-    description: 'Filter by specific project ID',
-    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+    description:
+      'Filter by a list of project IDs. If omitted or empty, search across ALL accessible projects.',
+    example: ['a1b2c3d4-e5f6-7890-1234-567890abcdef'],
     required: false,
+    isArray: true,
+    type: String,
   })
   @IsOptional()
-  @IsUUID()
-  projectId?: string;
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string' && value.length > 0) return value.split(',');
+    return undefined;
+  })
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsUUID('4', { each: true })
+  projectIds?: string[];
 
   @ApiProperty({
     description: 'Filter tasks due after this date (YYYY-MM-DD)',
@@ -148,6 +159,17 @@ export class GlobalSearchTasksDto {
   @IsBoolean()
   @Type(() => Boolean)
   hasDueDate?: boolean;
+
+  @ApiProperty({
+    description: 'Include tasks from archived projects',
+    example: false,
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  includeArchived?: boolean;
 
   @ApiProperty({
     description: 'Page number (1-based)',

@@ -96,6 +96,31 @@ const mockContributors = [
 ];
 
 describe('TasksService', () => {
+  describe('searchAllUserTasks (projectIds permission)', () => {
+    it('throws ForbiddenException when requested projectIds include inaccessible ids', async () => {
+      (mockProjectsService.findAll as jest.Mock).mockResolvedValue([
+        { id: 'p1' },
+        { id: 'p2' },
+      ]);
+
+      // minimal QB mock for this test; it won't be reached due to exception
+      (mockRepository.createQueryBuilder as jest.Mock).mockImplementation(
+        () => ({
+          leftJoinAndSelect: () => ({
+            leftJoinAndSelect: () => ({ where: () => ({}) }),
+          }),
+        }),
+      );
+
+      await expect(
+        service.searchAllUserTasks('u1', {
+          page: 1,
+          limit: 20,
+          projectIds: ['p1', 'pX'],
+        } as any),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
   let service: TasksService;
 
   beforeEach(async () => {
@@ -900,6 +925,13 @@ describe('TasksService', () => {
   });
 
   describe('searchAllUserTasks', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      (mockRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockQueryBuilder,
+      );
+    });
+
     it('should search tasks across all user projects with filters', async () => {
       const userId = 'user-1';
       const searchDto: GlobalSearchTasksDto = {
@@ -1153,13 +1185,13 @@ describe('TasksService', () => {
       );
     });
 
-    it('should handle projectId filter', async () => {
+    it('should handle projectIds filter (narrow to provided ids)', async () => {
       const userId = 'user-1';
       const searchDto = {
-        projectId: 'project-1',
+        projectIds: ['project-1'],
         page: 1,
         limit: 10,
-      };
+      } as unknown as GlobalSearchTasksDto;
       const projects = [
         { id: 'project-1', name: 'Project 1' },
         { id: 'project-2', name: 'Project 2' },
@@ -1175,9 +1207,10 @@ describe('TasksService', () => {
       const result = await service.searchAllUserTasks(userId, searchDto);
 
       expect(result.tasks).toEqual(tasks);
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'task.projectId = :projectId',
-        { projectId: 'project-1' },
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith('task');
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'task.projectId IN (:...projectIds)',
+        { projectIds: ['project-1'] },
       );
     });
 
@@ -1220,6 +1253,58 @@ describe('TasksService', () => {
         'task.priority',
         'ASC',
       );
+    });
+
+    it('applies ACTIVE-only project filter by default', async () => {
+      const userId = 'user-1';
+      const searchDto: GlobalSearchTasksDto = {
+        page: 1,
+        limit: 10,
+      };
+      const projects = [
+        { id: 'project-1', name: 'Project 1' },
+        { id: 'project-2', name: 'Project 2' },
+      ];
+      (mockProjectsService.findAll as jest.Mock).mockResolvedValue(projects);
+      (mockQueryBuilder.getManyAndCount as jest.Mock).mockResolvedValue([
+        [mockTask],
+        1,
+      ]);
+
+      await service.searchAllUserTasks(userId, searchDto);
+
+      // Ensure we added the project status constraint
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'project.status = :activeStatus',
+        { activeStatus: 'ACTIVE' },
+      );
+    });
+
+    it('does not apply ACTIVE filter when includeArchived=true', async () => {
+      const userId = 'user-1';
+      const searchDto: GlobalSearchTasksDto = {
+        page: 1,
+        limit: 10,
+        includeArchived: true,
+      };
+      const projects = [
+        { id: 'project-1', name: 'Project 1' },
+        { id: 'project-2', name: 'Project 2' },
+      ];
+      (mockProjectsService.findAll as jest.Mock).mockResolvedValue(projects);
+      (mockQueryBuilder.getManyAndCount as jest.Mock).mockResolvedValue([
+        [mockTask],
+        1,
+      ]);
+
+      await service.searchAllUserTasks(userId, searchDto);
+
+      const andWhereCalls = (mockQueryBuilder.andWhere as jest.Mock).mock.calls;
+      expect(
+        andWhereCalls.find(
+          (args: unknown[]) => args[0] === 'project.status = :activeStatus',
+        ),
+      ).toBeUndefined();
     });
   });
 

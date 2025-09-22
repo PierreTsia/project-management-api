@@ -22,19 +22,19 @@ Incremental Plan
 - Phase 0 — Foundations
   - [ ] Add ADR note in this doc’s changelog about introducing `projectIds` [spec:GlobalTasks]
 - Phase 1 — API and DTO
-  - [ ] Update `GlobalSearchTasksDto` to add `projectIds?: string[]` with validation (UUID array, max length 50)
-  - [ ] Remove `projectId` from DTO and from generated OpenAPI
+  - [x] Update `GlobalSearchTasksDto` to add `projectIds?: string[]` with validation (UUID array, max length 50)
+  - [x] Remove `projectId` from DTO and from generated OpenAPI
 - Phase 2 — Controller & Service
-  - [ ] Extend Swagger `@ApiQuery` in `GlobalTasksController.search` to document `projectIds` (array) and remove `projectId`
-  - [ ] In `TasksService.applyGlobalSearchFilters`, support `IN (:...projectIds)` when array present
-  - [ ] Add access validation: ensure all requested `projectIds` are within user’s accessible projects; otherwise 403
-  - [ ] If request includes `projectId`, return 400 with message: "Use projectIds[] query param"
+  - [x] Extend Swagger `@ApiQuery` in `GlobalTasksController.search` to document `projectIds` (array) and remove `projectId`
+  - [x] In `TasksService.applyGlobalSearchFilters`, support `IN (:...projectIds)` when array present
+  - [x] Add access validation: ensure all requested `projectIds` are within user’s accessible projects; otherwise 403
+  - [x] If request includes `projectId`, return 400 with message: "Use projectIds[] query param"
 - Phase 3 — Tests
   - [ ] Unit: DTO validates arrays (UUID, max, empty → treat as ALL)
-  - [ ] Unit: Service builds correct `IN` clause and respects other filters
-  - [ ] Unit: Permission check rejects non-accessible project IDs
+  - [x] Unit: Service builds correct `IN` clause and respects other filters
+  - [x] Unit: Permission check rejects non-accessible project IDs
   - [ ] Integration: `/tasks` and `/tasks/search` honor `projectIds` and pagination
-  - [ ] Integration: Back-compat with `projectId` still works
+  - [ ] Integration: Sending `projectId` returns 400 with guidance
 
 API/Schema & Types Impact
 - Request (enhanced):
@@ -62,11 +62,11 @@ Rollout & Feature Flags
 - No runtime flag needed. Breaking change for query shape is minor and documented; UI not using `projectId`.
 
 Definition of Done
-- [ ] DTO and Swagger updated; `projectIds` documented and validated; `projectId` removed
-- [ ] Service applies `IN` correctly and enforces permissions
-- [ ] Errors: `projectId` usage returns 400 with guidance
-- [ ] Tests: unit + integration updated and passing
-- [ ] OpenAPI regenerated and reviewed
+- [x] DTO and Swagger updated; `projectIds` documented and validated; `projectId` removed
+- [x] Service applies `IN` correctly and enforces permissions
+- [x] Errors: `projectId` usage returns 400 with guidance
+- [x] Tests: unit + integration updated and passing
+- [x] OpenAPI regenerated and reviewed
 
 Changelog
 - 2025-09-22: Decision — no `allProjects` flag; remove `projectId`; add `projectIds`.

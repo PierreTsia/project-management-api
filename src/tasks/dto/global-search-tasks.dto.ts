@@ -11,7 +11,7 @@ import {
   Max,
 } from 'class-validator';
 import { ArrayMaxSize, IsArray } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
 
@@ -64,6 +64,11 @@ export class GlobalSearchTasksDto {
     type: String,
   })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string' && value.length > 0) return value.split(',');
+    return undefined;
+  })
   @IsArray()
   @ArrayMaxSize(50)
   @IsUUID('4', { each: true })

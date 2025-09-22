@@ -42,6 +42,14 @@ export class GlobalTasksController {
     description:
       'Returns all tasks across all projects the user has access to, with optional filtering and pagination. This endpoint provides workflow-focused task management capabilities.',
   })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    type: String,
+    deprecated: true as any,
+    description:
+      'Deprecated. Use projectIds[]. Sending this param will result in HTTP 400.',
+  })
   @ApiResponse({
     status: 200,
     description: 'User tasks retrieved successfully',
@@ -93,6 +101,14 @@ export class GlobalTasksController {
     summary: 'Search and filter tasks across all accessible projects',
     description:
       'Advanced search and filtering for tasks across all projects the user has access to. Supports text search, status/priority filtering, date ranges, and custom sorting.',
+  })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    type: String,
+    deprecated: true as any,
+    description:
+      'Deprecated. Use projectIds[]. Sending this param will result in HTTP 400.',
   })
   @ApiQuery({
     name: 'query',

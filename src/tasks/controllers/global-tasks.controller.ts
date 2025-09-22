@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   ClassSerializerInterceptor,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -61,7 +62,12 @@ export class GlobalTasksController {
   async findAllUserTasks(
     @Request() req: { user: User },
     @Query() searchDto: GlobalSearchTasksDto,
+    @Query('projectId') legacyProjectId?: string,
   ): Promise<GlobalSearchTasksResponseDto> {
+    // Reject legacy projectId if sent
+    if (typeof legacyProjectId === 'string') {
+      throw new BadRequestException('Use projectIds[] query param');
+    }
     const result = await this.tasksService.findAllUserTasks(
       req.user.id,
       searchDto,
@@ -113,10 +119,12 @@ export class GlobalTasksController {
     description: 'Filter by specific assignee ID',
   })
   @ApiQuery({
-    name: 'projectId',
+    name: 'projectIds',
     required: false,
+    isArray: true,
     type: String,
-    description: 'Filter by specific project ID',
+    description:
+      'Filter by list of project IDs. If omitted or empty, search across ALL accessible projects.',
   })
   @ApiQuery({
     name: 'dueDateFrom',
@@ -208,7 +216,12 @@ export class GlobalTasksController {
   async searchAllUserTasks(
     @Request() req: { user: User },
     @Query() searchDto: GlobalSearchTasksDto,
+    @Query('projectId') legacyProjectId?: string,
   ): Promise<GlobalSearchTasksResponseDto> {
+    // Reject legacy projectId if sent
+    if (typeof legacyProjectId === 'string') {
+      throw new BadRequestException('Use projectIds[] query param');
+    }
     const result = await this.tasksService.searchAllUserTasks(
       req.user.id,
       searchDto,

@@ -495,7 +495,23 @@ export class TasksService {
     // Get user's accessible projects if not provided
     if (!projectIds) {
       const projects = await this.projectsService.findAll(userId);
-      projectIds = projects.map((p) => p.id);
+      const accessibleProjectIds = projects.map((p) => p.id);
+
+      // Validate requested projectIds if present on DTO
+      const requestedIds: string[] | undefined = searchDto.projectIds;
+      if (requestedIds && requestedIds.length > 0) {
+        const invalid = requestedIds.filter(
+          (id) => !accessibleProjectIds.includes(id),
+        );
+        if (invalid.length > 0) {
+          throw new ForbiddenException(
+            `Insufficient permissions for projectIds: ${invalid.join(', ')}`,
+          );
+        }
+        projectIds = requestedIds;
+      } else {
+        projectIds = accessibleProjectIds;
+      }
     }
 
     if (projectIds.length === 0) {
@@ -577,12 +593,7 @@ export class TasksService {
       });
     }
 
-    // Project filter
-    if (searchDto.projectId) {
-      queryBuilder.andWhere('task.projectId = :projectId', {
-        projectId: searchDto.projectId,
-      });
-    }
+    // Project filter (removed single projectId; handled via projectIds at top-level where clause)
 
     // Due date range filter
     if (searchDto.dueDateFrom) {

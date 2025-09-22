@@ -10,6 +10,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { ArrayMaxSize, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TaskStatus } from '../enums/task-status.enum';
 import { TaskPriority } from '../enums/task-priority.enum';
@@ -55,13 +56,18 @@ export class GlobalSearchTasksDto {
   assigneeId?: string;
 
   @ApiProperty({
-    description: 'Filter by specific project ID',
-    example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+    description:
+      'Filter by a list of project IDs. If omitted or empty, search across ALL accessible projects.',
+    example: ['a1b2c3d4-e5f6-7890-1234-567890abcdef'],
     required: false,
+    isArray: true,
+    type: String,
   })
   @IsOptional()
-  @IsUUID()
-  projectId?: string;
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsUUID('4', { each: true })
+  projectIds?: string[];
 
   @ApiProperty({
     description: 'Filter tasks due after this date (YYYY-MM-DD)',

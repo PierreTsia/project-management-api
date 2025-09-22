@@ -46,7 +46,7 @@ export class GlobalTasksController {
     name: 'projectId',
     required: false,
     type: String,
-    deprecated: true as any,
+    deprecated: true,
     description:
       'Deprecated. Use projectIds[]. Sending this param will result in HTTP 400.',
   })
@@ -106,7 +106,7 @@ export class GlobalTasksController {
     name: 'projectId',
     required: false,
     type: String,
-    deprecated: true as any,
+    deprecated: true,
     description:
       'Deprecated. Use projectIds[]. Sending this param will result in HTTP 400.',
   })

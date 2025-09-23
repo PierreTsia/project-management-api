@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { AiService } from './ai.service';
 import { LlmProviderService } from './llm-provider.service';
+import { TaskGeneratorTool } from './tools/task-generator.tool';
 
 describe('AiService', () => {
   let service: AiService;
@@ -9,12 +10,31 @@ describe('AiService', () => {
     callLLM: jest.fn(async () => 'ok'),
   } as unknown as LlmProviderService;
 
+  const mockTaskGeneratorTool = {
+    generateTasks: jest.fn(async () => ({
+      tasks: [
+        {
+          title: 'Test task 1',
+          description: 'Test description',
+          priority: 'HIGH',
+        },
+        { title: 'Test task 2', priority: 'MEDIUM' },
+      ],
+      meta: {
+        model: 'mistral-small-latest',
+        provider: 'mistral',
+        degraded: false,
+      },
+    })),
+  } as unknown as TaskGeneratorTool;
+
   beforeAll(async () => {
     process.env.AI_TOOLS_ENABLED = 'true';
     const moduleRef = await Test.createTestingModule({
       providers: [
         AiService,
         { provide: LlmProviderService, useValue: mockProvider },
+        { provide: TaskGeneratorTool, useValue: mockTaskGeneratorTool },
       ],
     }).compile();
     service = moduleRef.get(AiService);
@@ -35,10 +55,11 @@ describe('AiService', () => {
 
   it('generateTasks returns a list of tasks', async () => {
     const result = await service.generateTasks({
+      prompt: 'Create a user authentication system',
       projectId: 'p1',
-      requirement: 'Do X',
     });
     expect(Array.isArray(result.tasks)).toBe(true);
-    expect(result.tasks[0].title.length).toBeGreaterThan(0);
+    expect(result.tasks[0].title).toBe('Test task 1');
+    expect(result.meta.provider).toBe('mistral');
   });
 });

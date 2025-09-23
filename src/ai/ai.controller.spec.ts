@@ -70,9 +70,9 @@ describe('AiController', () => {
 
   it('generate tasks returns array', async () => {
     const res = await controller.generateTasks({
+      prompt: 'Create a user authentication system',
       projectId: 'p1',
-      requirement: 'X',
-    } as any);
+    });
     expect(Array.isArray(res.tasks)).toBe(true);
   });
 

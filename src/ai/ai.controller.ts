@@ -1,18 +1,27 @@
 import { Body, Controller, Post, UseGuards, Req } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+} from '@nestjs/swagger';
 import { AiService } from '../ai/ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AiMetricsService } from './ai.metrics.service';
 import { LlmProviderService } from './llm-provider.service';
 import { ContextService } from './context/context.service';
+import { AiRedactionService } from './ai.redaction.service';
 import type { ContextRequestDto } from './dto/context-request.dto';
+import { ProjectHealthRequestDto, ProjectHealthResponseDto } from './types';
 import {
-  ProjectHealthRequestDto,
-  ProjectHealthResponseDto,
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
-} from './types';
+} from './dto/generate-tasks.dto';
 
 @Controller('ai')
+@ApiTags('AI')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class AiController {
   constructor(
@@ -20,9 +29,39 @@ export class AiController {
     private readonly metrics: AiMetricsService,
     private readonly llmProvider: LlmProviderService,
     private readonly contextService: ContextService,
+    private readonly redaction: AiRedactionService,
   ) {}
 
   @Post('hello')
+  @ApiOperation({
+    summary: 'AI Hello endpoint',
+    description:
+      'Simple AI endpoint for testing LLM connectivity and basic functionality',
+  })
+  @ApiBody({
+    description: 'Optional name parameter',
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'World' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'AI response generated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        provider: { type: 'string', example: 'mistral' },
+        model: { type: 'string', example: 'mistral-small-latest' },
+        message: {
+          type: 'string',
+          example: 'Hello World! How can I help you today?',
+        },
+      },
+    },
+  })
   async postHello(
     @Body() body: { name?: string },
   ): Promise<{ provider: string; model: string; message: string }> {
@@ -69,6 +108,100 @@ export class AiController {
   }
 
   @Post('generate-tasks')
+  @ApiOperation({
+    summary: 'Generate AI-powered task suggestions',
+    description:
+      'Uses LLM to generate 3-12 actionable tasks based on user intent and optional project context. Tasks are generated without IDs and can be used as suggestions for project planning.',
+  })
+  @ApiBody({
+    type: GenerateTasksRequestDto,
+    description:
+      'Task generation request with user intent and optional project context',
+    examples: {
+      'basic-prompt': {
+        summary: 'Basic task generation',
+        value: {
+          prompt: 'Create a user authentication system',
+          locale: 'en',
+        },
+      },
+      'with-project-context': {
+        summary: 'With project context',
+        value: {
+          prompt: 'Add dark mode toggle to settings page',
+          projectId: '71063ace-7803-43d3-a95b-9d26ef1c129b',
+          locale: 'en',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tasks generated successfully',
+    type: GenerateTasksResponseDto,
+    examples: {
+      'success-response': {
+        summary: 'Successful task generation',
+        value: {
+          tasks: [
+            {
+              title: 'Design authentication UI components',
+              description:
+                'Create login and registration forms with validation',
+              priority: 'HIGH',
+            },
+            {
+              title: 'Implement JWT token management',
+              description: 'Set up secure token generation and validation',
+              priority: 'HIGH',
+            },
+            {
+              title: 'Add password reset functionality',
+              description: 'Create password reset flow with email verification',
+              priority: 'MEDIUM',
+            },
+          ],
+          meta: {
+            model: 'mistral-small-latest',
+            provider: 'mistral',
+            degraded: false,
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request - missing prompt or invalid project ID',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 400 },
+        message: { type: 'string', example: 'Prompt is required' },
+        error: { type: 'string', example: 'Bad Request' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing JWT token',
+  })
+  @ApiResponse({
+    status: 503,
+    description:
+      'AI service unavailable - AI_TOOLS_ENABLED=false or provider error',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 503 },
+        message: {
+          type: 'string',
+          example: 'AI service is currently unavailable',
+        },
+        error: { type: 'string', example: 'Service Unavailable' },
+      },
+    },
+  })
   async generateTasks(
     @Body() body: GenerateTasksRequestDto,
   ): Promise<GenerateTasksResponseDto> {

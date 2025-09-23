@@ -5,6 +5,7 @@ import { AiMetricsService } from './ai.metrics.service';
 import { ConfigService } from '@nestjs/config';
 import { AiRedactionService } from './ai.redaction.service';
 import { LlmProviderService } from './llm-provider.service';
+import { ContextService } from './context/context.service';
 
 describe('AiController', () => {
   let controller: AiController;
@@ -30,6 +31,10 @@ describe('AiController', () => {
         { provide: AiService, useValue: mockService },
         AiMetricsService,
         AiRedactionService,
+        {
+          provide: ContextService,
+          useValue: { getAggregatedContext: jest.fn() },
+        },
         {
           provide: LlmProviderService,
           useValue: {
@@ -86,6 +91,10 @@ describe('AiController', () => {
         { provide: AiService, useValue: failing },
         AiMetricsService,
         AiRedactionService,
+        {
+          provide: ContextService,
+          useValue: { getAggregatedContext: jest.fn() },
+        },
         {
           provide: LlmProviderService,
           useValue: {

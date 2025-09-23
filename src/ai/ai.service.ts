@@ -19,8 +19,20 @@ export class AiService {
       throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
     }
     const { provider, model } = this.llmProvider.getInfo();
-    const safeName = name?.toString().slice(0, 64);
-    const message = safeName ? `hello ${safeName}` : 'hello';
+    const safeName = (name ?? 'friend').toString().slice(0, 64);
+    const messages = [
+      {
+        role: 'system' as const,
+        content:
+          'You are a helpful assistant. Respond concisely with greetings in exactly three random languages, one of them being English',
+      },
+      {
+        role: 'user' as const,
+        content: `Say hello to user ${safeName} in 3 languages. Format: EN: ...`,
+      },
+    ];
+    const llmText = await this.llmProvider.callLLM(messages);
+    const message = llmText?.trim() || `Hello, ${safeName}!`;
     return { provider, model, message };
   }
 

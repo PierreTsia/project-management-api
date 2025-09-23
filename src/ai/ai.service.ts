@@ -6,6 +6,7 @@ import {
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
 } from './types';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 @Injectable()
 export class AiService {
@@ -30,7 +31,7 @@ export class AiService {
       throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
     }
 
-    const messages = [
+    const messages: ChatCompletionMessageParam[] = [
       {
         role: 'system',
         content: `You are a project management expert. Analyze the given project and provide a health score (0-100), identify risks, and suggest recommendations.`,
@@ -78,12 +79,13 @@ export class AiService {
       throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
     }
 
-    const messages = [
+    const messages: ChatCompletionMessageParam[] = [
       {
         role: 'system',
         content: `You are a project management expert. Break down the given requirement into specific, actionable tasks with estimates and assignments.`,
       },
       {
+        name: 'user',
         role: 'user',
         content: `Project ID: ${request.projectId}\nRequirement: ${request.requirement}\nProject Type: ${request.projectType || 'professional'}\nPriority: ${request.priority || 'MEDIUM'}`,
       },

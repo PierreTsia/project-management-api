@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import {
   AiProvider,
   AiProviderInfo,
@@ -37,16 +38,14 @@ export class LlmProviderService implements AiProvider {
     };
   }
 
-  async callLLM(
-    messages: Array<{ role: string; content: string }>,
-  ): Promise<string> {
+  async callLLM(messages: ChatCompletionMessageParam[]): Promise<string> {
     try {
       const response = await this.client.chat.completions.create({
         model: this.configService.get<string>(
           'LLM_MODEL',
           'mistral-small-latest',
         ),
-        messages: messages as any,
+        messages: [...messages],
         max_tokens: this.configService.get<number>('LLM_MAX_TOKENS', 2000),
         temperature: 0.3,
       });

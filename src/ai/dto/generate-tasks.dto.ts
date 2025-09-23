@@ -4,8 +4,8 @@ import {
   IsEnum,
   IsArray,
   ValidateNested,
-  Min,
-  Max,
+  ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -96,8 +96,8 @@ export class GenerateTasksResponseDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => GeneratedTaskDto)
-  @Min(3, { message: 'Must generate at least 3 tasks' })
-  @Max(12, { message: 'Must generate at most 12 tasks' })
+  @ArrayMinSize(3, { message: 'Must generate at least 3 tasks' })
+  @ArrayMaxSize(12, { message: 'Must generate at most 12 tasks' })
   tasks: ReadonlyArray<GeneratedTaskDto>;
 
   @ApiProperty({

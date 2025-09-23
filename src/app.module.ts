@@ -25,6 +25,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
 import { CustomLogger } from './common/services/logger.service';
 import { ContributorsModule } from './contributors.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { ContributorsModule } from './contributors.module';
     CloudinaryModule,
     LoggerModule,
     ContributorsModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [

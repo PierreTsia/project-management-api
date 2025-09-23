@@ -16,6 +16,7 @@ import { ContextService } from './context/context.service';
 import { ProjectsContextAdapter } from './context/adapters/projects-context.adapter';
 import { TasksContextAdapter } from './context/adapters/tasks-context.adapter';
 import { TeamContextAdapter } from './context/adapters/team-context.adapter';
+import { TaskGeneratorTool } from './tools/task-generator.tool';
 
 @Module({
   imports: [ProjectsModule, TasksModule, UsersModule],
@@ -34,6 +35,7 @@ import { TeamContextAdapter } from './context/adapters/team-context.adapter';
     MistralProvider,
     OpenAiProvider,
     AiBootstrapService,
+    TaskGeneratorTool,
   ],
   exports: [ContextService],
 })

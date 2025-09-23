@@ -4,13 +4,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AiMetricsService } from './ai.metrics.service';
 import { LlmProviderService } from './llm-provider.service';
 import { ContextService } from './context/context.service';
+import { AiRedactionService } from './ai.redaction.service';
 import type { ContextRequestDto } from './dto/context-request.dto';
+import { ProjectHealthRequestDto, ProjectHealthResponseDto } from './types';
 import {
-  ProjectHealthRequestDto,
-  ProjectHealthResponseDto,
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
-} from './types';
+} from './dto/generate-tasks.dto';
 
 @Controller('ai')
 @UseGuards(JwtAuthGuard)
@@ -20,6 +20,7 @@ export class AiController {
     private readonly metrics: AiMetricsService,
     private readonly llmProvider: LlmProviderService,
     private readonly contextService: ContextService,
+    private readonly redaction: AiRedactionService,
   ) {}
 
   @Post('hello')

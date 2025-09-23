@@ -50,10 +50,10 @@
 - [x] Define DTO shapes (TypeScript types/interfaces) for Phase 1 endpoints now to avoid churn (`ProjectHealthRequestDto`, etc.) [spec:OPS-MVP]
 - [x] Define `ContextService` interfaces only: `getProject`, `getTasks`, `getTeam`, `getRecentHistory` (read-only shapes) [spec:OPS-MVP]
 - [x] Wire `JwtAuthGuard` on all `/ai/*` routes; reject when unauthenticated [spec:OPS-MVP]
-- [ ] Reserve observability: counters `ai.request`, `ai.error`, histograms `ai.latency`, trace spans `ai.controller`, `llm.call` (no APM binding yet) [spec:OPS-MVP]
-- [ ] Add minimal e2e test: `/ai/hello` behind flag (off→503, on→200) with auth required [spec:OPS-MVP]
-- [ ] Document env matrix and failure modes in `docs/` (timeouts, rate limit toggle, feature flag ops) [spec:OPS-MVP]
-- [ ] Install and minimally wire MCP-Nest dependencies (`@rekog/mcp-nest`, `@modelcontextprotocol/sdk`, `zod`) with placeholder module registration gated by `AI_TOOLS_ENABLED` (no tools yet) [spec:MCP-NEST]
+- [x] Reserve observability: counters `ai.request`, `ai.error`, histograms `ai.latency`, trace spans `ai.controller`, `llm.call` (no APM binding yet) [spec:OPS-MVP]
+- [x] Add minimal e2e test: `/ai/hello` behind flag (off→503, on→200) with auth required [spec:OPS-MVP]
+- [x] Document env matrix and failure modes in `docs/` (timeouts, rate limit toggle, feature flag ops) [spec:OPS-MVP]
+- [x] Install and minimally wire MCP-Nest dependencies (`@rekog/mcp-nest`, `@modelcontextprotocol/sdk`, `zod`) with placeholder module registration gated by `AI_TOOLS_ENABLED` (no tools yet) [spec:MCP-NEST]
 
 ### Handoffs and Prep for Phase 1
 - [ ] Draft request/response JSON examples for `POST /ai/project-health` and `POST /ai/generate-tasks` (contract snapshots) [spec:OPS-MVP]
@@ -89,11 +89,11 @@
 - Metrics: `ai.request`, `ai.error`, `ai.latency.p95` (stubbed), log request IDs.
 
 ## Definition of Done
-- [ ] `AiModule` registered; `/ai/hello` endpoint live behind auth + flag.
-- [ ] Provider config validated at startup; safe error mapping in place.
-- [ ] DTO contracts added and exported; `ContextService` interfaces defined.
-- [ ] Basic tests passing (unit + e2e for flag/auth/hello).
-- [ ] Ops notes documented (envs, failure modes, enable/disable procedure).
+- [x] `AiModule` registered; `/ai/hello` endpoint live behind auth + flag.
+- [x] Provider config validated at startup; safe error mapping in place.
+- [x] DTO contracts added and exported; `ContextService` interfaces defined.
+- [x] Basic tests passing (unit + e2e for flag/auth/hello).
+- [x] Ops notes documented (envs, failure modes, enable/disable procedure).
 
 ## Changelog
 - 2025-09-23: Initial Phase 0 plan drafted from specs [HL-ARCH][OPS-MVP][IMPL-GUIDE]. 🚀

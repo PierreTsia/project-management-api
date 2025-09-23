@@ -29,5 +29,9 @@ export const validationSchema = Joi.object({
   LLM_MODEL: Joi.string().default('mistral-small-latest'),
   LLM_MAX_TOKENS: Joi.number().default(2000),
   LLM_TIMEOUT_MS: Joi.number().default(3000),
-  LLM_API_KEY: Joi.string().allow('').default(''),
+  LLM_API_KEY: Joi.when('AI_TOOLS_ENABLED', {
+    is: 'true',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.string().allow('').default(''),
+  }),
 }).unknown(true);

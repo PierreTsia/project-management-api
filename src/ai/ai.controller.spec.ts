@@ -2,6 +2,9 @@ import { Test } from '@nestjs/testing';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { AiMetricsService } from './ai.metrics.service';
+import { ConfigService } from '@nestjs/config';
+import { AiRedactionService } from './ai.redaction.service';
+import { LlmProviderService } from './llm-provider.service';
 
 describe('AiController', () => {
   let controller: AiController;
@@ -26,6 +29,24 @@ describe('AiController', () => {
       providers: [
         { provide: AiService, useValue: mockService },
         AiMetricsService,
+        AiRedactionService,
+        {
+          provide: LlmProviderService,
+          useValue: {
+            getInfo: () => ({
+              provider: 'mistral',
+              model: 'mistral-small-latest',
+            }),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(
+              (key: string, defaultValue?: any) => defaultValue ?? undefined,
+            ),
+          },
+        },
       ],
     }).compile();
 
@@ -48,5 +69,36 @@ describe('AiController', () => {
       requirement: 'X',
     } as any);
     expect(Array.isArray(res.tasks)).toBe(true);
+  });
+
+  it('hello records error path when service throws', async () => {
+    const failing = {
+      ...mockService,
+      getHello: jest.fn(async () => {
+        const err: any = new Error('x');
+        err.code = 'AI_DISABLED';
+        throw err;
+      }),
+    } as any;
+    const moduleRef = await Test.createTestingModule({
+      controllers: [AiController],
+      providers: [
+        { provide: AiService, useValue: failing },
+        AiMetricsService,
+        AiRedactionService,
+        {
+          provide: LlmProviderService,
+          useValue: {
+            getInfo: () => ({
+              provider: 'mistral',
+              model: 'mistral-small-latest',
+            }),
+          },
+        },
+        { provide: ConfigService, useValue: { get: () => undefined } },
+      ],
+    }).compile();
+    const ctrl = moduleRef.get(AiController);
+    await expect(ctrl.postHello({ name: 'A' })).rejects.toBeTruthy();
   });
 });

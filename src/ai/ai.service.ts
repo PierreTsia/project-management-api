@@ -19,8 +19,19 @@ export class AiService {
       throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
     }
     const { provider, model } = this.llmProvider.getInfo();
-    const safeName = name?.toString().slice(0, 64);
-    const message = safeName ? `hello ${safeName}` : 'hello';
+    const safeName = (name ?? 'friend').toString().slice(0, 64);
+    const messages = [
+      {
+        role: 'system' as const,
+        content: 'You are a helpful assistant.',
+      },
+      {
+        role: 'user' as const,
+        content: `Greet ${safeName}.`,
+      },
+    ];
+    await this.llmProvider.callLLM(messages);
+    const message = `hello ${safeName}`;
     return { provider, model, message };
   }
 

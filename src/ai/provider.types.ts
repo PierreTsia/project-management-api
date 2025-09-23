@@ -1,3 +1,4 @@
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 export interface AiProviderInfo {
   provider: string;
   model: string;
@@ -5,6 +6,7 @@ export interface AiProviderInfo {
 
 export interface AiProvider {
   getInfo(): AiProviderInfo;
+  complete(messages: ChatCompletionMessageParam[]): Promise<string>;
 }
 
 export class AiProviderTimeoutError extends Error {

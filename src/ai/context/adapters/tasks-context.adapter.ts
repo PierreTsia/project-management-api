@@ -3,8 +3,7 @@ import type { TaskContext } from '../models/task-context.model';
 import { TasksService } from '../../../tasks/tasks.service';
 import { normalizeTaskToContext } from '../normalizers/task-normalizer';
 import { compareTaskContext } from '../normalizers/task-sorter';
-
-const TASKS_CAP = 200;
+import { TASKS_CAP } from '../constants';
 
 @Injectable()
 export class TasksContextAdapter {

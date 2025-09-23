@@ -5,14 +5,14 @@ export function normalizeTaskToContext(task: Task): TaskContext {
   return {
     id: task.id,
     title: task.title,
-    description: task.description ?? undefined,
+    description: task.description,
     status: task.status,
     priority: task.priority,
     dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : undefined,
     projectId: task.projectId,
     projectName: task.project?.name ?? '',
-    assigneeId: task.assigneeId ?? undefined,
-    assigneeDisplayName: task.assignee?.name ?? undefined,
+    assigneeId: task.assigneeId,
+    assigneeDisplayName: task.assignee?.name,
     createdAt: new Date(task.createdAt).toISOString(),
     updatedAt: new Date(task.updatedAt).toISOString(),
   };

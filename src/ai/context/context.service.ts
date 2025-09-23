@@ -8,9 +8,9 @@ import { ProjectsContextAdapter } from './adapters/projects-context.adapter';
 import { TasksContextAdapter } from './adapters/tasks-context.adapter';
 import { TeamContextAdapter } from './adapters/team-context.adapter';
 import { AiTracingService } from '../ai.tracing.service';
+import { TASKS_CAP, DEFAULT_HISTORY_WINDOW } from './constants';
 
-const DEFAULT_HISTORY_WINDOW = 20;
-const TASKS_CAP = 200;
+// moved to constants.ts
 
 @Injectable()
 export class ContextService {

@@ -7,6 +7,8 @@ import { ProviderFactory } from './provider.factory';
 import { MistralProvider } from './providers/mistral.provider';
 import { OpenAiProvider } from './providers/openai.provider';
 import { AiBootstrapService } from './ai.bootstrap.service';
+import { AiRedactionService } from './ai.redaction.service';
+import { AiTracingService } from './ai.tracing.service';
 
 @Module({
   imports: [],
@@ -15,6 +17,8 @@ import { AiBootstrapService } from './ai.bootstrap.service';
     AiService,
     LlmProviderService,
     AiMetricsService,
+    AiRedactionService,
+    AiTracingService,
     ProviderFactory,
     MistralProvider,
     OpenAiProvider,

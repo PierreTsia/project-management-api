@@ -34,19 +34,19 @@
 
 ### 2) Config Validation & Startup Checks
 - [x] Extend `validation.schema.ts` for: `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_MAX_TOKENS`, `LLM_TIMEOUT_MS` (strict defaults, non-empty API key when enabled) [spec:OPS-MVP]
-- [ ] Add `AiBootstrapService` to validate provider/model on boot (dry-run capability off-by-default) [spec:OPS-MVP]
+- [x] Add `AiBootstrapService` to validate provider/model on boot (dry-run capability off-by-default) [spec:OPS-MVP]
 
 ### 3) Error Mapping & Redaction
 - [x] Map provider exceptions to stable internal errors (timeout/auth/bad-request/unavailable) [spec:OPS-MVP]
-- [ ] Redact PII before metrics/logging (never log prompts/responses in prod) [spec:OPS-MVP]
+- [x] Redact PII before metrics/logging (never log prompts/responses in prod) [spec:OPS-MVP]
 
 ### 4) Observability
-- [ ] Metrics: `ai.provider.request`, `ai.provider.error`, `ai.provider.latency` (ms), labels: `provider`, `model`, `errorCode` [spec:OPS-MVP]
-- [ ] Trace spans: `llm.call` with provider/model and timing [spec:OPS-MVP]
+- [x] Metrics: `ai.provider.request`, `ai.provider.error`, `ai.provider.latency` (ms), labels: `provider`, `model`, `errorCode` [spec:OPS-MVP]
+- [x] Trace spans: `llm.call` with provider/model and timing [spec:OPS-MVP]
 
 ### 5) Tests & Docs
-- [ ] Unit tests for factory and adapters (timeout/auth/bad-request mapping) [spec:OPS-MVP]
-- [ ] Unit tests for config validation and bootstrap guard [spec:OPS-MVP]
+- [x] Unit tests for factory and adapters (timeout/auth/bad-request mapping) [spec:OPS-MVP]
+- [x] Unit tests for config validation and bootstrap guard [spec:OPS-MVP]
 - [ ] Update runbook with env examples, failure modes, toggle procedures [spec:OPS-MVP]
 
 ## API/Types Impact
@@ -55,7 +55,7 @@
 
 ## Acceptance Criteria
 - [x] Switching `LLM_PROVIDER` between `mistral` and `openai` requires no code changes
-- [ ] Startup fails fast with clear error if `AI_TOOLS_ENABLED=true` and `LLM_API_KEY` missing
+- [x] Startup fails fast with clear error if `AI_TOOLS_ENABLED=true` and `LLM_API_KEY` missing
 - [ ] Timeout/auth/bad-request errors return stable internal codes; logs do not include raw prompts/responses
 - [ ] Metrics show per-provider latency and error counts
 

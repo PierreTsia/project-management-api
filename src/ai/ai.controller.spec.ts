@@ -2,6 +2,9 @@ import { Test } from '@nestjs/testing';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { AiMetricsService } from './ai.metrics.service';
+import { ConfigService } from '@nestjs/config';
+import { AiRedactionService } from './ai.redaction.service';
+import { LlmProviderService } from './llm-provider.service';
 
 describe('AiController', () => {
   let controller: AiController;
@@ -26,6 +29,24 @@ describe('AiController', () => {
       providers: [
         { provide: AiService, useValue: mockService },
         AiMetricsService,
+        AiRedactionService,
+        {
+          provide: LlmProviderService,
+          useValue: {
+            getInfo: () => ({
+              provider: 'mistral',
+              model: 'mistral-small-latest',
+            }),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(
+              (key: string, defaultValue?: any) => defaultValue ?? undefined,
+            ),
+          },
+        },
       ],
     }).compile();
 

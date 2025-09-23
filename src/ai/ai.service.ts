@@ -23,16 +23,15 @@ export class AiService {
     const messages = [
       {
         role: 'system' as const,
-        content:
-          'You are a helpful assistant. Respond concisely with greetings in exactly three random languages, one of them being English',
+        content: 'You are a helpful assistant.',
       },
       {
         role: 'user' as const,
-        content: `Say hello to user ${safeName} in 3 languages. Format: EN: ...`,
+        content: `Greet ${safeName}.`,
       },
     ];
-    const llmText = await this.llmProvider.callLLM(messages);
-    const message = llmText?.trim() || `Hello, ${safeName}!`;
+    await this.llmProvider.callLLM(messages);
+    const message = `hello ${safeName}`;
     return { provider, model, message };
   }
 

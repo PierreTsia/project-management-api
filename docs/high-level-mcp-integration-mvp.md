@@ -369,7 +369,7 @@ const workHealth = await mcpClient.callTool({
 
 ### **Enhanced MCP Tools**
 ```typescript
-// Phase 2: Enhanced with vector search
+// Phase 2: Enhanced with vector searcha 
 @Tool({ name: 'project_health_check' })
 async checkHealth({ projectId, projectType }) {
   const project = await this.projectsService.findOne(projectId);

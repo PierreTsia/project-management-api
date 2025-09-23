@@ -1,8 +1,10 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, Req } from '@nestjs/common';
 import { AiService } from '../ai/ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AiMetricsService } from './ai.metrics.service';
 import { LlmProviderService } from './llm-provider.service';
+import { ContextService } from './context/context.service';
+import type { ContextRequestDto } from './dto/context-request.dto';
 import {
   ProjectHealthRequestDto,
   ProjectHealthResponseDto,
@@ -17,6 +19,7 @@ export class AiController {
     private readonly aiService: AiService,
     private readonly metrics: AiMetricsService,
     private readonly llmProvider: LlmProviderService,
+    private readonly contextService: ContextService,
   ) {}
 
   @Post('hello')
@@ -81,6 +84,37 @@ export class AiController {
       return result;
     } catch (e: any) {
       this.metrics.recordError('/ai/generate-tasks', e?.code || 'UNKNOWN', {
+        provider,
+        model,
+      });
+      throw e;
+    }
+  }
+
+  @Post('context')
+  async getContext(
+    @Body() body: ContextRequestDto,
+    @Req() req: any,
+  ): Promise<
+    | import('./context/models/aggregated-context.model').ProjectAggregatedContext
+    | undefined
+  > {
+    const start = Date.now();
+    const { provider, model } = this.llmProvider.getInfo();
+    this.metrics.recordRequest('/ai/context', { provider, model });
+    try {
+      const userId = req?.user?.sub || req?.user?.userId || req?.user?.id || '';
+      const result = await this.contextService.getAggregatedContext(
+        body.projectId,
+        userId,
+      );
+      this.metrics.recordLatency('/ai/context', Date.now() - start, {
+        provider,
+        model,
+      });
+      return result;
+    } catch (e: any) {
+      this.metrics.recordError('/ai/context', e?.code || 'UNKNOWN', {
         provider,
         model,
       });

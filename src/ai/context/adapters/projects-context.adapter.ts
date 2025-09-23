@@ -6,10 +6,13 @@ import { ProjectsService } from '../../../projects/projects.service';
 export class ProjectsContextAdapter {
   constructor(private readonly projectsService: ProjectsService) {}
 
-  async getProject(projectId: string): Promise<ProjectContext | undefined> {
+  async getProject(
+    projectId: string,
+    userId: string,
+  ): Promise<ProjectContext | undefined> {
     if (!projectId) return undefined;
     try {
-      const project = await this.projectsService.findOne(projectId, '');
+      const project = await this.projectsService.findOne(projectId, userId);
       return { id: project.id, name: project.name };
     } catch {
       return undefined;

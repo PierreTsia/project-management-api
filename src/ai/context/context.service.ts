@@ -7,6 +7,7 @@ import type { ProjectAggregatedContext } from './models/aggregated-context.model
 import { ProjectsContextAdapter } from './adapters/projects-context.adapter';
 import { TasksContextAdapter } from './adapters/tasks-context.adapter';
 import { TeamContextAdapter } from './adapters/team-context.adapter';
+import { AiTracingService } from '../ai.tracing.service';
 
 const DEFAULT_HISTORY_WINDOW = 20;
 const TASKS_CAP = 200;
@@ -17,12 +18,16 @@ export class ContextService {
     private readonly projectsAdapter: ProjectsContextAdapter,
     private readonly tasksAdapter: TasksContextAdapter,
     private readonly teamAdapter: TeamContextAdapter,
+    private readonly tracing: AiTracingService,
   ) {}
-  async getProject(projectId: string): Promise<ProjectContext | undefined> {
+  async getProject(
+    projectId: string,
+    userId?: string,
+  ): Promise<ProjectContext | undefined> {
     if (!projectId) {
       return undefined;
     }
-    return this.projectsAdapter.getProject(projectId);
+    return this.projectsAdapter.getProject(projectId, userId || '');
   }
 
   async getTasks(projectId: string): Promise<ReadonlyArray<TaskContext>> {
@@ -47,32 +52,38 @@ export class ContextService {
     if (!projectId) {
       return [];
     }
-    // TODO: best-effort history retrieval; return [] on failure
-    return [];
+    try {
+      return [];
+    } catch {
+      return [];
+    }
   }
 
   async getAggregatedContext(
     projectId: string,
+    userId?: string,
   ): Promise<ProjectAggregatedContext | undefined> {
-    const project = await this.getProject(projectId);
-    if (!project) {
-      return undefined;
-    }
-    const tasks = await this.getTasks(projectId);
-    const team = await this.getTeam(projectId);
-    const history = await this.getRecentHistory(projectId);
-    const meta = {
-      degraded: history.length === 0,
-      tasksTruncated: tasks.length > TASKS_CAP,
-      tasksReturned: Math.min(tasks.length, TASKS_CAP),
-      historyWindow: DEFAULT_HISTORY_WINDOW,
-    };
-    return {
-      project,
-      tasks: tasks.slice(0, TASKS_CAP),
-      team,
-      history,
-      meta,
-    };
+    return this.tracing.withSpan('context.load', async () => {
+      const project = await this.getProject(projectId, userId);
+      if (!project) {
+        return undefined;
+      }
+      const tasks = await this.getTasks(projectId);
+      const team = await this.getTeam(projectId);
+      const history = await this.getRecentHistory(projectId);
+      const meta = {
+        degraded: history.length === 0,
+        tasksTruncated: tasks.length > TASKS_CAP,
+        tasksReturned: Math.min(tasks.length, TASKS_CAP),
+        historyWindow: DEFAULT_HISTORY_WINDOW,
+      };
+      return {
+        project,
+        tasks: tasks.slice(0, TASKS_CAP),
+        team,
+        history,
+        meta,
+      };
+    });
   }
 }

@@ -27,17 +27,17 @@
 ## Incremental Plan
 
 ### 1) Provider Interface & Adapters
-- [ ] Finalize `AiProvider` contract (getInfo, complete, stream?) and error classes in `src/ai/provider.types.ts` [spec:OPS-MVP]
-- [ ] Implement `MistralProvider` adapter (OpenAI client + baseURL) [spec:OPS-MVP]
-- [ ] Implement `OpenAiProvider` adapter (standard OpenAI client) [spec:OPS-MVP]
-- [ ] Add simple factory `ProviderFactory` that returns adapter by `LLM_PROVIDER` [spec:OPS-MVP]
+- [x] Finalize `AiProvider` contract (getInfo, complete, stream?) and error classes in `src/ai/provider.types.ts` [spec:OPS-MVP]
+- [x] Implement `MistralProvider` adapter (OpenAI client + baseURL) [spec:OPS-MVP]
+- [x] Implement `OpenAiProvider` adapter (standard OpenAI client) [spec:OPS-MVP]
+- [x] Add simple factory `ProviderFactory` that returns adapter by `LLM_PROVIDER` [spec:OPS-MVP]
 
 ### 2) Config Validation & Startup Checks
-- [ ] Extend `validation.schema.ts` for: `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_MAX_TOKENS`, `LLM_TIMEOUT_MS` (strict defaults, non-empty API key when enabled) [spec:OPS-MVP]
+- [x] Extend `validation.schema.ts` for: `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_MAX_TOKENS`, `LLM_TIMEOUT_MS` (strict defaults, non-empty API key when enabled) [spec:OPS-MVP]
 - [ ] Add `AiBootstrapService` to validate provider/model on boot (dry-run capability off-by-default) [spec:OPS-MVP]
 
 ### 3) Error Mapping & Redaction
-- [ ] Map provider exceptions to stable internal errors (timeout/auth/bad-request/unavailable) [spec:OPS-MVP]
+- [x] Map provider exceptions to stable internal errors (timeout/auth/bad-request/unavailable) [spec:OPS-MVP]
 - [ ] Redact PII before metrics/logging (never log prompts/responses in prod) [spec:OPS-MVP]
 
 ### 4) Observability
@@ -50,11 +50,11 @@
 - [ ] Update runbook with env examples, failure modes, toggle procedures [spec:OPS-MVP]
 
 ## API/Types Impact
-- [ ] No public DTO shape changes for Phase 1 endpoints
-- [ ] Internal: `AiProvider` types extended; `AiService` consumes provider via factory
+- [x] No public DTO shape changes for Phase 1 endpoints
+- [x] Internal: `AiProvider` types extended; `AiService` consumes provider via factory
 
 ## Acceptance Criteria
-- [ ] Switching `LLM_PROVIDER` between `mistral` and `openai` requires no code changes
+- [x] Switching `LLM_PROVIDER` between `mistral` and `openai` requires no code changes
 - [ ] Startup fails fast with clear error if `AI_TOOLS_ENABLED=true` and `LLM_API_KEY` missing
 - [ ] Timeout/auth/bad-request errors return stable internal codes; logs do not include raw prompts/responses
 - [ ] Metrics show per-provider latency and error counts

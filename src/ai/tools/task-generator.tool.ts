@@ -147,7 +147,11 @@ Schema:
     for (const pattern of patterns) {
       const match = response.match(pattern);
       if (match) {
-        return match[1]?.trim() || match[0]?.trim();
+        const candidate = match[1]?.trim() || match[0]?.trim();
+        if (candidate && candidate.length > 0) {
+          return candidate;
+        }
+        // else continue to next pattern
       }
     }
 

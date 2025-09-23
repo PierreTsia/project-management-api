@@ -66,40 +66,40 @@ export interface GenerateTasksResponseDto {
 ## Implementation Plan
 
 ### 1) Contracts & Validation
-- [ ] Add DTOs under `src/ai/dto/generate-tasks.dto.ts` (request/response)
-- [ ] Add zod or custom runtime validation for LLM output structure (array of 3–12 tasks)
-- [ ] Enforce `priority` union; coerce unknown values to undefined
+- [x] Add DTOs under `src/ai/dto/generate-tasks.dto.ts` (request/response)
+- [x] Add zod or custom runtime validation for LLM output structure (array of 3–12 tasks)
+- [x] Enforce `priority` union; coerce unknown values to undefined
 
 ### 2) Tool Implementation
-- [ ] Create `src/ai/tools/task-generator.tool.ts`
-  - [ ] Build prompt template with few-shot examples and explicit JSON schema
-  - [ ] Call provider via PR-002 factory with timeout
-  - [ ] Parse and validate JSON; apply range enforcement and sanitization
-  - [ ] Set `degraded` when project context fetch fails or is empty while requested
+- [x] Create `src/ai/tools/task-generator.tool.ts`
+  - [x] Build prompt template with few-shot examples and explicit JSON schema
+  - [x] Call provider via PR-002 factory with timeout
+  - [x] Parse and validate JSON; apply range enforcement and sanitization
+  - [x] Set `degraded` when project context fetch fails or is empty while requested
 
 ### 3) Context Integration (Read-Only)
-- [ ] If `projectId` provided, call `ContextService.getProject` and `getTasks` (capped) for grounding
-- [ ] Include only minimal fields in prompt (project name, top priorities inferred by simple heuristic)
-- [ ] Never pass PII or long descriptions to the provider
+- [x] If `projectId` provided, call `ContextService.getProject` and `getTasks` (capped) for grounding
+- [x] Include only minimal fields in prompt (project name, top priorities inferred by simple heuristic)
+- [x] Never pass PII or long descriptions to the provider
 
 ### 4) HTTP Wiring
-- [ ] Add controller route in `src/ai/ai.controller.ts` with request/response types
-- [ ] Extend `AiService` with `generateTasks` delegating to tool
-- [ ] Map provider errors to internal error codes (timeout/auth/bad-request/unavailable)
+- [x] Add controller route in `src/ai/ai.controller.ts` with request/response types
+- [x] Extend `AiService` with `generateTasks` delegating to tool
+- [x] Map provider errors to internal error codes (timeout/auth/bad-request/unavailable)
 
 ### 5) Observability & Limits
-- [ ] Trace span `ai.taskgen.call` with tags `provider`, `model`, `projectId`, `degraded`
-- [ ] Metrics: `ai.taskgen.request`, `ai.taskgen.error`, `ai.taskgen.latency`
-- [ ] Config: `LLM_TASKGEN_TIMEOUT_MS` defaulting to provider timeout if unset
+- [x] Trace span `ai.taskgen.call` with tags `provider`, `model`, `projectId`, `degraded`
+- [x] Metrics: `ai.taskgen.request`, `ai.taskgen.error`, `ai.taskgen.latency`
+- [x] Config: `LLM_TASKGEN_TIMEOUT_MS` defaulting to provider timeout if unset
 
 ### 6) Tests
-- [ ] Unit tests for tool: happy path (3–12 tasks), range too small/large (repair/fail), malformed JSON
-- [ ] Unit tests for controller: validation errors, provider timeouts, error mapping
-- [ ] Unit tests for context degraded path when `projectId` not found
+- [x] Unit tests for tool: happy path (3–12 tasks), range too small/large (repair/fail), malformed JSON
+- [x] Unit tests for controller: validation errors, provider timeouts, error mapping
+- [x] Unit tests for context degraded path when `projectId` not found
 
 ### 7) Docs & Runbook
-- [ ] Update `docs/dev-plans` with usage examples (curl) and DTO shapes
-- [ ] Document configuration flags and failure modes
+- [x] Update `docs/dev-plans` with usage examples (curl) and DTO shapes
+- [x] Document configuration flags and failure modes
 
 ## Prompt Shape (Draft)
 ```md
@@ -125,19 +125,19 @@ Rules:
 ```
 
 ## Acceptance Criteria
-- [ ] `POST /ai/generate-tasks` returns 200 with 3–12 tasks for valid prompt
-- [ ] No IDs are present in responses; fields limited to allowed keys
-- [ ] Range enforcement guaranteed; malformed or out-of-range responses are repaired or rejected
-- [ ] Degraded flag set when context is missing/unavailable while requested
-- [ ] Timeouts and provider errors mapped to stable internal codes; logs redact prompts/responses in prod
-- [ ] Unit tests cover the above paths
+- [x] `POST /ai/generate-tasks` returns 200 with 3–12 tasks for valid prompt
+- [x] No IDs are present in responses; fields limited to allowed keys
+- [x] Range enforcement guaranteed; malformed or out-of-range responses are repaired or rejected
+- [x] Degraded flag set when context is missing/unavailable while requested
+- [x] Timeouts and provider errors mapped to stable internal codes; logs redact prompts/responses in prod
+- [x] Unit tests cover the above paths
 
 ## Definition of Done
-- [ ] DTOs defined and validated
-- [ ] `TaskGeneratorTool` implemented and integrated
-- [ ] Endpoint added with tests passing
-- [ ] Observability added (traces, metrics)
-- [ ] Documentation updated with examples and env config
+- [x] DTOs defined and validated
+- [x] `TaskGeneratorTool` implemented and integrated
+- [x] Endpoint added with tests passing
+- [x] Observability added (traces, metrics)
+- [x] Documentation updated with examples and env config
 
 ## Risks & Mitigations
 - Output drift: enforce JSON schema and length bounds; use few-shot examples

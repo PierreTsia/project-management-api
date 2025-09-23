@@ -84,6 +84,8 @@ Schema:
         },
       ];
 
+      // Timeout handled by provider abstraction (PR-002)
+      // Config: LLM_TASKGEN_TIMEOUT_MS (defaults to provider timeout)
       const response = await this.llmProvider.callLLM(messages);
 
       try {

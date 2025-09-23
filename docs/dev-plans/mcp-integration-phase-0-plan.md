@@ -4,6 +4,7 @@
 - High-Level Architecture: `docs/high-level-mcp-integration-mvp.md` [spec:HL-ARCH]
 - Operational MVP Spec: `docs/operational-mcp-integration-spec.md` [spec:OPS-MVP]
 - MCP Server Implementation Guide: `docs/mcp-server-implementation-guide.md` [spec:IMPL-GUIDE]
+- MCP-Nest (NestJS MCP module): `https://github.com/rekog-labs/MCP-Nest` [spec:MCP-NEST]
 
 ## Summary & Scope
 - Objective: Establish safe, observable, reversible foundations to enable the AI MVP without shipping full user-facing features.
@@ -31,6 +32,7 @@
 - Provider: Mistral by default; keep adapter interface to allow swapping later.
 - Observability: keep it simple for Phase 0 (lightweight counters/timers/spans, no vendor APM binding yet).
 - Secrets: repo `.env` for local/dev; mirror required vars into Fly.io secrets for production.
+- MCP runtime: adopt MCP-Nest for tool exposure (`@rekog/mcp-nest`) starting Phase 1; minimal wiring can land in Phase 0 behind the feature flag. [spec:MCP-NEST]
 
 ## Open Questions (Blocking)
 - [x] Provider choice for Phase 0 default (`OPENAI` vs `MISTRAL`)? Owner: Tech Lead → Mistral
@@ -46,16 +48,18 @@
 - [ ] Implement `POST /ai/hello` returning `{ provider, model, message: "hello" | "hello {name}" }` using optional request body `{ name }` and provider adapter (non-streaming); redact `name` from logs and traces [spec:OPS-MVP]
 - [ ] Create provider interface and null-safe adapter(s) (Mistral default, OpenAI optional) with timeout/error mapping (return stable error codes) [spec:OPS-MVP]
 - [ ] Define DTO shapes (TypeScript types/interfaces) for Phase 1 endpoints now to avoid churn (`ProjectHealthRequestDto`, etc.) [spec:OPS-MVP]
-- [ ] Define `ContextService` interfaces only: `getProject`, `getTasks`, `getTeam`, `getRecentHistory` (return mocked constants in Phase 0) [spec:OPS-MVP]
+- [ ] Define `ContextService` interfaces only: `getProject`, `getTasks`, `getTeam`, `getRecentHistory` (read-only shapes) [spec:OPS-MVP]
 - [ ] Wire `JwtAuthGuard` on all `/ai/*` routes; reject when unauthenticated [spec:OPS-MVP]
 - [ ] Reserve observability: counters `ai.request`, `ai.error`, histograms `ai.latency`, trace spans `ai.controller`, `llm.call` (no APM binding yet) [spec:OPS-MVP]
 - [ ] Add minimal e2e test: `/ai/hello` behind flag (off→503, on→200) with auth required [spec:OPS-MVP]
 - [ ] Document env matrix and failure modes in `docs/` (timeouts, rate limit toggle, feature flag ops) [spec:OPS-MVP]
+- [ ] Install and minimally wire MCP-Nest dependencies (`@rekog/mcp-nest`, `@modelcontextprotocol/sdk`, `zod`) with placeholder module registration gated by `AI_TOOLS_ENABLED` (no tools yet) [spec:MCP-NEST]
 
 ### Handoffs and Prep for Phase 1
 - [ ] Draft request/response JSON examples for `POST /ai/project-health` and `POST /ai/generate-tasks` (contract snapshots) [spec:OPS-MVP]
 - [ ] Add placeholders for rate limiting decorator/guard strategy (disabled by default) [spec:OPS-MVP]
 - [ ] Add provider selection smoke tests (env-driven) ensuring safe fallback when unset [spec:OPS-MVP]
+- [ ] Draft `ProjectHealthTool` and `TaskGeneratorTool` signatures using MCP-Nest `@Tool()` decorators with Zod params [spec:MCP-NEST]
 
 ## API/Schema & Types Impact
 - [ ] Create `src/ai/types.ts` exporting:
@@ -95,3 +99,4 @@
 - 2025-09-23: Initial Phase 0 plan drafted from specs [HL-ARCH][OPS-MVP][IMPL-GUIDE]. 🚀
 - 2025-09-23: Allow optional `name` echo in `/ai/hello`; added redaction & no-persistence criteria.
 - 2025-09-23: Decisions recorded — Mistral default, simple observability, Fly secrets mirrored from repo env.
+- 2025-09-23: Added MCP-Nest adoption and Phase 0 wiring tasks. [spec:MCP-NEST]

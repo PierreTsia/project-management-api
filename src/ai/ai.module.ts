@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ProjectsModule } from '../projects/projects.module';
+import { TasksModule } from '../tasks/tasks.module';
+import { UsersModule } from '../users/users.module';
 import { AiController } from './ai.controller';
 import { AiService } from '../ai/ai.service';
 import { LlmProviderService } from '../ai/llm-provider.service';
@@ -10,9 +13,12 @@ import { AiBootstrapService } from './ai.bootstrap.service';
 import { AiRedactionService } from './ai.redaction.service';
 import { AiTracingService } from './ai.tracing.service';
 import { ContextService } from './context/context.service';
+import { ProjectsContextAdapter } from './context/adapters/projects-context.adapter';
+import { TasksContextAdapter } from './context/adapters/tasks-context.adapter';
+import { TeamContextAdapter } from './context/adapters/team-context.adapter';
 
 @Module({
-  imports: [],
+  imports: [ProjectsModule, TasksModule, UsersModule],
   controllers: [AiController],
   providers: [
     AiService,
@@ -21,10 +27,14 @@ import { ContextService } from './context/context.service';
     AiRedactionService,
     AiTracingService,
     ContextService,
+    ProjectsContextAdapter,
+    TasksContextAdapter,
+    TeamContextAdapter,
     ProviderFactory,
     MistralProvider,
     OpenAiProvider,
     AiBootstrapService,
   ],
+  exports: [ContextService],
 })
 export class AiModule {}

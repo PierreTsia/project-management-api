@@ -117,20 +117,20 @@ Constraints:
 ## Incremental Plan
 
 ### 1) Define Contracts (Internal Types)
-- [ ] Draft TypeScript interfaces for `ProjectContext`, `TaskContext`, `TeamMemberContext`, `HistoryEventContext`, and `AggregatedContextMeta` (with `degraded` flag) [spec:OPS-MVP]
-- [ ] Add narrow string unions for known enums (status, priority, role) aligned with existing domain
+- [x] Draft TypeScript interfaces for `ProjectContext`, `TaskContext`, `TeamMemberContext`, `HistoryEventContext`, and `AggregatedContextMeta` (with `degraded` flag) [spec:OPS-MVP]
+- [x] Add narrow string unions for known enums (status, priority, role) aligned with existing domain
 
 ### 2) Service Skeleton
-- [ ] Create `ContextService` with public methods:
+- [x] Create `ContextService` with public methods:
   - `getProject(projectId: string)` → core project fields
   - `getTasks(projectId: string)` → array of tasks with status, effort, dependencies (capped at 200)
   - `getTeam(projectId: string)` → minimal user profile fields available
   - `getRecentHistory(projectId: string)` → last N events (default 20, best-effort) [spec:OPS-MVP]
-- [ ] Provide method-level timeouts and early returns for empty states
+- [x] Provide method-level timeouts and early returns for empty states
 
 ### 3) Repository Adapters (Read-Only)
-- [ ] Introduce thin adapters or facades over existing repositories/services (projects, tasks, users/teams, activity/history)
-- [ ] Normalize to the internal types; avoid leaking rich domain entities into the context layer
+- [x] Introduce thin adapters or facades over existing repositories/services (projects, tasks, users/teams, activity/history)
+- [x] Normalize to the internal types; avoid leaking rich domain entities into the context layer
 
 ### 4) Validation & Guards
 - [ ] Input validation for `projectId` shape; short-circuit if not found
@@ -146,12 +146,12 @@ Constraints:
 - [ ] Tests for limit enforcement and `degraded` annotation when a sub-load fails
 
 ### 7) Wiring & Docs
-- [ ] Register `ContextService` in `AiModule` providers and export as needed
+- [x] Register `ContextService` in `AiModule` providers and export as needed
 - [ ] Developer notes documenting shapes, limits, and typical usage by tools
 
 ## API/Types Impact
-- [ ] No public REST DTO changes; internal contracts only
-- [ ] Tools (`ProjectHealthTool`, `TaskGeneratorTool`) consume `ContextService` outputs without domain coupling
+- [x] No public REST DTO changes; internal contracts only
+- [x] Tools (`ProjectHealthTool`, `TaskGeneratorTool`) consume `ContextService` outputs without domain coupling
 
 ## Acceptance Criteria
 - [ ] All four methods return stable, validated shapes; empty states handled deterministically
@@ -163,8 +163,8 @@ Constraints:
 - [ ] Basic tracing/metrics present for `context.load`
 
 ## Definition of Done
-- [ ] Internal types defined and exported from `src/ai/context/models`
-- [ ] `ContextService` implemented under `src/ai/context/context.service.ts` with adapters
+- [x] Internal types defined and exported from `src/ai/context/models`
+- [x] `ContextService` implemented under `src/ai/context/context.service.ts` with adapters
 - [ ] Tests added under `src/ai/context/*.spec.ts` and passing
 - [ ] Documentation updated in `docs/dev-plans` referencing shapes and limits (tasks cap 200; history best-effort, default 20)
 

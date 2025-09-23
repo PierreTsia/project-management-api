@@ -42,14 +42,14 @@
 ## Incremental Plan
 
 ### Phase 0 — Groundwork and Hello Flow
-- [ ] Add `AiModule` with `AiController` and `LlmProviderService` scaffolding (no business logic) (depends on: config) [spec:OPS-MVP]
-- [ ] Introduce `AI_TOOLS_ENABLED` feature flag (env + config service + early-return 503 in controller when disabled) [spec:OPS-MVP]
+- [x] Add `AiModule` with `AiController` and `LlmProviderService` scaffolding (no business logic) (depends on: config) [spec:OPS-MVP]
+- [x] Introduce `AI_TOOLS_ENABLED` feature flag (env + config service + early-return 503 in controller when disabled) [spec:OPS-MVP]
 - [ ] Add provider config: `LLM_PROVIDER` (default `mistral`), `LLM_API_KEY`, `LLM_MODEL`, `LLM_MAX_TOKENS`, `LLM_TIMEOUT_MS` with strict validation [spec:OPS-MVP][spec:IMPL-GUIDE]
-- [ ] Implement `POST /ai/hello` returning `{ provider, model, message: "hello" | "hello {name}" }` using optional request body `{ name }` and provider adapter (non-streaming); redact `name` from logs and traces [spec:OPS-MVP]
+- [x] Implement `POST /ai/hello` returning `{ provider, model, message: "hello" | "hello {name}" }` using optional request body `{ name }` and provider adapter (non-streaming); redact `name` from logs and traces [spec:OPS-MVP]
 - [ ] Create provider interface and null-safe adapter(s) (Mistral default, OpenAI optional) with timeout/error mapping (return stable error codes) [spec:OPS-MVP]
 - [ ] Define DTO shapes (TypeScript types/interfaces) for Phase 1 endpoints now to avoid churn (`ProjectHealthRequestDto`, etc.) [spec:OPS-MVP]
 - [ ] Define `ContextService` interfaces only: `getProject`, `getTasks`, `getTeam`, `getRecentHistory` (read-only shapes) [spec:OPS-MVP]
-- [ ] Wire `JwtAuthGuard` on all `/ai/*` routes; reject when unauthenticated [spec:OPS-MVP]
+- [x] Wire `JwtAuthGuard` on all `/ai/*` routes; reject when unauthenticated [spec:OPS-MVP]
 - [ ] Reserve observability: counters `ai.request`, `ai.error`, histograms `ai.latency`, trace spans `ai.controller`, `llm.call` (no APM binding yet) [spec:OPS-MVP]
 - [ ] Add minimal e2e test: `/ai/hello` behind flag (off→503, on→200) with auth required [spec:OPS-MVP]
 - [ ] Document env matrix and failure modes in `docs/` (timeouts, rate limit toggle, feature flag ops) [spec:OPS-MVP]

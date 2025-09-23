@@ -24,4 +24,10 @@ export const validationSchema = Joi.object({
   GOOGLE_CLIENT_ID: Joi.string().required(),
   GOOGLE_CLIENT_SECRET: Joi.string().required(),
   GOOGLE_CALLBACK_URL: Joi.string().required(),
+  AI_TOOLS_ENABLED: Joi.string().valid('true', 'false').default('false'),
+  LLM_PROVIDER: Joi.string().valid('mistral', 'openai').default('mistral'),
+  LLM_MODEL: Joi.string().default('mistral-small-latest'),
+  LLM_MAX_TOKENS: Joi.number().default(2000),
+  LLM_TIMEOUT_MS: Joi.number().default(3000),
+  LLM_API_KEY: Joi.string().allow('').default(''),
 }).unknown(true);

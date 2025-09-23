@@ -25,6 +25,8 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { LoggerModule } from './common/services/logger.module';
 import { CustomLogger } from './common/services/logger.service';
 import { ContributorsModule } from './contributors.module';
+import { AiModule } from './ai/ai.module';
+import { McpRuntimeModule } from './ai/mcp-runtime.module';
 
 @Module({
   imports: [
@@ -60,6 +62,10 @@ import { ContributorsModule } from './contributors.module';
     CloudinaryModule,
     LoggerModule,
     ContributorsModule,
+    McpRuntimeModule.register({
+      enabled: process.env.AI_TOOLS_ENABLED === 'true',
+    }),
+    AiModule,
   ],
   controllers: [AppController],
   providers: [

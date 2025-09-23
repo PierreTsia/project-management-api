@@ -9,6 +9,7 @@ import { OpenAiProvider } from './providers/openai.provider';
 import { AiBootstrapService } from './ai.bootstrap.service';
 import { AiRedactionService } from './ai.redaction.service';
 import { AiTracingService } from './ai.tracing.service';
+import { ContextService } from './context/context.service';
 
 @Module({
   imports: [],
@@ -19,6 +20,7 @@ import { AiTracingService } from './ai.tracing.service';
     AiMetricsService,
     AiRedactionService,
     AiTracingService,
+    ContextService,
     ProviderFactory,
     MistralProvider,
     OpenAiProvider,

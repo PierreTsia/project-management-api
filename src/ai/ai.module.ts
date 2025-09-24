@@ -18,8 +18,6 @@ import { ProjectsContextAdapter } from './context/adapters/projects-context.adap
 import { TasksContextAdapter } from './context/adapters/tasks-context.adapter';
 import { TeamContextAdapter } from './context/adapters/team-context.adapter';
 import { TaskGeneratorTool } from './tools/task-generator.tool';
-import { NormalizeTitleTool } from './tools/normalize-title.tool';
-import { EstimateEffortTool } from './tools/estimate-effort.tool';
 import { ValidateDatesTool } from './tools/validate-dates.tool';
 
 @Module({
@@ -41,8 +39,6 @@ import { ValidateDatesTool } from './tools/validate-dates.tool';
     LangchainProvider,
     AiBootstrapService,
     TaskGeneratorTool,
-    NormalizeTitleTool,
-    EstimateEffortTool,
     ValidateDatesTool,
   ],
   exports: [ContextService],

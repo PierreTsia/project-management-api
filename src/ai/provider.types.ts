@@ -10,6 +10,12 @@ export interface AiProvider {
     messages: ChatCompletionMessageParam[],
     tools?: any[],
   ): Promise<string>;
+  completeWithStructuredOutput<T>(
+    messages: ChatCompletionMessageParam[],
+    tools: any[] | undefined,
+    schema: any,
+  ): Promise<T>;
+  getLastUsageMetadata?(): any;
 }
 
 export class AiProviderTimeoutError extends Error {

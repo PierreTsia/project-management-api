@@ -5,31 +5,45 @@ import { ContextService } from '../context/context.service';
 import { AiRedactionService } from '../ai.redaction.service';
 import { AiTracingService } from '../ai.tracing.service';
 import { CustomLogger } from '../../common/services/logger.service';
+import { ValidateDatesTool } from './validate-dates.tool';
+import { GenerateTasksRequestDto } from '../dto/generate-tasks.dto';
 
 const tracingMock: AiTracingService = {
-  withSpan: (_: string, fn: any) => fn(),
-} as any;
+  withSpan: (_: string, fn: () => unknown) => fn(),
+} as AiTracingService;
 
-const loggerMock: CustomLogger = {
+const loggerMock = {
   setContext: () => undefined,
   log: () => undefined,
   error: () => undefined,
   warn: () => undefined,
   debug: () => undefined,
-} as any;
+  verbose: () => undefined,
+  options: {},
+  localInstance: null,
+  fatal: () => undefined,
+  registerLocalInstanceRef: () => undefined,
+} as unknown as CustomLogger;
 
 describe('TaskGeneratorTool', () => {
   let tool: TaskGeneratorTool;
-  let llm: { callLLM: jest.Mock; getInfo: jest.Mock };
+  let llm: {
+    callLLM: jest.MockedFunction<LlmProviderService['callLLM']>;
+    callLLMWithStructuredOutput: jest.MockedFunction<
+      LlmProviderService['callLLMWithStructuredOutput']
+    >;
+    getInfo: jest.MockedFunction<LlmProviderService['getInfo']>;
+  };
 
   beforeEach(async () => {
     llm = {
       callLLM: jest.fn(),
+      callLLMWithStructuredOutput: jest.fn(),
       getInfo: jest.fn(() => ({
         provider: 'mistral',
         model: 'mistral-small-latest',
       })),
-    } as any;
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -48,6 +62,12 @@ describe('TaskGeneratorTool', () => {
         },
         { provide: AiTracingService, useValue: tracingMock },
         { provide: CustomLogger, useValue: loggerMock },
+        {
+          provide: ValidateDatesTool,
+          useValue: {
+            validateDates: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -55,17 +75,16 @@ describe('TaskGeneratorTool', () => {
   });
 
   it('returns validated tasks on success', async () => {
-    const payload = JSON.stringify({
+    llm.callLLMWithStructuredOutput.mockResolvedValue({
       tasks: [
         { title: 'Do A', description: 'Desc', priority: 'HIGH' },
         { title: 'Do B', description: 'Desc', priority: 'MEDIUM' },
         { title: 'Do C', description: 'Desc', priority: 'LOW' },
       ],
     });
-    llm.callLLM.mockResolvedValue(payload);
 
     const res = await tool.generateTasks(
-      { prompt: 'Build X' } as any,
+      { prompt: 'Build X' } as GenerateTasksRequestDto,
       'user-1',
     );
     expect(res.tasks.length).toBeGreaterThanOrEqual(3);
@@ -75,9 +94,11 @@ describe('TaskGeneratorTool', () => {
   });
 
   it('falls back to degraded mode when parsing fails', async () => {
-    llm.callLLM.mockResolvedValue('not-json');
+    llm.callLLMWithStructuredOutput.mockRejectedValue(
+      new Error('Parsing failed'),
+    );
     const res = await tool.generateTasks(
-      { prompt: 'Build Y' } as any,
+      { prompt: 'Build Y' } as GenerateTasksRequestDto,
       'user-1',
     );
     expect(res.tasks.length).toBeGreaterThanOrEqual(3);

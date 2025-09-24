@@ -9,11 +9,12 @@ import {
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
 } from '../dto/generate-tasks.dto';
-import { GenerateTasksResponseSchema } from '../dto/generate-tasks.validation';
+import {
+  GenerateTasksResponseSchema,
+  GenerateTasksResponseValidation,
+} from '../dto/generate-tasks.validation';
 import { buildMessages } from '../langchain/message.mapper';
 import { initChatModel } from '../langchain/init-chat-model';
-import { NormalizeTitleTool } from './normalize-title.tool';
-import { EstimateEffortTool } from './estimate-effort.tool';
 import { ValidateDatesTool } from './validate-dates.tool';
 
 @Injectable()
@@ -24,8 +25,6 @@ export class TaskGeneratorTool {
     private readonly redaction: AiRedactionService,
     private readonly tracing: AiTracingService,
     private readonly logger: CustomLogger,
-    private readonly normalizeTitleTool: NormalizeTitleTool,
-    private readonly estimateEffortTool: EstimateEffortTool,
     private readonly validateDatesTool: ValidateDatesTool,
   ) {}
 
@@ -50,65 +49,60 @@ export class TaskGeneratorTool {
         },
       );
 
-      const systemContent = `You are a precise task generator. Output ONLY valid JSON matching the provided schema. No IDs.
-                            Rules:
-                            - No additional fields.
-                            - Titles ≤ 80 chars. Descriptions ≤ 240 chars.
-                            - No IDs. No markdown. JSON only.
-                            - Generate 3-12 actionable tasks.
-                            - If a desired task count is provided, generate exactly that many within 3–12.
-                            - If no desired task count is provided, generate exactly ${desiredTaskCount} tasks.
-                            - Language policy: ${localeDirective}`;
+      const systemContent = `You are a precise task generator. Generate actionable tasks based on the user's intent.
 
-      const userContent = `Generate 3–12 actionable tasks from this intent:
+Rules:
+- Titles ≤ 80 chars. Descriptions ≤ 240 chars.
+- Generate 3-12 actionable tasks.
+- If a desired task count is provided, generate exactly that many within 3–12.
+- If no desired task count is provided, generate exactly ${desiredTaskCount} tasks.
+- Language policy: ${localeDirective}`;
 
-                      ${contextInfo ? `${contextInfo.trim()}` : ''}Intent: ${params.prompt}
-                      ${hasOptions ? `Constraints: ${constraints}` : ''}
-                      DesiredTaskCount: ${desiredTaskCount}
-                      Language: ${requestedLocale}
+      const userContent = `Generate actionable tasks from this intent:
 
-                      Schema:
-                      {
-                        "tasks": [
-                          {
-                            "title": string,
-                            "description"?: string,
-                            "priority"?: "LOW" | "MEDIUM" | "HIGH"
-                          }
-                        ]
-                      }`;
+${contextInfo ? `${contextInfo.trim()}` : ''}Intent: ${params.prompt}
+${hasOptions ? `Constraints: ${constraints}` : ''}
+DesiredTaskCount: ${desiredTaskCount}
+Language: ${requestedLocale}`;
 
       const lcMessages = buildMessages({
         system: systemContent,
         user: userContent,
       });
 
-      // For now, skip tools until we implement proper LangChain tool definitions
-      // const tools = [...];
-
-      const chatModel = initChatModel(this.llmProvider);
-      const response = await chatModel.generate(lcMessages);
+      const chatModel = await initChatModel(this.llmProvider);
 
       try {
-        // For now, fall back to JSON parsing until we implement proper structured output
-        const cleanResponse = this.extractJSONFromResponse(response);
-        const parsed = JSON.parse(cleanResponse);
-        const validated = GenerateTasksResponseSchema.parse(parsed);
+        // Use LangChain's proper structured output binding
+        const structuredModel = chatModel.withStructuredOutput(
+          GenerateTasksResponseSchema,
+        );
+        const result = await structuredModel.invoke(lcMessages);
+
+        const typedResult = result as GenerateTasksResponseValidation;
+
+        // Get usage metadata from the provider
+        const usageMetadata = this.llmProvider.getLastUsageMetadata?.();
 
         return {
-          tasks: validated.tasks,
+          tasks: typedResult.tasks,
           meta: {
             model,
             provider,
             degraded,
             locale: requestedLocale,
             options: params.options,
+            tokensEstimated:
+              usageMetadata?.total_tokens || usageMetadata?.totalTokens || null,
+            usageMetadata: usageMetadata || null,
           },
         };
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.stack : String(error);
         this.logger.error(
-          'TaskGen JSON parsing/validation failed',
-          (error as any)?.stack,
+          'TaskGen structured output parsing failed',
+          errorMessage,
         );
         // Fallback to minimal tasks if parsing fails
         return {

@@ -25,4 +25,20 @@ export class LlmProviderService {
       return this.factory.get().complete(messages, tools);
     });
   }
+
+  async callLLMWithStructuredOutput<T>(
+    messages: ChatCompletionMessageParam[],
+    tools: any[] | undefined,
+    schema: any,
+  ): Promise<T> {
+    return this.tracing.withSpan('llm.call.structured', async () => {
+      return this.factory
+        .get()
+        .completeWithStructuredOutput(messages, tools, schema);
+    });
+  }
+
+  getLastUsageMetadata(): any {
+    return this.factory.get().getLastUsageMetadata?.();
+  }
 }

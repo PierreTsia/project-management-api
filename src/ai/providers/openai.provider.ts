@@ -29,7 +29,18 @@ export class OpenAiProvider implements AiProvider {
     };
   }
 
-  async complete(messages: ChatCompletionMessageParam[]): Promise<string> {
+  async complete(
+    messages: ChatCompletionMessageParam[],
+    tools?: any[],
+  ): Promise<string> {
+    return this.completeWithStructuredOutput(messages, tools, null);
+  }
+
+  async completeWithStructuredOutput<T>(
+    messages: ChatCompletionMessageParam[],
+    tools: any[] | undefined,
+    schema: any,
+  ): Promise<T> {
     try {
       const res = await this.client.chat.completions.create({
         model: this.config.get<string>('LLM_MODEL', 'gpt-4o-mini'),
@@ -37,7 +48,17 @@ export class OpenAiProvider implements AiProvider {
         max_tokens: this.config.get<number>('LLM_MAX_TOKENS', 2000),
         temperature: 0.3,
       });
-      return res.choices[0]?.message?.content || '';
+      const content = res.choices[0]?.message?.content || '';
+
+      // If schema is provided, parse with structured output
+      if (schema) {
+        // For now, fallback to JSON parsing since OpenAI doesn't support structured output directly
+        const parsed = JSON.parse(content);
+        const validated = schema.parse(parsed);
+        return validated as T;
+      }
+
+      return content as T;
     } catch (error: any) {
       if (error?.code === 'timeout' || error?.message?.includes('timeout')) {
         throw new AiProviderTimeoutError('LLM request timed out');

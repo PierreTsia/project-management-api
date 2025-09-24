@@ -14,6 +14,18 @@ export class CreateTaskBulkDto {
     type: [CreateTaskDto],
     minItems: 1,
     maxItems: 25,
+    example: [
+      {
+        title: 'Set up repository',
+        description: 'Initialize repo, add CI, branch protections',
+        priority: 'MEDIUM',
+      },
+      {
+        title: 'Create initial project board',
+        description: 'Columns: Todo, In Progress, Done',
+        priority: 'LOW',
+      },
+    ],
   })
   @IsArray()
   @ArrayMinSize(1)

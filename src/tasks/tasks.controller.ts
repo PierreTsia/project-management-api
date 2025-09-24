@@ -86,7 +86,12 @@ export class TasksController {
   @RequireProjectRole(ProjectRole.WRITE)
   @ApiOperation({ summary: 'Create many tasks in a project atomically' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
-  @ApiResponse({ status: 201, description: 'Tasks created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Tasks created successfully',
+    type: TaskResponseDto,
+    isArray: true,
+  })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   async createBulk(
     @Param('projectId') projectId: string,

@@ -24,6 +24,7 @@ const mockTransactionalEntityManager = {
   findOne: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+  save: jest.fn(),
 };
 
 const mockRepository = {
@@ -327,6 +328,86 @@ describe('TasksService', () => {
         projectId,
         undefined,
       );
+    });
+  });
+
+  describe('createMany', () => {
+    const projectId = 'project-1';
+
+    beforeEach(() => {
+      const mockTransaction = jest.fn().mockImplementation(async (callback) => {
+        return callback(mockTransactionalEntityManager);
+      });
+      (mockRepository.manager.transaction as jest.Mock).mockImplementation(
+        mockTransaction,
+      );
+      (mockRepository.create as jest.Mock).mockImplementation(
+        (entity) => entity,
+      );
+    });
+
+    it('creates all tasks atomically and validates unique assignees', async () => {
+      const items = [
+        { title: 'A', assigneeId: 'user-1' },
+        { title: 'B' },
+      ] as CreateTaskDto[] as any;
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockTransactionalEntityManager.save as jest.Mock).mockResolvedValue(
+        items.map((i, idx) => ({
+          ...mockTask,
+          id: `t-${idx}`,
+          ...i,
+          projectId,
+        })),
+      );
+
+      const result = await service.createMany({ items } as any, projectId);
+
+      expect(mockProjectsService.getContributors).toHaveBeenCalledWith(
+        projectId,
+        undefined,
+      );
+      expect(mockTransactionalEntityManager.save).toHaveBeenCalledTimes(1);
+      expect(result).toHaveLength(2);
+      expect(result[0].title).toBe('A');
+      expect(result[1].title).toBe('B');
+    });
+
+    it('throws when an assignee is not a contributor', async () => {
+      const items = [
+        { title: 'A', assigneeId: 'not-in-project' },
+      ] as CreateTaskDto[] as any;
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockI18nService.t as jest.Mock).mockReturnValue(
+        'User is not a contributor',
+      );
+
+      await expect(
+        service.createMany({ items } as any, projectId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws when assignee has insufficient role', async () => {
+      const items = [
+        { title: 'A', assigneeId: 'user-2' }, // READ role in mockContributors
+      ] as CreateTaskDto[] as any;
+
+      (mockProjectsService.getContributors as jest.Mock).mockResolvedValue(
+        mockContributors,
+      );
+      (mockI18nService.t as jest.Mock).mockReturnValue(
+        'User has insufficient role',
+      );
+
+      await expect(
+        service.createMany({ items } as any, projectId),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

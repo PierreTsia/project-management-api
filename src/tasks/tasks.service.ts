@@ -164,8 +164,10 @@ export class TasksService {
       ),
     );
     if (uniqueAssigneeIds.length > 0) {
-      const contributors =
-        await this.projectsService.getContributors(projectId);
+      const contributors = await this.projectsService.getContributors(
+        projectId,
+        undefined,
+      );
       const contributorById = new Map<string, ProjectContributor>(
         contributors.map((c) => [c.userId, c]),
       );

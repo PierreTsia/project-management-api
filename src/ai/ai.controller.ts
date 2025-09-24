@@ -219,7 +219,7 @@ export class AiController {
     const { provider, model } = this.llmProvider.getInfo();
     this.metrics.recordRequest('/ai/generate-tasks', { provider, model });
     try {
-      if (body.projectId && !user?.id) {
+      if (body.projectId && !user.id) {
         throw new BadRequestException({
           status: 400,
           code: 'AI.USER_ID_REQUIRED',

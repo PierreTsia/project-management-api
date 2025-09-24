@@ -9,13 +9,38 @@ import {
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
 } from '../dto/generate-tasks.dto';
-import {
-  GenerateTasksResponseSchema,
-  GenerateTasksResponseValidation,
-} from '../dto/generate-tasks.validation';
-import { buildMessages } from '../langchain/message.mapper';
-import { initChatModel } from '../langchain/init-chat-model';
+import { GenerateTasksResponseSchema } from '../dto/generate-tasks.validation';
+import { SystemMessage, HumanMessage } from 'langchain';
+import { initChatModel } from 'langchain';
 import { ValidateDatesTool } from './validate-dates.tool';
+
+const PROMPTS = {
+  SYSTEM: (
+    desiredTaskCount: number,
+    localeDirective: string,
+  ) => `You are a precise task generator. Generate actionable tasks based on the user's intent.
+
+Rules:
+- Titles ≤ 80 chars. Descriptions ≤ 240 chars.
+- Generate 3-12 actionable tasks.
+- If a desired task count is provided, generate exactly that many within 3–12.
+- If no desired task count is provided, generate exactly ${desiredTaskCount} tasks.
+- Language policy: ${localeDirective}`,
+
+  USER: (
+    contextInfo: string,
+    prompt: string,
+    hasOptions: boolean,
+    constraints: string,
+    desiredTaskCount: number,
+    requestedLocale: string,
+  ) => `Generate actionable tasks from this intent:
+
+${contextInfo ? `${contextInfo.trim()}` : ''}Intent: ${prompt}
+${hasOptions ? `Constraints: ${constraints}` : ''}
+DesiredTaskCount: ${desiredTaskCount}
+Language: ${requestedLocale}`,
+} as const;
 
 @Injectable()
 export class TaskGeneratorTool {
@@ -34,7 +59,8 @@ export class TaskGeneratorTool {
     userId?: string,
   ): Promise<GenerateTasksResponseDto> {
     return this.tracing.withSpan('ai.taskgen.call', async () => {
-      const { provider, model } = this.llmProvider.getInfo();
+      const { provider: llmProvider, model: llmModel } =
+        this.llmProvider.getInfo();
       let degraded = false;
       const requestedLocale = this.getRequestedLocale(params);
       const localeDirective = this.buildLocaleDirective(requestedLocale);
@@ -49,46 +75,45 @@ export class TaskGeneratorTool {
         },
       );
 
-      const systemContent = `You are a precise task generator. Generate actionable tasks based on the user's intent.
+      const systemMessage = new SystemMessage(
+        PROMPTS.SYSTEM(desiredTaskCount, localeDirective),
+      );
 
-Rules:
-- Titles ≤ 80 chars. Descriptions ≤ 240 chars.
-- Generate 3-12 actionable tasks.
-- If a desired task count is provided, generate exactly that many within 3–12.
-- If no desired task count is provided, generate exactly ${desiredTaskCount} tasks.
-- Language policy: ${localeDirective}`;
+      const userMessage = new HumanMessage(
+        PROMPTS.USER(
+          contextInfo,
+          params.prompt,
+          hasOptions,
+          constraints,
+          desiredTaskCount,
+          requestedLocale,
+        ),
+      );
 
-      const userContent = `Generate actionable tasks from this intent:
+      const lcMessages = [systemMessage, userMessage];
 
-${contextInfo ? `${contextInfo.trim()}` : ''}Intent: ${params.prompt}
-${hasOptions ? `Constraints: ${constraints}` : ''}
-DesiredTaskCount: ${desiredTaskCount}
-Language: ${requestedLocale}`;
+      const modelId =
+        llmProvider === 'openai'
+          ? `openai:${llmModel}`
+          : `mistralai:${llmModel}`;
 
-      const lcMessages = buildMessages({
-        system: systemContent,
-        user: userContent,
-      });
-
-      const chatModel = await initChatModel(this.llmProvider);
+      const chatModel = await initChatModel(modelId);
 
       try {
         // Use LangChain's proper structured output binding
         const structuredModel = chatModel.withStructuredOutput(
           GenerateTasksResponseSchema,
         );
-        const result = await structuredModel.invoke(lcMessages);
-
-        const typedResult = result as GenerateTasksResponseValidation;
+        const result = await structuredModel.invoke([...lcMessages]);
 
         // Get usage metadata from the provider
         const usageMetadata = this.llmProvider.getLastUsageMetadata?.();
 
         return {
-          tasks: typedResult.tasks,
+          tasks: result.tasks,
           meta: {
-            model,
-            provider,
+            model: llmModel,
+            provider: llmProvider,
             degraded,
             locale: requestedLocale,
             options: params.options,
@@ -108,8 +133,8 @@ Language: ${requestedLocale}`;
         return {
           tasks: this.getFallbackTasks(),
           meta: {
-            model,
-            provider,
+            model: llmModel,
+            provider: llmProvider,
             degraded: true,
             locale: requestedLocale,
             options: params.options,

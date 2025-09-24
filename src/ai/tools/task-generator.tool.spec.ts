@@ -7,6 +7,18 @@ import { AiTracingService } from '../ai.tracing.service';
 import { CustomLogger } from '../../common/services/logger.service';
 import { ValidateDatesTool } from './validate-dates.tool';
 import { GenerateTasksRequestDto } from '../dto/generate-tasks.dto';
+import { initChatModel } from 'langchain';
+
+// Mock LangChain classes and functions
+jest.mock('langchain', () => ({
+  initChatModel: jest.fn(),
+  SystemMessage: jest
+    .fn()
+    .mockImplementation((content) => ({ content, _getType: () => 'system' })),
+  HumanMessage: jest
+    .fn()
+    .mockImplementation((content) => ({ content, _getType: () => 'human' })),
+}));
 
 const tracingMock: AiTracingService = {
   withSpan: (_: string, fn: () => unknown) => fn(),
@@ -75,13 +87,19 @@ describe('TaskGeneratorTool', () => {
   });
 
   it('returns validated tasks on success', async () => {
-    llm.callLLMWithStructuredOutput.mockResolvedValue({
-      tasks: [
-        { title: 'Do A', description: 'Desc', priority: 'HIGH' },
-        { title: 'Do B', description: 'Desc', priority: 'MEDIUM' },
-        { title: 'Do C', description: 'Desc', priority: 'LOW' },
-      ],
-    });
+    const mockModel = {
+      withStructuredOutput: jest.fn().mockReturnValue({
+        invoke: jest.fn().mockResolvedValue({
+          tasks: [
+            { title: 'Do A', description: 'Desc', priority: 'HIGH' },
+            { title: 'Do B', description: 'Desc', priority: 'MEDIUM' },
+            { title: 'Do C', description: 'Desc', priority: 'LOW' },
+          ],
+        }),
+      }),
+    };
+
+    (initChatModel as jest.Mock).mockResolvedValue(mockModel);
 
     const res = await tool.generateTasks(
       { prompt: 'Build X' } as GenerateTasksRequestDto,
@@ -94,9 +112,14 @@ describe('TaskGeneratorTool', () => {
   });
 
   it('falls back to degraded mode when parsing fails', async () => {
-    llm.callLLMWithStructuredOutput.mockRejectedValue(
-      new Error('Parsing failed'),
-    );
+    const mockModel = {
+      withStructuredOutput: jest.fn().mockReturnValue({
+        invoke: jest.fn().mockRejectedValue(new Error('Parsing failed')),
+      }),
+    };
+
+    (initChatModel as jest.Mock).mockResolvedValue(mockModel);
+
     const res = await tool.generateTasks(
       { prompt: 'Build Y' } as GenerateTasksRequestDto,
       'user-1',

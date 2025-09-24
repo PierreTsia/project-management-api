@@ -39,6 +39,7 @@ describe('TasksController', () => {
           provide: TasksService,
           useValue: {
             create: jest.fn(),
+            createMany: jest.fn(),
             findAll: jest.fn(),
             findOne: jest.fn(),
             update: jest.fn(),
@@ -113,6 +114,25 @@ describe('TasksController', () => {
         createTaskDto,
         projectId,
       );
+    });
+  });
+
+  describe('createBulk', () => {
+    it('should create many tasks successfully', async () => {
+      const projectId = 'project-1';
+      const bulkDto = { items: [{ title: 'A' }, { title: 'B' }] } as any;
+      (tasksService.createMany as jest.Mock).mockResolvedValue([
+        mockTask,
+        mockTask,
+      ]);
+      (tasksService.getLinksMap as jest.Mock).mockResolvedValue(new Map());
+
+      const result = await controller.createBulk(projectId, bulkDto);
+
+      expect(tasksService.createMany).toHaveBeenCalledWith(bulkDto, projectId);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(TaskResponseDto);
     });
   });
 

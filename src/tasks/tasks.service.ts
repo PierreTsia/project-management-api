@@ -9,6 +9,7 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { I18nService } from 'nestjs-i18n';
 import { Task } from './entities/task.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { CreateTaskBulkDto } from './dto/create-task-bulk.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { SearchTasksDto } from './dto/search-tasks.dto';
@@ -140,6 +141,37 @@ export class TasksService {
 
     this.logger.log(`Task created successfully with id: ${savedTask.id}`);
     return savedTask;
+  }
+
+  async createMany(
+    bulkDto: CreateTaskBulkDto,
+    projectId: string,
+  ): Promise<Task[]> {
+    this.logger.debug(
+      `Creating ${bulkDto.items.length} tasks in bulk for project ${projectId}`,
+    );
+
+    const items = bulkDto.items ?? [];
+    if (items.length === 0) {
+      throw new BadRequestException('At least one task is required');
+    }
+
+    for (const item of items) {
+      if (item.assigneeId) {
+        await this.validateAssignee(item.assigneeId, projectId);
+      }
+    }
+
+    const entities = items.map((item) =>
+      this.taskRepository.create({ ...item, projectId }),
+    );
+
+    const saved = await this.taskRepository.manager.transaction(async (em) => {
+      return await em.save(entities);
+    });
+
+    this.logger.log(`Bulk created ${saved.length} tasks successfully`);
+    return saved;
   }
 
   async findAll(projectId: string): Promise<Task[]> {

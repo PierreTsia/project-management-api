@@ -29,6 +29,11 @@ export class TaskGeneratorTool {
       const { provider, model } = this.llmProvider.getInfo();
       let degraded = false;
       let contextInfo = '';
+      const requestedLocale = (params.locale || 'en').toLowerCase();
+      const localeDirective =
+        requestedLocale === 'fr'
+          ? 'Répondez strictement en français.'
+          : 'Respond strictly in English.';
 
       // Get optional project context
       if (params.projectId) {
@@ -70,13 +75,16 @@ Rules:
 - No additional fields.
 - Titles ≤ 80 chars. Descriptions ≤ 240 chars.
 - No IDs. No markdown. JSON only.
-- Generate 3-12 actionable tasks.`,
+- Generate 3-12 actionable tasks.
+- Language policy: ${localeDirective}`,
         },
         {
           role: 'user' as const,
           content: `Generate 3–12 actionable tasks from this intent:
 
 ${contextInfo}Intent: ${params.prompt}
+
+Language: ${requestedLocale}
 
 Schema:
 {
@@ -107,6 +115,7 @@ Schema:
             model,
             provider,
             degraded,
+            locale: requestedLocale,
           },
         };
       } catch (error) {
@@ -134,6 +143,7 @@ Schema:
             model,
             provider,
             degraded: true,
+            locale: requestedLocale,
           },
         };
       }

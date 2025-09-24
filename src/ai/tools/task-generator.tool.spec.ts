@@ -24,6 +24,7 @@ describe('TaskGeneratorTool', () => {
     };
     const mockRedaction = {
       redactProject: jest.fn(),
+      sanitizeText: jest.fn((s: string) => s),
     };
     const mockTracing = {
       withSpan: jest.fn(),
@@ -147,9 +148,12 @@ describe('TaskGeneratorTool', () => {
 
       llmProvider.callLLM.mockResolvedValue(mockResponse);
 
-      const result = await tool.generateTasks(requestWithProject);
+      const result = await tool.generateTasks(requestWithProject, 'u1');
 
-      expect(contextService.getProject).toHaveBeenCalledWith('project-123');
+      expect(contextService.getProject).toHaveBeenCalledWith(
+        'project-123',
+        'u1',
+      );
       expect(contextService.getTasks).toHaveBeenCalledWith('project-123');
       expect(redaction.redactProject).toHaveBeenCalledWith(mockProject);
       expect(result.meta.degraded).toBe(false);
@@ -175,7 +179,7 @@ describe('TaskGeneratorTool', () => {
 
       llmProvider.callLLM.mockResolvedValue(mockResponse);
 
-      const result = await tool.generateTasks(requestWithProject);
+      const result = await tool.generateTasks(requestWithProject, 'u1');
 
       expect(result.meta.degraded).toBe(true);
     });

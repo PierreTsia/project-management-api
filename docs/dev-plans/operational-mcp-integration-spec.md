@@ -6,17 +6,17 @@ This is the lean, execution-ready spec for the MCP MVP. It trims narrative/diagr
 
 The following PRs are intentionally small, independently reviewable, and sequenced for fast feedback. Keep each PR tight and shippable.
 
-1) PR-001: ai-bootstrap-hello-llm
+1) [x] PR-001: ai-bootstrap-hello-llm
 - Goal: Prove the plumbing works end-to-end with a minimal LLM call.
 - Scope: Add `AiModule` and `POST /ai/hello` that returns a deterministic hello-world from the configured provider; include basic env config and feature flag.
 - Value: Gives a working, testable endpoint to validate infra, auth, and deploy before building real features.
 
-2) PR-002: provider-abstraction-and-config-hardening
+2) [x] PR-002: provider-abstraction-and-config-hardening
 - Goal: Make provider choice safe, swappable, and observable.
 - Scope: Introduce a single provider interface with pluggable adapters (OpenAI/Mistral), unify timeouts/error mapping, and redact PII before metrics/logging.
 - Value: Prevents vendor lock-in and noisy failures; keeps logs safe; gives clear latency/error visibility.
 
-3) PR-003: context-service-skeleton
+3) [x] PR-003: context-service-skeleton
 - Scope: `ContextService` with `getProject`, `getTasks`, `getTeam`, `getRecentHistory` (read-only, happy path).
 - Deliverables: contracts + unit tests with repository stubs.
 - Acceptance: returns stable shapes; handles empty states sanely.
@@ -28,7 +28,7 @@ The following PRs are intentionally small, independently reviewable, and sequenc
 - Acceptance: adheres to `ProjectHealthResponseDto`; p95 < 3s in staging sample.
 - Value: First real user value—risk insights and a health score.
 
-5) PR-005: task-generator-minimal
+5) [x] PR-005: task-generator-minimal
 - Scope: `POST /ai/generate-tasks` + `TaskGeneratorTool`; basic list of tasks without dependencies.
 - Deliverables: DTOs + validation + tests.
 - Acceptance: 3–12 tasks, no hallucinated IDs.
@@ -243,5 +243,46 @@ generateTasks(params: GenerateTasksRequestDto): Promise<GenerateTasksResponseDto
 - Add `VectorService` backed by Supabase vectors for semantic retrieval.
 - Extend tools to optionally query semantic context (similar tasks, issues, docs).
 - Keep MVP contracts stable; add fields behind optional flags only.
+
+## Phase 3: Task Generator Maximal Version (Prospective)
+
+### Enhanced Task Generation Capabilities
+
+Building on the minimal PR-005 implementation, the maximal version would include:
+
+#### 1) Advanced Task Intelligence
+- **Task Dependencies**: Generate parent-child relationships and task dependencies
+- **Effort Estimation**: AI-powered story points or time estimates
+- **Task Templates**: Reusable task patterns for common project types
+- **Smart Categorization**: Auto-tag tasks by type (frontend, backend, testing, etc.)
+- **Priority Intelligence**: Context-aware priority assignment based on project phase
+
+#### 2) Multi-Modal Input Support
+- **File Upload**: Analyze project files, specs, or requirements documents
+- **Image Analysis**: Extract tasks from wireframes, mockups, or diagrams
+- **Voice Input**: Speech-to-text task generation
+- **Rich Text**: Support for markdown, formatted requirements, or structured input
+
+#### 3) Advanced Context Integration
+- **Historical Analysis**: Learn from past project patterns and success rates
+- **Team Expertise**: Factor in team member skills and availability
+- **Project Templates**: Industry-specific task generation (SaaS, e-commerce, mobile, etc.)
+- **Cross-Project Learning**: Apply insights from similar projects in the organization
+
+#### 4) Enhanced Output Formats
+- **Task Hierarchies**: Generate complete project breakdown structures
+- **Gantt Charts**: Timeline-aware task generation with dependencies
+- **Kanban Boards**: Status-aware task organization
+- **Sprint Planning**: Agile-focused task breakdown with story points
+- **Risk Assessment**: Identify potential blockers and mitigation tasks
+
+
+
+#### 6) Advanced AI Features
+- **Multi-LLM Support**: Different models for different task types
+- **Custom Prompts**: User-defined generation templates
+- **Learning Mode**: Improve suggestions based on user feedback
+- **A/B Testing**: Compare different generation strategies
+- **Confidence Scoring**: AI confidence levels for each generated task
 
 

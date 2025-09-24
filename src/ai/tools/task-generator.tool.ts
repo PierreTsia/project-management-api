@@ -23,6 +23,7 @@ export class TaskGeneratorTool {
   @Tool({ name: 'generate_tasks_from_requirement' })
   async generateTasks(
     params: GenerateTasksRequestDto,
+    userId?: string,
   ): Promise<GenerateTasksResponseDto> {
     return this.tracing.withSpan('ai.taskgen.call', async () => {
       const { provider, model } = this.llmProvider.getInfo();
@@ -34,13 +35,19 @@ export class TaskGeneratorTool {
         try {
           const project = await this.contextService.getProject(
             params.projectId,
+            userId,
           );
           const tasks = await this.contextService.getTasks(params.projectId);
 
           if (project) {
             const redactedProject = this.redaction.redactProject(project);
+            const redactedDesc = this.redaction.sanitizeText(
+              project.description ?? '',
+            );
             contextInfo = `Project: ${redactedProject.name}\n`;
-
+            if (redactedDesc) {
+              contextInfo += `Goal: ${redactedDesc}\n`;
+            }
             if (tasks && tasks.length > 0) {
               const topTasks = tasks
                 .slice(0, 5)

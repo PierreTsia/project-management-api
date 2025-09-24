@@ -13,7 +13,11 @@ export class ProjectsContextAdapter {
     if (!projectId) return undefined;
     try {
       const project = await this.projectsService.findOne(projectId, userId);
-      return { id: project.id, name: project.name };
+      return {
+        id: project.id,
+        name: project.name,
+        description: project.description ?? '',
+      };
     } catch {
       return undefined;
     }

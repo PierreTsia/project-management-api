@@ -1,17 +1,25 @@
+import { Test } from '@nestjs/testing';
 import { AiRedactionService } from './ai.redaction.service';
 
-describe('AiRedactionService', () => {
-  const svc = new AiRedactionService();
+describe('AiRedactionService (Nest)', () => {
+  let svc: AiRedactionService;
 
-  it('redacts in production', () => {
-    expect(svc.sanitizeText('anything', 'production')).toBe('[REDACTED]');
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [AiRedactionService],
+    }).compile();
+    svc = moduleRef.get(AiRedactionService);
   });
 
-  it('masks emails and phones and trims length in non-prod', () => {
-    const input = 'contact me at a@b.com or 123-456-7890 and apikey ABC';
-    const out = svc.sanitizeText(input, 'development');
+  it('masks PII consistently', () => {
+    const out = svc.sanitizeText('a@b.com 123-456-7890 Bearer secret');
     expect(out).toContain('[EMAIL]');
     expect(out).toContain('[PHONE]');
-    expect(out).toMatch(/apikey \[SECRET\]/i);
+    expect(out).toMatch(/Bearer \[SECRET\]/);
+  });
+
+  it('trims overly long input', () => {
+    const out = svc.sanitizeText('x'.repeat(600));
+    expect(out.length).toBeLessThanOrEqual(512);
   });
 });

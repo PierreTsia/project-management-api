@@ -204,30 +204,4 @@ Language: ${requestedLocale}`;
     }
     return info;
   }
-
-  private extractJSONFromResponse(response: string): string {
-    // Handle various LLM response formats
-    const patterns = [
-      // Markdown code blocks
-      /```json\s*([\s\S]*?)\s*```/,
-      // XML-like tags
-      /<json>\s*([\s\S]*?)\s*<\/json>/i,
-      // Direct JSON (fallback)
-      /^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = response.match(pattern);
-      if (match) {
-        const candidate = match[1]?.trim() || match[0]?.trim();
-        if (candidate && candidate.length > 0) {
-          return candidate;
-        }
-        // else continue to next pattern
-      }
-    }
-
-    // If no pattern matches, return the original response
-    return response.trim();
-  }
 }

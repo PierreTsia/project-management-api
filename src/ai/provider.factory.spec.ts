@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ProviderFactory } from './provider.factory';
 import { MistralProvider } from './providers/mistral.provider';
 import { OpenAiProvider } from './providers/openai.provider';
+import { LangchainProvider } from './providers/langchain.provider';
 import { ConfigService } from '@nestjs/config';
 
 describe('ProviderFactory', () => {
@@ -11,6 +12,7 @@ describe('ProviderFactory', () => {
         ProviderFactory,
         MistralProvider,
         OpenAiProvider,
+        LangchainProvider,
         { provide: ConfigService, useValue: { get: () => 'mistral' } },
       ],
     }).compile();
@@ -26,6 +28,7 @@ describe('ProviderFactory', () => {
         ProviderFactory,
         MistralProvider,
         OpenAiProvider,
+        LangchainProvider,
         {
           provide: ConfigService,
           useValue: {

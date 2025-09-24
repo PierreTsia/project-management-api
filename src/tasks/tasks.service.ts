@@ -32,6 +32,7 @@ import { TaskLinkDto } from './dto/task-link.dto';
 import { TaskLinkWithTaskDto } from './dto/task-link-with-task.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 import { TaskRelationshipHydrator } from './services/task-relationship-hydrator.service';
+import { ProjectContributor } from 'src/projects/entities/project-contributor.entity';
 
 @Injectable()
 export class TasksService {
@@ -151,14 +152,40 @@ export class TasksService {
       `Creating ${bulkDto.items.length} tasks in bulk for project ${projectId}`,
     );
 
-    const items = bulkDto.items ?? [];
-    if (items.length === 0) {
-      throw new BadRequestException('At least one task is required');
-    }
+    const items = bulkDto.items;
 
-    for (const item of items) {
-      if (item.assigneeId) {
-        await this.validateAssignee(item.assigneeId, projectId);
+    const uniqueAssigneeIds = Array.from(
+      new Set(
+        items
+          .map((it) => it.assigneeId)
+          .filter(
+            (id): id is string => typeof id === 'string' && id.length > 0,
+          ),
+      ),
+    );
+    if (uniqueAssigneeIds.length > 0) {
+      const contributors =
+        await this.projectsService.getContributors(projectId);
+      const contributorById = new Map<string, ProjectContributor>(
+        contributors.map((c) => [c.userId, c]),
+      );
+      const allowedRoles = new Set(['WRITE', 'ADMIN', 'OWNER']);
+      for (const assigneeId of uniqueAssigneeIds) {
+        const contributor = contributorById.get(assigneeId);
+        if (!contributor) {
+          throw new BadRequestException(
+            this.i18n.t('errors.tasks.assignee_not_contributor', {
+              args: { assigneeId, projectId },
+            }),
+          );
+        }
+        if (!allowedRoles.has(contributor.role)) {
+          throw new BadRequestException(
+            this.i18n.t('errors.tasks.assignee_insufficient_role', {
+              args: { assigneeId, projectId, role: contributor.role },
+            }),
+          );
+        }
       }
     }
 

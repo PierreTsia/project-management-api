@@ -1,13 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import {
-  initChatModel,
-  HumanMessage,
-  SystemMessage,
-  AIMessage,
-  ToolMessage,
-} from 'langchain';
+import { initChatModel } from 'langchain';
 import {
   AiProvider,
   AiProviderInfo,
@@ -15,6 +9,10 @@ import {
   AiProviderBadRequestError,
   AiProviderTimeoutError,
 } from '../provider.types';
+import {
+  normalizeOutputContent,
+  convertToLangChainMessages,
+} from '../utils/message.utils';
 
 @Injectable()
 export class LangchainProvider implements AiProvider {
@@ -35,26 +33,6 @@ export class LangchainProvider implements AiProvider {
     } else {
       if (!process.env.MISTRAL_API_KEY) process.env.MISTRAL_API_KEY = apiKey;
     }
-  }
-
-  private extractUsageMetadata(result: any): any {
-    // Extract usage metadata from LangChain response
-    if (result && typeof result === 'object') {
-      // Check for usage metadata in various possible locations
-      if (result.usage_metadata) {
-        return result.usage_metadata;
-      }
-      if (result.response_metadata && result.response_metadata.usage) {
-        return result.response_metadata.usage;
-      }
-      if (result.usage) {
-        return result.usage;
-      }
-      if (result.response_metadata) {
-        return result.response_metadata;
-      }
-    }
-    return null;
   }
 
   getLastUsageMetadata(): any {
@@ -79,62 +57,9 @@ export class LangchainProvider implements AiProvider {
     const modelId =
       provider === 'openai' ? `openai:${model}` : `mistralai:${model}`;
 
-    const getMessageContent = (message: ChatCompletionMessageParam): string => {
-      const candidate = (message as { content?: unknown }).content;
-      if (typeof candidate === 'string') return candidate;
-      if (Array.isArray(candidate)) {
-        return candidate
-          .map((part: unknown) => {
-            if (typeof part === 'string') return part;
-            if (
-              typeof part === 'object' &&
-              part !== null &&
-              'text' in (part as Record<string, unknown>) &&
-              typeof (part as Record<string, unknown>).text === 'string'
-            ) {
-              return (part as { text: string }).text;
-            }
-            return '';
-          })
-          .filter((s) => s.length > 0)
-          .join('\n');
-      }
-      return '';
-    };
-
-    const normalizeOutputContent = (value: unknown): string => {
-      if (typeof value === 'string') return value;
-      if (Array.isArray(value)) {
-        return value
-          .map((v) => (typeof v === 'string' ? v : ''))
-          .filter((s) => s.length > 0)
-          .join('\n');
-      }
-      if (typeof value === 'object' && value !== null) {
-        if ('content' in (value as Record<string, unknown>)) {
-          const inner = (value as { content?: unknown }).content;
-          return normalizeOutputContent(inner);
-        }
-      }
-      return '';
-    };
-
     try {
       const chatModel = await initChatModel(modelId);
-      const lcMessages = messages.map((m) => {
-        const text = getMessageContent(m);
-        if (m.role === 'system') return new SystemMessage(text);
-        if (m.role === 'assistant') return new AIMessage(text);
-        if (m.role === 'tool') {
-          const toolMessage = m as {
-            role: 'tool';
-            content: string;
-            tool_call_id: string;
-          };
-          return new ToolMessage(text, toolMessage.tool_call_id);
-        }
-        return new HumanMessage(text);
-      });
+      const lcMessages = convertToLangChainMessages(messages);
 
       // If schema is provided, use structured output
       if (schema) {

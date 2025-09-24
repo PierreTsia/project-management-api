@@ -7,8 +7,6 @@ import { AiService } from '../ai/ai.service';
 import { LlmProviderService } from '../ai/llm-provider.service';
 import { AiMetricsService } from './ai.metrics.service';
 import { ProviderFactory } from './provider.factory';
-import { MistralProvider } from './providers/mistral.provider';
-import { OpenAiProvider } from './providers/openai.provider';
 import { LangchainProvider } from './providers/langchain.provider';
 import { AiBootstrapService } from './ai.bootstrap.service';
 import { AiRedactionService } from './ai.redaction.service';
@@ -34,8 +32,6 @@ import { ValidateDatesTool } from './tools/validate-dates.tool';
     TasksContextAdapter,
     TeamContextAdapter,
     ProviderFactory,
-    MistralProvider,
-    OpenAiProvider,
     LangchainProvider,
     AiBootstrapService,
     TaskGeneratorTool,

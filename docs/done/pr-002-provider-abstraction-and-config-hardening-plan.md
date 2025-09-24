@@ -13,7 +13,7 @@
   - Redaction before metrics/logging
   - Minimal metrics for latency/errors and model usage
 - Out of scope:
-  - Advanced caching, retries across providers, cost dashboardsgit checkout
+  - Advanced caching, retries across providers, cost dashboards
 
 ## Assumptions & Constraints
 - Default provider: `mistral`. Optional `openai` adapter.

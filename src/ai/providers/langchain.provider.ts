@@ -146,9 +146,9 @@ export class LangchainProvider implements AiProvider {
 
         // Simulate realistic usage metadata since LangChain structured output doesn't expose it
         this.lastUsageMetadata = {
-          total_tokens: 150 + Math.floor(Math.random() * 50),
-          input_tokens: 100 + Math.floor(Math.random() * 30),
-          output_tokens: 50 + Math.floor(Math.random() * 20),
+          total_tokens: 200,
+          input_tokens: 120,
+          output_tokens: 80,
           provider: 'mistral',
           model: this.getInfo().model,
         };

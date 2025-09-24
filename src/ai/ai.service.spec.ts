@@ -11,21 +11,7 @@ describe('AiService', () => {
   } as unknown as LlmProviderService;
 
   const mockTaskGeneratorTool = {
-    generateTasks: jest.fn(async () => ({
-      tasks: [
-        {
-          title: 'Test task 1',
-          description: 'Test description',
-          priority: 'HIGH',
-        },
-        { title: 'Test task 2', priority: 'MEDIUM' },
-      ],
-      meta: {
-        model: 'mistral-small-latest',
-        provider: 'mistral',
-        degraded: false,
-      },
-    })),
+    generateTasks: jest.fn(),
   } as unknown as TaskGeneratorTool;
 
   beforeAll(async () => {
@@ -54,6 +40,21 @@ describe('AiService', () => {
   });
 
   it('generateTasks returns a list of tasks', async () => {
+    (mockTaskGeneratorTool.generateTasks as jest.Mock).mockResolvedValueOnce({
+      tasks: [
+        {
+          title: 'Test task 1',
+          description: 'Test description',
+          priority: 'HIGH',
+        },
+        { title: 'Test task 2', priority: 'MEDIUM' },
+      ],
+      meta: {
+        model: 'mistral-small-latest',
+        provider: 'mistral',
+        degraded: false,
+      },
+    });
     const result = await service.generateTasks({
       prompt: 'Create a user authentication system',
       projectId: 'p1',
@@ -61,5 +62,39 @@ describe('AiService', () => {
     expect(Array.isArray(result.tasks)).toBe(true);
     expect(result.tasks[0].title).toBe('Test task 1');
     expect(result.meta.provider).toBe('mistral');
+  });
+
+  it('generateTasks forwards locale and options', async () => {
+    (mockTaskGeneratorTool.generateTasks as jest.Mock).mockResolvedValueOnce({
+      tasks: [{ title: 'Foo' }, { title: 'Bar' }, { title: 'Baz' }],
+      meta: {
+        model: 'mistral-small-latest',
+        provider: 'mistral',
+        degraded: false,
+        locale: 'fr',
+        options: {
+          taskCount: 6,
+          minPriority: 'MEDIUM',
+        },
+      },
+    });
+
+    const payload = {
+      prompt: 'Sujet en français',
+      projectId: 'p2',
+      locale: 'fr',
+      options: { taskCount: 6, minPriority: 'MEDIUM' as const },
+    };
+    const result = await service.generateTasks(payload);
+
+    expect(mockTaskGeneratorTool.generateTasks).toHaveBeenCalledWith(
+      payload,
+      undefined,
+    );
+    expect(result.meta.locale).toBe('fr');
+    expect(result.meta.options).toEqual({
+      taskCount: 6,
+      minPriority: 'MEDIUM',
+    });
   });
 });

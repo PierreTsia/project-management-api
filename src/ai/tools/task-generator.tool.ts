@@ -10,6 +10,7 @@ import {
   GenerateTasksResponseDto,
 } from '../dto/generate-tasks.dto';
 import { GenerateTasksResponseSchema } from '../dto/generate-tasks.validation';
+import { normalizeMultiline } from '../utils/text.utils';
 
 @Injectable()
 export class TaskGeneratorTool {
@@ -215,11 +216,16 @@ export class TaskGeneratorTool {
                         ]
                       }`;
 
+    const systemClean = normalizeMultiline(systemContent);
+    const userClean = normalizeMultiline(userContent);
+
     return [
-      { role: 'system', content: systemContent },
-      { role: 'user', content: userContent },
+      { role: 'system', content: systemClean },
+      { role: 'user', content: userClean },
     ];
   }
+
+  // normalization moved to shared util
 
   private extractJSONFromResponse(response: string): string {
     // Handle various LLM response formats

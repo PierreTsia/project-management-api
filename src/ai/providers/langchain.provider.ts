@@ -18,21 +18,26 @@ import {
 export class LangchainProvider implements AiProvider {
   private lastUsageMetadata: any = null;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService) {
+    // Set environment variables immediately on construction
+    this.initializeEnvironment();
+  }
+
+  private initializeEnvironment(): void {
+    const apiKey = this.config.get<string>('LLM_API_KEY', '');
+    const provider = this.config.get<string>('LLM_PROVIDER', 'mistral');
+
+    if (provider === 'openai') {
+      process.env.OPENAI_API_KEY = apiKey;
+    } else {
+      process.env.MISTRAL_API_KEY = apiKey;
+    }
+  }
 
   getInfo(): AiProviderInfo {
     const provider = this.config.get<string>('LLM_PROVIDER', 'mistral');
     const model = this.config.get<string>('LLM_MODEL', 'mistral-small-latest');
     return { provider, model } as const;
-  }
-
-  private ensureSdkEnv(provider: string): void {
-    const apiKey = this.config.get<string>('LLM_API_KEY', '');
-    if (provider === 'openai') {
-      if (!process.env.OPENAI_API_KEY) process.env.OPENAI_API_KEY = apiKey;
-    } else {
-      if (!process.env.MISTRAL_API_KEY) process.env.MISTRAL_API_KEY = apiKey;
-    }
   }
 
   getLastUsageMetadata(): any {
@@ -52,7 +57,6 @@ export class LangchainProvider implements AiProvider {
     schema: any,
   ): Promise<T> {
     const { provider, model } = this.getInfo();
-    this.ensureSdkEnv(provider);
 
     const modelId =
       provider === 'openai' ? `openai:${model}` : `mistralai:${model}`;

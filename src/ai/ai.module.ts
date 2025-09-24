@@ -9,6 +9,7 @@ import { AiMetricsService } from './ai.metrics.service';
 import { ProviderFactory } from './provider.factory';
 import { MistralProvider } from './providers/mistral.provider';
 import { OpenAiProvider } from './providers/openai.provider';
+import { LangchainProvider } from './providers/langchain.provider';
 import { AiBootstrapService } from './ai.bootstrap.service';
 import { AiRedactionService } from './ai.redaction.service';
 import { AiTracingService } from './ai.tracing.service';
@@ -17,6 +18,9 @@ import { ProjectsContextAdapter } from './context/adapters/projects-context.adap
 import { TasksContextAdapter } from './context/adapters/tasks-context.adapter';
 import { TeamContextAdapter } from './context/adapters/team-context.adapter';
 import { TaskGeneratorTool } from './tools/task-generator.tool';
+import { NormalizeTitleTool } from './tools/normalize-title.tool';
+import { EstimateEffortTool } from './tools/estimate-effort.tool';
+import { ValidateDatesTool } from './tools/validate-dates.tool';
 
 @Module({
   imports: [ProjectsModule, TasksModule, UsersModule],
@@ -34,8 +38,12 @@ import { TaskGeneratorTool } from './tools/task-generator.tool';
     ProviderFactory,
     MistralProvider,
     OpenAiProvider,
+    LangchainProvider,
     AiBootstrapService,
     TaskGeneratorTool,
+    NormalizeTitleTool,
+    EstimateEffortTool,
+    ValidateDatesTool,
   ],
   exports: [ContextService],
 })

@@ -10,7 +10,11 @@ import {
   GenerateTasksResponseDto,
 } from '../dto/generate-tasks.dto';
 import { GenerateTasksResponseSchema } from '../dto/generate-tasks.validation';
-import { normalizeMultiline } from '../utils/text.utils';
+import { buildMessages } from '../langchain/message.mapper';
+import { initChatModel } from '../langchain/init-chat-model';
+import { NormalizeTitleTool } from './normalize-title.tool';
+import { EstimateEffortTool } from './estimate-effort.tool';
+import { ValidateDatesTool } from './validate-dates.tool';
 
 @Injectable()
 export class TaskGeneratorTool {
@@ -20,6 +24,9 @@ export class TaskGeneratorTool {
     private readonly redaction: AiRedactionService,
     private readonly tracing: AiTracingService,
     private readonly logger: CustomLogger,
+    private readonly normalizeTitleTool: NormalizeTitleTool,
+    private readonly estimateEffortTool: EstimateEffortTool,
+    private readonly validateDatesTool: ValidateDatesTool,
   ) {}
 
   @Tool({ name: 'generate_tasks_from_requirement' })
@@ -43,22 +50,47 @@ export class TaskGeneratorTool {
         },
       );
 
-      const messages = this.buildMessages({
-        localeDirective,
-        desiredTaskCount,
-        contextInfo,
-        prompt: params.prompt,
-        hasOptions,
-        constraints,
-        requestedLocale,
+      const systemContent = `You are a precise task generator. Output ONLY valid JSON matching the provided schema. No IDs.
+                            Rules:
+                            - No additional fields.
+                            - Titles ≤ 80 chars. Descriptions ≤ 240 chars.
+                            - No IDs. No markdown. JSON only.
+                            - Generate 3-12 actionable tasks.
+                            - If a desired task count is provided, generate exactly that many within 3–12.
+                            - If no desired task count is provided, generate exactly ${desiredTaskCount} tasks.
+                            - Language policy: ${localeDirective}`;
+
+      const userContent = `Generate 3–12 actionable tasks from this intent:
+
+                      ${contextInfo ? `${contextInfo.trim()}` : ''}Intent: ${params.prompt}
+                      ${hasOptions ? `Constraints: ${constraints}` : ''}
+                      DesiredTaskCount: ${desiredTaskCount}
+                      Language: ${requestedLocale}
+
+                      Schema:
+                      {
+                        "tasks": [
+                          {
+                            "title": string,
+                            "description"?: string,
+                            "priority"?: "LOW" | "MEDIUM" | "HIGH"
+                          }
+                        ]
+                      }`;
+
+      const lcMessages = buildMessages({
+        system: systemContent,
+        user: userContent,
       });
 
-      // Timeout handled by provider abstraction (PR-002)
-      // Config: LLM_TASKGEN_TIMEOUT_MS (defaults to provider timeout)
-      const response = await this.llmProvider.callLLM(messages);
+      // For now, skip tools until we implement proper LangChain tool definitions
+      // const tools = [...];
+
+      const chatModel = initChatModel(this.llmProvider);
+      const response = await chatModel.generate(lcMessages);
 
       try {
-        // Robust JSON extraction from LLM responses
+        // For now, fall back to JSON parsing until we implement proper structured output
         const cleanResponse = this.extractJSONFromResponse(response);
         const parsed = JSON.parse(cleanResponse);
         const validated = GenerateTasksResponseSchema.parse(parsed);
@@ -178,54 +210,6 @@ export class TaskGeneratorTool {
     }
     return info;
   }
-
-  private buildMessages(input: {
-    localeDirective: string;
-    desiredTaskCount: number;
-    contextInfo: string;
-    prompt: string;
-    hasOptions: boolean;
-    constraints: string;
-    requestedLocale: string;
-  }): { role: 'system' | 'user'; content: string }[] {
-    const systemContent = `You are a precise task generator. Output ONLY valid JSON matching the provided schema. No IDs.
-                            Rules:
-                            - No additional fields.
-                            - Titles ≤ 80 chars. Descriptions ≤ 240 chars.
-                            - No IDs. No markdown. JSON only.
-                            - Generate 3-12 actionable tasks.
-                            - If a desired task count is provided, generate exactly that many within 3–12.
-                            - If no desired task count is provided, generate exactly ${input.desiredTaskCount} tasks.
-                            - Language policy: ${input.localeDirective}`;
-
-    const userContent = `Generate 3–12 actionable tasks from this intent:
-
-                      ${input.contextInfo ? `${input.contextInfo.trim()}` : ''}Intent: ${input.prompt}
-                      ${input.hasOptions ? `Constraints: ${input.constraints}` : ''}
-                      DesiredTaskCount: ${input.desiredTaskCount}
-                      Language: ${input.requestedLocale}
-
-                      Schema:
-                      {
-                        "tasks": [
-                          {
-                            "title": string,
-                            "description"?: string,
-                            "priority"?: "LOW" | "MEDIUM" | "HIGH"
-                          }
-                        ]
-                      }`;
-
-    const systemClean = normalizeMultiline(systemContent);
-    const userClean = normalizeMultiline(userContent);
-
-    return [
-      { role: 'system', content: systemClean },
-      { role: 'user', content: userClean },
-    ];
-  }
-
-  // normalization moved to shared util
 
   private extractJSONFromResponse(response: string): string {
     // Handle various LLM response formats

@@ -6,7 +6,10 @@ export interface AiProviderInfo {
 
 export interface AiProvider {
   getInfo(): AiProviderInfo;
-  complete(messages: ChatCompletionMessageParam[]): Promise<string>;
+  complete(
+    messages: ChatCompletionMessageParam[],
+    tools?: any[],
+  ): Promise<string>;
 }
 
 export class AiProviderTimeoutError extends Error {

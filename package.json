@@ -39,6 +39,9 @@
     ]
   },
   "dependencies": {
+    "@langchain/core": "^0.3.77",
+    "@langchain/mistralai": "^0.2.1",
+    "@langchain/openai": "^0.6.13",
     "@modelcontextprotocol/sdk": "^1.18.1",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/common": "^10.0.0",
@@ -64,6 +67,7 @@
     "dotenv": "^16.5.0",
     "handlebars": "^4.7.8",
     "joi": "^17.13.3",
+    "langchain": "1.0.0-alpha.6",
     "multer": "^2.0.1",
     "nestjs-i18n": "^10.5.1",
     "nodemailer": "^7.0.3",

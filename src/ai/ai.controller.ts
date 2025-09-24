@@ -1,4 +1,12 @@
-import { Body, Controller, Post, UseGuards, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  UseGuards,
+  BadRequestException,
+  Req,
+} from '@nestjs/common';
+import { User } from '../users/entities/user.entity';
 import {
   ApiTags,
   ApiOperation,
@@ -12,6 +20,7 @@ import { AiMetricsService } from './ai.metrics.service';
 import { LlmProviderService } from './llm-provider.service';
 import { ContextService } from './context/context.service';
 import { AiRedactionService } from './ai.redaction.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { ContextRequestDto } from './dto/context-request.dto';
 import { ProjectHealthRequestDto, ProjectHealthResponseDto } from './types';
 import {
@@ -204,18 +213,26 @@ export class AiController {
   })
   async generateTasks(
     @Body() body: GenerateTasksRequestDto,
+    @CurrentUser() user: User,
   ): Promise<GenerateTasksResponseDto> {
     const start = Date.now();
     const { provider, model } = this.llmProvider.getInfo();
     this.metrics.recordRequest('/ai/generate-tasks', { provider, model });
     try {
-      const result = await this.aiService.generateTasks(body);
+      if (body.projectId && !user?.id) {
+        throw new BadRequestException({
+          status: 400,
+          code: 'AI.USER_ID_REQUIRED',
+          message: 'Authenticated user is required when projectId is provided',
+        });
+      }
+      const result = await this.aiService.generateTasks(body, user.id);
       this.metrics.recordLatency('/ai/generate-tasks', Date.now() - start, {
         provider,
         model,
       });
       return result;
-    } catch (e: any) {
+    } catch (e) {
       this.metrics.recordError('/ai/generate-tasks', e?.code || 'UNKNOWN', {
         provider,
         model,

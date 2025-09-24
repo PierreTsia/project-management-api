@@ -49,8 +49,7 @@ export class AiMetricsService {
   }
 
   sanitizeForLog(text: string): string {
-    const env = this.config.get<string>('NODE_ENV', 'development');
-    return this.redaction.sanitizeText(text, env);
+    return this.redaction.sanitizeText(text);
   }
 
   private isProduction(): boolean {

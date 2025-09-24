@@ -88,11 +88,12 @@ export class AiService {
 
   async generateTasks(
     request: GenerateTasksRequestDto,
+    userId?: string,
   ): Promise<GenerateTasksResponseDto> {
     if (process.env.AI_TOOLS_ENABLED !== 'true') {
       throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
     }
 
-    return this.taskGeneratorTool.generateTasks(request);
+    return this.taskGeneratorTool.generateTasks(request, userId);
   }
 }

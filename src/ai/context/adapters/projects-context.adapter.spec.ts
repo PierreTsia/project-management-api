@@ -50,7 +50,7 @@ describe('ProjectsContextAdapter', () => {
 
     const res = await adapter.getProject('p1', 'u1');
 
-    expect(res).toEqual({ id: 'p1', name: 'Project 1' });
+    expect(res).toEqual({ id: 'p1', name: 'Project 1', description: '' });
     expect(projectsService.findOne).toHaveBeenCalledWith('p1', 'u1');
   });
 

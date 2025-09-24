@@ -28,6 +28,7 @@ import { RequireProjectRole } from '../projects/decorators/require-project-role.
 import { ProjectRole } from '../projects/enums/project-role.enum';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { CreateTaskBulkDto } from './dto/create-task-bulk.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { AssignTaskDto } from './dto/assign-task.dto';
@@ -77,6 +78,31 @@ export class TasksController {
     return new TaskResponseDto(
       task,
       await this.tasksService.getTaskLinks(task.id),
+    );
+  }
+
+  @Post('bulk')
+  @UseGuards(ProjectPermissionGuard)
+  @RequireProjectRole(ProjectRole.WRITE)
+  @ApiOperation({ summary: 'Create many tasks in a project atomically' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiResponse({
+    status: 201,
+    description: 'Tasks created successfully',
+    type: TaskResponseDto,
+    isArray: true,
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error' })
+  async createBulk(
+    @Param('projectId') projectId: string,
+    @Body() bulkDto: CreateTaskBulkDto,
+  ): Promise<TaskResponseDto[]> {
+    const tasks = await this.tasksService.createMany(bulkDto, projectId);
+    const linksMap = await this.tasksService.getLinksMap(
+      tasks.map((t) => t.id),
+    );
+    return tasks.map(
+      (task) => new TaskResponseDto(task, linksMap.get(task.id) ?? []),
     );
   }
 

@@ -9,6 +9,7 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { I18nService } from 'nestjs-i18n';
 import { Task } from './entities/task.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { CreateTaskBulkDto } from './dto/create-task-bulk.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { SearchTasksDto } from './dto/search-tasks.dto';
@@ -31,6 +32,7 @@ import { TaskLinkDto } from './dto/task-link.dto';
 import { TaskLinkWithTaskDto } from './dto/task-link-with-task.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 import { TaskRelationshipHydrator } from './services/task-relationship-hydrator.service';
+import { ProjectContributor } from 'src/projects/entities/project-contributor.entity';
 
 @Injectable()
 export class TasksService {
@@ -140,6 +142,65 @@ export class TasksService {
 
     this.logger.log(`Task created successfully with id: ${savedTask.id}`);
     return savedTask;
+  }
+
+  async createMany(
+    bulkDto: CreateTaskBulkDto,
+    projectId: string,
+  ): Promise<Task[]> {
+    this.logger.debug(
+      `Creating ${bulkDto.items.length} tasks in bulk for project ${projectId}`,
+    );
+
+    const items = bulkDto.items;
+
+    const uniqueAssigneeIds = Array.from(
+      new Set(
+        items
+          .map((it) => it.assigneeId)
+          .filter(
+            (id): id is string => typeof id === 'string' && id.length > 0,
+          ),
+      ),
+    );
+    if (uniqueAssigneeIds.length > 0) {
+      const contributors = await this.projectsService.getContributors(
+        projectId,
+        undefined,
+      );
+      const contributorById = new Map<string, ProjectContributor>(
+        contributors.map((c) => [c.userId, c]),
+      );
+      const allowedRoles = new Set(['WRITE', 'ADMIN', 'OWNER']);
+      for (const assigneeId of uniqueAssigneeIds) {
+        const contributor = contributorById.get(assigneeId);
+        if (!contributor) {
+          throw new BadRequestException(
+            this.i18n.t('errors.tasks.assignee_not_contributor', {
+              args: { assigneeId, projectId },
+            }),
+          );
+        }
+        if (!allowedRoles.has(contributor.role)) {
+          throw new BadRequestException(
+            this.i18n.t('errors.tasks.assignee_insufficient_role', {
+              args: { assigneeId, projectId, role: contributor.role },
+            }),
+          );
+        }
+      }
+    }
+
+    const entities = items.map((item) =>
+      this.taskRepository.create({ ...item, projectId }),
+    );
+
+    const saved = await this.taskRepository.manager.transaction(async (em) => {
+      return await em.save(entities);
+    });
+
+    this.logger.log(`Bulk created ${saved.length} tasks successfully`);
+    return saved;
   }
 
   async findAll(projectId: string): Promise<Task[]> {

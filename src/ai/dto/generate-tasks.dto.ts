@@ -41,6 +41,15 @@ export class GenerateTasksRequestDto {
   @IsOptional()
   @IsString()
   locale?: string;
+
+  @ApiProperty({
+    description:
+      'Optional generation options that influence output (e.g., taskCount, minPriority)',
+    required: false,
+    example: { taskCount: 6, minPriority: 'MEDIUM' },
+  })
+  @IsOptional()
+  options?: Record<string, string | number | boolean>;
 }
 
 export class GeneratedTaskDto {
@@ -113,5 +122,7 @@ export class GenerateTasksResponseDto {
     provider: string;
     tokensEstimated?: number;
     degraded: boolean;
+    locale?: string;
+    options?: Record<string, string | number | boolean>;
   };
 }

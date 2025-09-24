@@ -5,6 +5,7 @@ import { ContextService } from '../context/context.service';
 import { AiRedactionService } from '../ai.redaction.service';
 import { AiTracingService } from '../ai.tracing.service';
 import { GenerateTasksRequestDto } from '../dto/generate-tasks.dto';
+import { CustomLogger } from '../../common/services/logger.service';
 
 describe('TaskGeneratorTool', () => {
   let tool: TaskGeneratorTool;
@@ -37,6 +38,17 @@ describe('TaskGeneratorTool', () => {
         { provide: ContextService, useValue: mockContextService },
         { provide: AiRedactionService, useValue: mockRedaction },
         { provide: AiTracingService, useValue: mockTracing },
+        {
+          provide: CustomLogger,
+          useValue: {
+            setContext: jest.fn(),
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+            debug: jest.fn(),
+            verbose: jest.fn(),
+          },
+        },
       ],
     }).compile();
 

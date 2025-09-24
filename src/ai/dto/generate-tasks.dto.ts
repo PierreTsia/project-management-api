@@ -120,7 +120,8 @@ export class GenerateTasksResponseDto {
   meta: {
     model: string;
     provider: string;
-    tokensEstimated?: number;
+    tokensEstimated?: number | null;
+    usageMetadata?: any;
     degraded: boolean;
     locale?: string;
     options?: Record<string, string | number | boolean>;

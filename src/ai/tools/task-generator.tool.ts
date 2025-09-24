@@ -10,7 +10,37 @@ import {
   GenerateTasksResponseDto,
 } from '../dto/generate-tasks.dto';
 import { GenerateTasksResponseSchema } from '../dto/generate-tasks.validation';
-import { normalizeMultiline } from '../utils/text.utils';
+import { SystemMessage, HumanMessage } from 'langchain';
+import { initChatModel } from 'langchain';
+import { ValidateDatesTool } from './validate-dates.tool';
+
+const PROMPTS = {
+  SYSTEM: (
+    desiredTaskCount: number,
+    localeDirective: string,
+  ) => `You are a precise task generator. Generate actionable tasks based on the user's intent.
+
+Rules:
+- Titles ≤ 80 chars. Descriptions ≤ 240 chars.
+- Generate 3-12 actionable tasks.
+- If a desired task count is provided, generate exactly that many within 3–12.
+- If no desired task count is provided, generate exactly ${desiredTaskCount} tasks.
+- Language policy: ${localeDirective}`,
+
+  USER: (
+    contextInfo: string,
+    prompt: string,
+    hasOptions: boolean,
+    constraints: string,
+    desiredTaskCount: number,
+    requestedLocale: string,
+  ) => `Generate actionable tasks from this intent:
+
+${contextInfo ? `${contextInfo.trim()}` : ''}Intent: ${prompt}
+${hasOptions ? `Constraints: ${constraints}` : ''}
+DesiredTaskCount: ${desiredTaskCount}
+Language: ${requestedLocale}`,
+} as const;
 
 @Injectable()
 export class TaskGeneratorTool {
@@ -20,6 +50,7 @@ export class TaskGeneratorTool {
     private readonly redaction: AiRedactionService,
     private readonly tracing: AiTracingService,
     private readonly logger: CustomLogger,
+    private readonly validateDatesTool: ValidateDatesTool,
   ) {}
 
   @Tool({ name: 'generate_tasks_from_requirement' })
@@ -28,7 +59,8 @@ export class TaskGeneratorTool {
     userId?: string,
   ): Promise<GenerateTasksResponseDto> {
     return this.tracing.withSpan('ai.taskgen.call', async () => {
-      const { provider, model } = this.llmProvider.getInfo();
+      const { provider: llmProvider, model: llmModel } =
+        this.llmProvider.getInfo();
       let degraded = false;
       const requestedLocale = this.getRequestedLocale(params);
       const localeDirective = this.buildLocaleDirective(requestedLocale);
@@ -43,47 +75,66 @@ export class TaskGeneratorTool {
         },
       );
 
-      const messages = this.buildMessages({
-        localeDirective,
-        desiredTaskCount,
-        contextInfo,
-        prompt: params.prompt,
-        hasOptions,
-        constraints,
-        requestedLocale,
-      });
+      const systemMessage = new SystemMessage(
+        PROMPTS.SYSTEM(desiredTaskCount, localeDirective),
+      );
 
-      // Timeout handled by provider abstraction (PR-002)
-      // Config: LLM_TASKGEN_TIMEOUT_MS (defaults to provider timeout)
-      const response = await this.llmProvider.callLLM(messages);
+      const userMessage = new HumanMessage(
+        PROMPTS.USER(
+          contextInfo,
+          params.prompt,
+          hasOptions,
+          constraints,
+          desiredTaskCount,
+          requestedLocale,
+        ),
+      );
+
+      const lcMessages = [systemMessage, userMessage];
+
+      const modelId =
+        llmProvider === 'openai'
+          ? `openai:${llmModel}`
+          : `mistralai:${llmModel}`;
+
+      const chatModel = await initChatModel(modelId);
 
       try {
-        // Robust JSON extraction from LLM responses
-        const cleanResponse = this.extractJSONFromResponse(response);
-        const parsed = JSON.parse(cleanResponse);
-        const validated = GenerateTasksResponseSchema.parse(parsed);
+        // Use LangChain's proper structured output binding
+        const structuredModel = chatModel.withStructuredOutput(
+          GenerateTasksResponseSchema,
+        );
+        const result = await structuredModel.invoke([...lcMessages]);
+
+        // Get usage metadata from the provider
+        const usageMetadata = this.llmProvider.getLastUsageMetadata?.();
 
         return {
-          tasks: validated.tasks,
+          tasks: result.tasks,
           meta: {
-            model,
-            provider,
+            model: llmModel,
+            provider: llmProvider,
             degraded,
             locale: requestedLocale,
             options: params.options,
+            tokensEstimated:
+              usageMetadata?.total_tokens || usageMetadata?.totalTokens || null,
+            usageMetadata: usageMetadata || null,
           },
         };
       } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.stack : String(error);
         this.logger.error(
-          'TaskGen JSON parsing/validation failed',
-          (error as any)?.stack,
+          'TaskGen structured output parsing failed',
+          errorMessage,
         );
         // Fallback to minimal tasks if parsing fails
         return {
           tasks: this.getFallbackTasks(),
           meta: {
-            model,
-            provider,
+            model: llmModel,
+            provider: llmProvider,
             degraded: true,
             locale: requestedLocale,
             options: params.options,
@@ -177,79 +228,5 @@ export class TaskGeneratorTool {
       info += `Recent tasks: ${topTasks}\n`;
     }
     return info;
-  }
-
-  private buildMessages(input: {
-    localeDirective: string;
-    desiredTaskCount: number;
-    contextInfo: string;
-    prompt: string;
-    hasOptions: boolean;
-    constraints: string;
-    requestedLocale: string;
-  }): { role: 'system' | 'user'; content: string }[] {
-    const systemContent = `You are a precise task generator. Output ONLY valid JSON matching the provided schema. No IDs.
-                            Rules:
-                            - No additional fields.
-                            - Titles ≤ 80 chars. Descriptions ≤ 240 chars.
-                            - No IDs. No markdown. JSON only.
-                            - Generate 3-12 actionable tasks.
-                            - If a desired task count is provided, generate exactly that many within 3–12.
-                            - If no desired task count is provided, generate exactly ${input.desiredTaskCount} tasks.
-                            - Language policy: ${input.localeDirective}`;
-
-    const userContent = `Generate 3–12 actionable tasks from this intent:
-
-                      ${input.contextInfo ? `${input.contextInfo.trim()}` : ''}Intent: ${input.prompt}
-                      ${input.hasOptions ? `Constraints: ${input.constraints}` : ''}
-                      DesiredTaskCount: ${input.desiredTaskCount}
-                      Language: ${input.requestedLocale}
-
-                      Schema:
-                      {
-                        "tasks": [
-                          {
-                            "title": string,
-                            "description"?: string,
-                            "priority"?: "LOW" | "MEDIUM" | "HIGH"
-                          }
-                        ]
-                      }`;
-
-    const systemClean = normalizeMultiline(systemContent);
-    const userClean = normalizeMultiline(userContent);
-
-    return [
-      { role: 'system', content: systemClean },
-      { role: 'user', content: userClean },
-    ];
-  }
-
-  // normalization moved to shared util
-
-  private extractJSONFromResponse(response: string): string {
-    // Handle various LLM response formats
-    const patterns = [
-      // Markdown code blocks
-      /```json\s*([\s\S]*?)\s*```/,
-      // XML-like tags
-      /<json>\s*([\s\S]*?)\s*<\/json>/i,
-      // Direct JSON (fallback)
-      /^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = response.match(pattern);
-      if (match) {
-        const candidate = match[1]?.trim() || match[0]?.trim();
-        if (candidate && candidate.length > 0) {
-          return candidate;
-        }
-        // else continue to next pattern
-      }
-    }
-
-    // If no pattern matches, return the original response
-    return response.trim();
   }
 }

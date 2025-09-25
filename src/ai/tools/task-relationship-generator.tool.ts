@@ -13,8 +13,20 @@ import {
   GenerateLinkedTasksResponseDto,
   TaskRelationshipDto,
   TaskRelationshipPreviewDto,
+  RejectedRelationshipDto,
+  RejectedReasonCode,
 } from '../dto/linked-tasks.dto';
 import { GeneratedTaskDto } from '../dto/generate-tasks.dto';
+import { TasksService } from '../../tasks/tasks.service';
+import { CreateTaskBulkDto } from '../../tasks/dto/create-task-bulk.dto';
+import { TaskLinkService } from '../../tasks/services/task-link.service';
+import { CreateTaskLinkDto } from '../../tasks/dto/create-task-link.dto';
+import { TaskLinkType as DomainTaskLinkType } from '../../tasks/enums/task-link-type.enum';
+import { TaskGeneratorTool } from './task-generator.tool';
+import {
+  GenerateTasksRequestDto,
+  GenerateTasksResponseDto,
+} from '../dto/generate-tasks.dto';
 
 @Injectable()
 export class TaskRelationshipGeneratorTool {
@@ -25,6 +37,9 @@ export class TaskRelationshipGeneratorTool {
     private readonly tracing: AiTracingService,
     private readonly logger: CustomLogger,
     private readonly validateDatesTool: ValidateDatesTool,
+    private readonly tasksService: TasksService,
+    private readonly taskLinkService: TaskLinkService,
+    private readonly taskGeneratorTool: TaskGeneratorTool,
   ) {}
 
   @Tool({ name: 'generate_task_relationships_preview' })
@@ -68,17 +83,17 @@ export class TaskRelationshipGeneratorTool {
           params.relationships || [],
           createdTasks,
         );
-        const createdLinks = await this.createRelationships(resolved);
+        const { createdLinks, rejected } =
+          await this.createRelationships(resolved);
         const total = resolved.length;
         const created = createdLinks.length;
-        const rejected = total - created;
         return {
           tasks: createdTasks as any,
           relationships: createdLinks as any,
           totalLinks: total,
           createdLinks: created,
-          rejectedLinks: rejected,
-          rejectedRelationships: [],
+          rejectedLinks: total - created,
+          rejectedRelationships: rejected,
         } as any;
       },
     );
@@ -86,20 +101,17 @@ export class TaskRelationshipGeneratorTool {
 
   private async generateTasks(
     params: GenerateLinkedTasksRequestDto,
-    _userId?: string,
+    userId?: string,
   ): Promise<ReadonlyArray<GeneratedTaskDto>> {
-    // Delegate to existing TaskGeneratorTool through AiService in later phase; placeholder here for Phase 0 DTO wiring
-    const context = await this.contextService
-      .getProject(params.projectId)
-      .catch(() => undefined);
-    const title = context?.name
-      ? `${params.prompt} — ${context.name}`
-      : params.prompt;
-    return [
-      { title: `${title}: Task 1`, description: undefined, priority: 'MEDIUM' },
-      { title: `${title}: Task 2`, description: undefined, priority: 'MEDIUM' },
-      { title: `${title}: Task 3`, description: undefined, priority: 'MEDIUM' },
-    ] as ReadonlyArray<GeneratedTaskDto>;
+    const req: GenerateTasksRequestDto = {
+      prompt: params.prompt,
+      projectId: params.projectId,
+      locale: 'en',
+      options: { taskCount: 5 },
+    } as GenerateTasksRequestDto;
+    const result: GenerateTasksResponseDto =
+      await this.taskGeneratorTool.generateTasks(req, userId);
+    return result.tasks;
   }
 
   private async generatePlaceholderRelationships(
@@ -107,6 +119,7 @@ export class TaskRelationshipGeneratorTool {
   ): Promise<ReadonlyArray<TaskRelationshipPreviewDto>> {
     if (!tasks.length) return [];
     if (tasks.length < 2) return [];
+    // Minimal chain: link first -> second only for POC
     return [
       { sourceTask: 'task_1', targetTask: 'task_2', type: 'BLOCKS' as any },
     ];
@@ -114,11 +127,22 @@ export class TaskRelationshipGeneratorTool {
 
   private async createTasks(
     params: ConfirmLinkedTasksDto,
-  ): Promise<ReadonlyArray<{ id: string; title: string }>> {
-    // Phase 1 will call TasksService.createMany; Phase 0 returns stubbed IDs for wiring
-    return params.tasks.map((t, i) => ({
-      id: `stub-${i + 1}`,
-      title: t.title,
+  ): Promise<ReadonlyArray<{ id: string; title: string; projectId: string }>> {
+    const bulk: CreateTaskBulkDto = {
+      items: params.tasks.map((t) => ({
+        title: t.title,
+        description: t.description,
+        priority: (t.priority as any) ?? undefined,
+        dueDate: (t as any).dueDate,
+        assigneeId: (t as any).assigneeId,
+      })),
+    } as CreateTaskBulkDto;
+
+    const saved = await this.tasksService.createMany(bulk, params.projectId);
+    return saved.map((s) => ({
+      id: s.id,
+      title: s.title,
+      projectId: s.projectId,
     }));
   }
 
@@ -130,7 +154,7 @@ export class TaskRelationshipGeneratorTool {
       sourceTaskId: this.lookup(rel.sourceTask, tasks),
       targetTaskId: this.lookup(rel.targetTask, tasks),
       type: rel.type as any,
-      projectId: tasks.length ? 'unknown-project' : 'unknown-project',
+      projectId: (tasks as any)[0]?.projectId ?? 'unknown-project',
     }));
   }
 
@@ -148,8 +172,45 @@ export class TaskRelationshipGeneratorTool {
 
   private async createRelationships(
     relationships: ReadonlyArray<TaskRelationshipDto>,
-  ): Promise<ReadonlyArray<TaskRelationshipDto>> {
-    // Phase 1 will call validation chain + TaskLinkService; Phase 0 echoes input
-    return relationships;
+  ): Promise<{
+    createdLinks: ReadonlyArray<TaskRelationshipDto>;
+    rejected: ReadonlyArray<RejectedRelationshipDto>;
+  }> {
+    const created: TaskRelationshipDto[] = [];
+    const rejected: RejectedRelationshipDto[] = [];
+
+    for (const rel of relationships) {
+      try {
+        const input: CreateTaskLinkDto = {
+          projectId: rel.projectId,
+          sourceTaskId: rel.sourceTaskId,
+          targetTaskId: rel.targetTaskId,
+          type: rel.type as unknown as DomainTaskLinkType,
+        };
+        await this.taskLinkService.createLink(input);
+        created.push(rel);
+      } catch (e: any) {
+        const message = String(e?.message || 'Unknown');
+        const reasonCode = this.mapReasonToCode(message);
+        rejected.push({
+          sourceTaskId: rel.sourceTaskId,
+          targetTaskId: rel.targetTaskId,
+          type: rel.type,
+          reasonCode,
+          reasonMessage: message,
+        });
+      }
+    }
+
+    return { createdLinks: created, rejected };
+  }
+
+  private mapReasonToCode(message: string): RejectedReasonCode {
+    const m = message.toLowerCase();
+    if (m.includes('project')) return RejectedReasonCode.CROSS_PROJECT;
+    if (m.includes('circular')) return RejectedReasonCode.CIRCULAR;
+    if (m.includes('duplicate')) return RejectedReasonCode.DUPLICATE;
+    if (m.includes('hierarchy')) return RejectedReasonCode.INVALID;
+    return RejectedReasonCode.UNKNOWN;
   }
 }

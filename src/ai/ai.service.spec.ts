@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { AiService } from './ai.service';
 import { LlmProviderService } from './llm-provider.service';
 import { TaskGeneratorTool } from './tools/task-generator.tool';
+import { TaskRelationshipGeneratorTool } from './tools/task-relationship-generator.tool';
 
 describe('AiService', () => {
   let service: AiService;
@@ -14,6 +15,11 @@ describe('AiService', () => {
     generateTasks: jest.fn(),
   } as unknown as TaskGeneratorTool;
 
+  const mockTaskRelationshipTool = {
+    generatePreview: jest.fn(),
+    confirmAndCreate: jest.fn(),
+  } as unknown as TaskRelationshipGeneratorTool;
+
   beforeAll(async () => {
     process.env.AI_TOOLS_ENABLED = 'true';
     const moduleRef = await Test.createTestingModule({
@@ -21,6 +27,10 @@ describe('AiService', () => {
         AiService,
         { provide: LlmProviderService, useValue: mockProvider },
         { provide: TaskGeneratorTool, useValue: mockTaskGeneratorTool },
+        {
+          provide: TaskRelationshipGeneratorTool,
+          useValue: mockTaskRelationshipTool,
+        },
       ],
     }).compile();
     service = moduleRef.get(AiService);

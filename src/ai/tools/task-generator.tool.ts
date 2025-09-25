@@ -57,13 +57,13 @@ export class TaskGeneratorTool {
   async generateTasks(
     params: GenerateTasksRequestDto,
     userId?: string,
+    lang?: string,
   ): Promise<GenerateTasksResponseDto> {
     return this.tracing.withSpan('ai.taskgen.call', async () => {
       const { provider: llmProvider, model: llmModel } =
         this.llmProvider.getInfo();
       let degraded = false;
-      const requestedLocale = this.getRequestedLocale(params);
-      const localeDirective = this.buildLocaleDirective(requestedLocale);
+      const localeDirective = this.buildLocaleDirective(lang);
       const hasOptions = this.hasOptions(params);
       const constraints = this.buildConstraints(params);
       const desiredTaskCount = this.computeDesiredTaskCount(params);
@@ -86,7 +86,7 @@ export class TaskGeneratorTool {
           hasOptions,
           constraints,
           desiredTaskCount,
-          requestedLocale,
+          lang,
         ),
       );
 
@@ -115,7 +115,7 @@ export class TaskGeneratorTool {
             model: llmModel,
             provider: llmProvider,
             degraded,
-            locale: requestedLocale,
+            locale: lang,
             options: params.options,
             tokensEstimated:
               usageMetadata?.total_tokens || usageMetadata?.totalTokens || null,
@@ -136,7 +136,7 @@ export class TaskGeneratorTool {
             model: llmModel,
             provider: llmProvider,
             degraded: true,
-            locale: requestedLocale,
+            locale: lang,
             options: params.options,
           },
         };

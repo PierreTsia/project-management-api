@@ -5,6 +5,7 @@ import {
   UseGuards,
   BadRequestException,
   Req,
+  Headers,
 } from '@nestjs/common';
 import { User } from '../users/entities/user.entity';
 import {
@@ -256,6 +257,7 @@ export class AiController {
   async generateLinkedTasksPreview(
     @Body() body: GenerateLinkedTasksRequestDto,
     @CurrentUser() user: User,
+    @Headers('accept-language') lang?: string,
   ): Promise<GenerateLinkedTasksPreviewDto> {
     const start = Date.now();
     const { provider, model } = this.llmProvider.getInfo();
@@ -267,6 +269,7 @@ export class AiController {
       const result = await this.aiService.generateLinkedTasksPreview(
         body,
         user.id,
+        lang,
       );
       this.metrics.recordLatency(
         '/ai/generate-linked-tasks-preview',
@@ -294,12 +297,17 @@ export class AiController {
   async confirmLinkedTasks(
     @Body() body: ConfirmLinkedTasksDto,
     @CurrentUser() user: User,
+    @Headers('accept-language') lang?: string,
   ): Promise<GenerateLinkedTasksResponseDto> {
     const start = Date.now();
     const { provider, model } = this.llmProvider.getInfo();
     this.metrics.recordRequest('/ai/confirm-linked-tasks', { provider, model });
     try {
-      const result = await this.aiService.confirmLinkedTasks(body, user.id);
+      const result = await this.aiService.confirmLinkedTasks(
+        body,
+        user.id,
+        lang,
+      );
       this.metrics.recordLatency(
         '/ai/confirm-linked-tasks',
         Date.now() - start,

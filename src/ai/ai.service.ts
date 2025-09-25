@@ -108,20 +108,30 @@ export class AiService {
   async generateLinkedTasksPreview(
     request: GenerateLinkedTasksRequestDto,
     userId?: string,
+    lang?: string,
   ): Promise<GenerateLinkedTasksPreviewDto> {
     if (process.env.AI_TOOLS_ENABLED !== 'true') {
       throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
     }
-    return this.taskRelationshipGeneratorTool.generatePreview(request, userId);
+    return this.taskRelationshipGeneratorTool.generatePreview(
+      request,
+      userId,
+      lang,
+    );
   }
 
   async confirmLinkedTasks(
     request: ConfirmLinkedTasksDto,
     userId?: string,
+    lang?: string,
   ): Promise<GenerateLinkedTasksResponseDto> {
     if (process.env.AI_TOOLS_ENABLED !== 'true') {
       throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
     }
-    return this.taskRelationshipGeneratorTool.confirmAndCreate(request, userId);
+    return this.taskRelationshipGeneratorTool.confirmAndCreate(
+      request,
+      userId,
+      lang,
+    );
   }
 }

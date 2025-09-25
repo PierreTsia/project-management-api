@@ -1,11 +1,8 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { Tool } from '@rekog/mcp-nest';
 import { LlmProviderService } from '../llm-provider.service';
-import { ContextService } from '../context/context.service';
-import { AiRedactionService } from '../ai.redaction.service';
 import { AiTracingService } from '../ai.tracing.service';
 import { CustomLogger } from '../../common/services/logger.service';
-import { ValidateDatesTool } from './validate-dates.tool';
 import {
   ConfirmLinkedTasksDto,
   GenerateLinkedTasksPreviewDto,
@@ -33,11 +30,8 @@ import { SystemMessage, HumanMessage, initChatModel } from 'langchain';
 export class TaskRelationshipGeneratorTool {
   constructor(
     private readonly llmProvider: LlmProviderService,
-    private readonly contextService: ContextService,
-    private readonly redaction: AiRedactionService,
     private readonly tracing: AiTracingService,
     private readonly logger: CustomLogger,
-    private readonly validateDatesTool: ValidateDatesTool,
     private readonly tasksService: TasksService,
     private readonly taskLinkService: TaskLinkService,
     private readonly taskGeneratorTool: TaskGeneratorTool,
@@ -47,6 +41,7 @@ export class TaskRelationshipGeneratorTool {
   async generatePreview(
     params: GenerateLinkedTasksRequestDto,
     userId?: string,
+    locale?: string,
   ): Promise<GenerateLinkedTasksPreviewDto> {
     return this.tracing.withSpan(
       'ai.taskgen.relationships.preview',
@@ -54,8 +49,8 @@ export class TaskRelationshipGeneratorTool {
         if (process.env.AI_TOOLS_ENABLED !== 'true') {
           throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
         }
-        const tasks = await this.generateTasks(params, userId);
-        const relationships = await this.generateAiRelationships(tasks);
+        const tasks = await this.generateTasks(params, userId, locale);
+        const relationships = await this.generateAiRelationships(tasks, locale);
         return {
           tasks,
           relationships,
@@ -74,6 +69,7 @@ export class TaskRelationshipGeneratorTool {
   async confirmAndCreate(
     params: ConfirmLinkedTasksDto,
     _userId?: string,
+    _lang?: string,
   ): Promise<GenerateLinkedTasksResponseDto> {
     return this.tracing.withSpan(
       'ai.taskgen.relationships.confirm',
@@ -102,27 +98,22 @@ export class TaskRelationshipGeneratorTool {
   private async generateTasks(
     params: GenerateLinkedTasksRequestDto,
     userId?: string,
+    locale?: string,
   ): Promise<ReadonlyArray<GeneratedTaskDto>> {
     const req: GenerateTasksRequestDto = {
       prompt: params.prompt,
       projectId: params.projectId,
-      locale: 'en',
+      locale: (locale || 'en') as any,
       options: { taskCount: 5 },
     } as GenerateTasksRequestDto;
     const result: GenerateTasksResponseDto =
-      await this.taskGeneratorTool.generateTasks(req, userId);
+      await this.taskGeneratorTool.generateTasks(req, userId, locale || 'en');
     return result.tasks;
-  }
-
-  private async generatePlaceholderRelationships(
-    _tasks: ReadonlyArray<{ title: string }>,
-  ): Promise<ReadonlyArray<TaskRelationshipPreviewDto>> {
-    // kept for reference; no longer used
-    return [];
   }
 
   private async generateAiRelationships(
     tasks: ReadonlyArray<{ title: string; description?: string }>,
+    locale?: string,
   ): Promise<ReadonlyArray<TaskRelationshipPreviewDto>> {
     if (!tasks.length) return [];
 
@@ -151,6 +142,7 @@ export class TaskRelationshipGeneratorTool {
         '- Prefer BLOCKS for prerequisite/sequence dependencies; use RELATES_TO for weak semantic associations.',
         '- Avoid circular dependencies; do not link a task to itself.',
         '- Propose between 1 and 3 relationships when logically justified; otherwise return [].',
+        `- Respond in ${locale || 'en'}.`,
       ].join('\n'),
     );
 
@@ -237,13 +229,13 @@ export class TaskRelationshipGeneratorTool {
 
   private resolvePlaceholders(
     relationships: ReadonlyArray<TaskRelationshipPreviewDto>,
-    tasks: ReadonlyArray<{ id: string; title: string }>,
+    tasks: ReadonlyArray<{ id: string; title: string; projectId: string }>,
   ): ReadonlyArray<TaskRelationshipDto> {
     return relationships.map((rel) => ({
       sourceTaskId: this.lookup(rel.sourceTask, tasks),
       targetTaskId: this.lookup(rel.targetTask, tasks),
       type: rel.type as any,
-      projectId: (tasks as any)[0]?.projectId ?? 'unknown-project',
+      projectId: tasks?.[0]?.projectId ?? 'unknown-project',
     }));
   }
 

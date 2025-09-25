@@ -55,7 +55,7 @@ describe('TaskRelationshipGeneratorTool', () => {
         provider: 'mistral',
         model: 'mistral-small-latest',
       })),
-    } as any;
+    };
 
     tasksService = { createMany: jest.fn() };
     linkService = { createLink: jest.fn() };

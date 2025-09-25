@@ -27,6 +27,12 @@ import {
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
 } from './dto/generate-tasks.dto';
+import {
+  ConfirmLinkedTasksDto,
+  GenerateLinkedTasksPreviewDto,
+  GenerateLinkedTasksRequestDto,
+  GenerateLinkedTasksResponseDto,
+} from './dto/linked-tasks.dto';
 
 @Controller('ai')
 @ApiTags('AI')
@@ -237,6 +243,81 @@ export class AiController {
         provider,
         model,
       });
+      throw e;
+    }
+  }
+
+  @Post('generate-linked-tasks-preview')
+  @ApiOperation({
+    summary: 'Generate preview of tasks with relationships using AI',
+  })
+  @ApiBody({ type: GenerateLinkedTasksRequestDto })
+  @ApiResponse({ status: 200, type: GenerateLinkedTasksPreviewDto })
+  async generateLinkedTasksPreview(
+    @Body() body: GenerateLinkedTasksRequestDto,
+    @CurrentUser() user: User,
+  ): Promise<GenerateLinkedTasksPreviewDto> {
+    const start = Date.now();
+    const { provider, model } = this.llmProvider.getInfo();
+    this.metrics.recordRequest('/ai/generate-linked-tasks-preview', {
+      provider,
+      model,
+    });
+    try {
+      const result = await this.aiService.generateLinkedTasksPreview(
+        body,
+        user.id,
+      );
+      this.metrics.recordLatency(
+        '/ai/generate-linked-tasks-preview',
+        Date.now() - start,
+        { provider, model },
+      );
+      return result;
+    } catch (e) {
+      this.metrics.recordError(
+        '/ai/generate-linked-tasks-preview',
+        e?.code || 'UNKNOWN',
+        {
+          provider,
+          model,
+        },
+      );
+      throw e;
+    }
+  }
+
+  @Post('confirm-linked-tasks')
+  @ApiOperation({ summary: 'Confirm and create tasks with relationships' })
+  @ApiBody({ type: ConfirmLinkedTasksDto })
+  @ApiResponse({ status: 200, type: GenerateLinkedTasksResponseDto })
+  async confirmLinkedTasks(
+    @Body() body: ConfirmLinkedTasksDto,
+    @CurrentUser() user: User,
+  ): Promise<GenerateLinkedTasksResponseDto> {
+    const start = Date.now();
+    const { provider, model } = this.llmProvider.getInfo();
+    this.metrics.recordRequest('/ai/confirm-linked-tasks', { provider, model });
+    try {
+      const result = await this.aiService.confirmLinkedTasks(body, user.id);
+      this.metrics.recordLatency(
+        '/ai/confirm-linked-tasks',
+        Date.now() - start,
+        {
+          provider,
+          model,
+        },
+      );
+      return result;
+    } catch (e: any) {
+      this.metrics.recordError(
+        '/ai/confirm-linked-tasks',
+        e?.code || 'UNKNOWN',
+        {
+          provider,
+          model,
+        },
+      );
       throw e;
     }
   }

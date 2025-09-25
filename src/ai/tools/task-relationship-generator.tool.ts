@@ -69,7 +69,17 @@ export class TaskRelationshipGeneratorTool {
           createdTasks,
         );
         const createdLinks = await this.createRelationships(resolved);
-        return { tasks: createdTasks, relationships: createdLinks };
+        const total = resolved.length;
+        const created = createdLinks.length;
+        const rejected = total - created;
+        return {
+          tasks: createdTasks as any,
+          relationships: createdLinks as any,
+          totalLinks: total,
+          createdLinks: created,
+          rejectedLinks: rejected,
+          rejectedRelationships: [],
+        } as any;
       },
     );
   }

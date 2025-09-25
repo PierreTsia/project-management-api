@@ -7,6 +7,10 @@ import { TasksService } from '../../tasks/tasks.service';
 import { CreateTaskBulkDto } from '../../tasks/dto/create-task-bulk.dto';
 import { TaskLinkService } from '../../tasks/services/task-link.service';
 import { CreateTaskLinkDto } from '../../tasks/dto/create-task-link.dto';
+import {
+  TASK_LINK_TYPES,
+  TaskLinkType,
+} from '../../tasks/enums/task-link-type.enum';
 import { TaskGeneratorTool } from './task-generator.tool';
 import {
   ConfirmLinkedTasksDto,
@@ -26,6 +30,17 @@ import {
 import { SystemMessage, HumanMessage, initChatModel } from 'langchain';
 import { normalizeOutputContent } from '../utils/message.utils';
 import { TaskPriority } from '../../tasks/enums/task-priority.enum';
+
+// Helper types and mappers to avoid unsafe casts
+// (Use shared normalizeOutputContent instead of local stringify)
+
+type RawRel = { sourceTask: string; targetTask: string; type: string };
+
+const isTaskLinkType = (value: string): value is TaskLinkType =>
+  (TASK_LINK_TYPES as readonly string[]).includes(value);
+
+const toTaskLinkType = (value: string): TaskLinkType | null =>
+  isTaskLinkType(value) ? value : null;
 
 const mapAiPriorityToTaskPriority = (
   p?: Priority,
@@ -186,12 +201,7 @@ export class TaskRelationshipGeneratorTool {
       provider === 'openai' ? `openai:${model}` : `mistralai:${model}`;
     const chatModel = await initChatModel(modelId);
 
-    const allowedTypes = [
-      'BLOCKS',
-      'RELATES_TO',
-      'DUPLICATES',
-      'SPLITS_TO',
-    ] as const;
+    const allowedTypes = TASK_LINK_TYPES as ReadonlyArray<string>;
 
     const maxEdges = Math.min(8, Math.max(3, Math.ceil(tasks.length / 2)));
 
@@ -211,12 +221,47 @@ export class TaskRelationshipGeneratorTool {
     try {
       const result = await chatModel.invoke([system, user]);
       const text = normalizeOutputContent(result);
+      this.logger.debug(`[ai.rels] rawTextLength=${text.length}`);
       const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) {
+        this.logger.debug('[ai.rels] parsed is not array');
+        return [];
+      }
 
-      return parsed;
-    } catch {
+      const typesReturned = new Set<string>();
+      for (const r of parsed as RawRel[]) {
+        if (r?.type) typesReturned.add(String(r.type));
+      }
+      this.logger.debug(
+        `[ai.rels] parsedCount=${(parsed as unknown[]).length} types=[${[...typesReturned].join(', ')}]`,
+      );
+
+      const filtered: TaskRelationshipPreviewDto[] = (parsed as RawRel[])
+        .filter(
+          (r) =>
+            typeof r?.sourceTask === 'string' &&
+            typeof r?.targetTask === 'string' &&
+            toTaskLinkType(r.type) !== null,
+        )
+        .map((r) => {
+          const t = toTaskLinkType(r.type)!;
+          return {
+            sourceTask: r.sourceTask,
+            targetTask: r.targetTask,
+            type: t,
+          };
+        });
+
+      this.logger.debug(
+        `[ai.rels] filteredCount=${filtered.length} keptTypes=[${[...new Set(filtered.map((f) => f.type))].join(', ')}]`,
+      );
+
+      return filtered;
+    } catch (err) {
       this.logger.warn(
-        'Relationship generation failed; falling back to minimal chain',
+        `Relationship generation failed; err=${
+          err instanceof Error ? err.message : String(err)
+        }`,
       );
       return [];
     }

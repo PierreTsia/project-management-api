@@ -3,6 +3,7 @@ import { AiService } from './ai.service';
 import { LlmProviderService } from './llm-provider.service';
 import { TaskGeneratorTool } from './tools/task-generator.tool';
 import { TaskRelationshipGeneratorTool } from './tools/task-relationship-generator.tool';
+import { ServiceUnavailableException } from '@nestjs/common';
 
 describe('AiService', () => {
   let service: AiService;
@@ -106,5 +107,74 @@ describe('AiService', () => {
       taskCount: 6,
       minPriority: 'MEDIUM',
     });
+  });
+
+  it('generateLinkedTasksPreview forwards request/userId/lang to tool', async () => {
+    (
+      mockTaskRelationshipTool.generatePreview as jest.Mock
+    ).mockResolvedValueOnce({
+      tasks: [{ title: 'A' }],
+      relationships: [
+        { sourceTask: 'task_1', targetTask: 'task_2', type: 'BLOCKS' },
+      ],
+      meta: { placeholderMode: true, resolutionInstructions: 'task_1=A' },
+    });
+
+    const req = { prompt: 'X', projectId: 'p3', generateRelationships: true };
+    const res = await service.generateLinkedTasksPreview(req, 'user-42', 'fr');
+
+    expect(mockTaskRelationshipTool.generatePreview).toHaveBeenCalledWith(
+      req,
+      'user-42',
+      'fr',
+    );
+    expect(Array.isArray(res.tasks)).toBe(true);
+    expect(res.meta.placeholderMode).toBe(true);
+  });
+
+  it('confirmLinkedTasks forwards request/userId/lang to tool', async () => {
+    (
+      mockTaskRelationshipTool.confirmAndCreate as jest.Mock
+    ).mockResolvedValueOnce({
+      tasks: [{ id: 't1', title: 'A', projectId: 'p3' }],
+      relationships: [
+        {
+          sourceTaskId: 't1',
+          targetTaskId: 't2',
+          type: 'BLOCKS',
+          projectId: 'p3',
+        },
+      ],
+      totalLinks: 1,
+      createdLinks: 1,
+      rejectedLinks: 0,
+      rejectedRelationships: [],
+    });
+
+    const req = {
+      projectId: 'p3',
+      tasks: [{ title: 'A' }, { title: 'B' }],
+      relationships: [
+        { sourceTask: 'task_1', targetTask: 'task_2', type: 'BLOCKS' },
+      ],
+    } as any;
+
+    const res = await service.confirmLinkedTasks(req, 'user-42', 'fr');
+
+    expect(mockTaskRelationshipTool.confirmAndCreate).toHaveBeenCalledWith(
+      req,
+      'user-42',
+      'fr',
+    );
+    expect(res.createdLinks).toBe(1);
+  });
+
+  it('generateLinkedTasksPreview throws when AI is disabled', async () => {
+    const prev = process.env.AI_TOOLS_ENABLED;
+    process.env.AI_TOOLS_ENABLED = 'false';
+    await expect(
+      service.generateLinkedTasksPreview({ prompt: 'x', projectId: 'p1' }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    process.env.AI_TOOLS_ENABLED = prev;
   });
 });

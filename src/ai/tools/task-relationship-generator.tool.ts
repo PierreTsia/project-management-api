@@ -31,11 +31,6 @@ import { SystemMessage, HumanMessage, initChatModel } from 'langchain';
 import { normalizeOutputContent } from '../utils/message.utils';
 import { TaskPriority } from '../../tasks/enums/task-priority.enum';
 
-// Helper types and mappers to avoid unsafe casts
-// (Use shared normalizeOutputContent instead of local stringify)
-
-type RawRel = { sourceTask: string; targetTask: string; type: string };
-
 const isTaskLinkType = (value: string): value is TaskLinkType =>
   (TASK_LINK_TYPES as readonly string[]).includes(value);
 
@@ -228,15 +223,9 @@ export class TaskRelationshipGeneratorTool {
         return [];
       }
 
-      const typesReturned = new Set<string>();
-      for (const r of parsed as RawRel[]) {
-        if (r?.type) typesReturned.add(String(r.type));
-      }
-      this.logger.debug(
-        `[ai.rels] parsedCount=${(parsed as unknown[]).length} types=[${[...typesReturned].join(', ')}]`,
-      );
+      this.logger.debug(`[ai.rels] parsedCount=${parsed.length}]`);
 
-      const filtered: TaskRelationshipPreviewDto[] = (parsed as RawRel[])
+      const filtered: TaskRelationshipPreviewDto[] = parsed
         .filter(
           (r) =>
             typeof r?.sourceTask === 'string' &&

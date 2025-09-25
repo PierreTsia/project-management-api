@@ -27,6 +27,7 @@ import {
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
 } from '../dto/generate-tasks.dto';
+import { SystemMessage, HumanMessage, initChatModel } from 'langchain';
 
 @Injectable()
 export class TaskRelationshipGeneratorTool {
@@ -54,8 +55,7 @@ export class TaskRelationshipGeneratorTool {
           throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
         }
         const tasks = await this.generateTasks(params, userId);
-        const relationships =
-          await this.generatePlaceholderRelationships(tasks);
+        const relationships = await this.generateAiRelationships(tasks);
         return {
           tasks,
           relationships,
@@ -115,14 +115,103 @@ export class TaskRelationshipGeneratorTool {
   }
 
   private async generatePlaceholderRelationships(
-    tasks: ReadonlyArray<{ title: string }>,
+    _tasks: ReadonlyArray<{ title: string }>,
+  ): Promise<ReadonlyArray<TaskRelationshipPreviewDto>> {
+    // kept for reference; no longer used
+    return [];
+  }
+
+  private async generateAiRelationships(
+    tasks: ReadonlyArray<{ title: string; description?: string }>,
   ): Promise<ReadonlyArray<TaskRelationshipPreviewDto>> {
     if (!tasks.length) return [];
-    if (tasks.length < 2) return [];
-    // Minimal chain: link first -> second only for POC
-    return [
-      { sourceTask: 'task_1', targetTask: 'task_2', type: 'BLOCKS' as any },
+
+    const { provider, model } = this.llmProvider.getInfo();
+    const modelId =
+      provider === 'openai' ? `openai:${model}` : `mistralai:${model}`;
+    const chatModel = await initChatModel(modelId);
+
+    const allowedTypes = [
+      'BLOCKS',
+      'IS_BLOCKED_BY',
+      'DUPLICATES',
+      'IS_DUPLICATED_BY',
+      'SPLITS_TO',
+      'SPLITS_FROM',
+      'RELATES_TO',
     ];
+
+    const system = new SystemMessage(
+      [
+        'You are a precise task relationship generator.',
+        'Output policy:',
+        '- Output ONLY a JSON array, no prose or markdown.',
+        '- Use placeholder task references: task_1, task_2, … matching the given ordered list.',
+        `- Allowed types: ${allowedTypes.join(', ')}`,
+        '- Prefer BLOCKS for prerequisite/sequence dependencies; use RELATES_TO for weak semantic associations.',
+        '- Avoid circular dependencies; do not link a task to itself.',
+        '- Propose between 1 and 3 relationships when logically justified; otherwise return [].',
+      ].join('\n'),
+    );
+
+    const taskList = tasks
+      .map(
+        (t, i) =>
+          `task_${i + 1}: ${t.title}${t.description ? ` — ${t.description}` : ''}`,
+      )
+      .join('\n');
+
+    const user = new HumanMessage(
+      [
+        'Given these tasks, propose up to 3 relationships as a JSON array of objects with fields: sourceTask, targetTask, type.',
+        'Use only placeholder IDs task_N. Prefer simple prerequisite chains (BLOCKS) that reflect a natural order of execution.',
+        'If two tasks are clearly related but not strictly ordered, you may use RELATES_TO.',
+        'Tasks in order:',
+        taskList,
+        '',
+        'Example',
+        'Input tasks:',
+        'task_1: Design database schema — Define tables for users, roles',
+        'task_2: Implement user registration — Persist new users',
+        'task_3: Implement user login — Authenticate users',
+        'Expected relationships (JSON array only):',
+        '[',
+        '  { "sourceTask": "task_1", "targetTask": "task_2", "type": "BLOCKS" },',
+        '  { "sourceTask": "task_2", "targetTask": "task_3", "type": "BLOCKS" }',
+        ']',
+        '',
+        'Follow the example format strictly; output only the JSON array for the current tasks.',
+      ].join('\n'),
+    );
+
+    try {
+      const result = await chatModel.invoke([system, user]);
+      const content = (result as any)?.content ?? '';
+      const text = Array.isArray(content)
+        ? content
+            .map((c) => (typeof c === 'string' ? c : (c?.text ?? '')))
+            .join('\n')
+        : String(content);
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter(
+          (r: any) =>
+            typeof r?.sourceTask === 'string' &&
+            typeof r?.targetTask === 'string' &&
+            allowedTypes.includes(String(r?.type)),
+        )
+        .map((r: any) => ({
+          sourceTask: r.sourceTask,
+          targetTask: r.targetTask,
+          type: r.type,
+        }));
+    } catch (err) {
+      this.logger.warn(
+        'Relationship generation failed; falling back to empty set',
+      );
+      return [];
+    }
   }
 
   private async createTasks(

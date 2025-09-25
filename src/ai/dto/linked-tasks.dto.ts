@@ -12,16 +12,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { GeneratedTaskDto } from './generate-tasks.dto';
-
-export enum TaskLinkType {
-  BLOCKS = 'BLOCKS',
-  IS_BLOCKED_BY = 'IS_BLOCKED_BY',
-  DUPLICATES = 'DUPLICATES',
-  IS_DUPLICATED_BY = 'IS_DUPLICATED_BY',
-  SPLITS_TO = 'SPLITS_TO',
-  SPLITS_FROM = 'SPLITS_FROM',
-  RELATES_TO = 'RELATES_TO',
-}
+import {
+  TASK_LINK_TYPES,
+  TaskLinkType,
+} from '../../tasks/enums/task-link-type.enum';
 
 export class GenerateLinkedTasksRequestDto {
   @ApiProperty({ description: 'User intent for generating linked tasks' })
@@ -47,8 +41,8 @@ export class TaskRelationshipPreviewDto {
   @IsString()
   targetTask: string;
 
-  @ApiProperty({ enum: TaskLinkType })
-  @IsEnum(TaskLinkType)
+  @ApiProperty({ enum: TASK_LINK_TYPES })
+  @IsEnum(TASK_LINK_TYPES)
   type: TaskLinkType;
 }
 
@@ -106,8 +100,8 @@ export class TaskRelationshipDto {
   @IsString()
   targetTaskId: string;
 
-  @ApiProperty({ enum: TaskLinkType })
-  @IsEnum(TaskLinkType)
+  @ApiProperty({ enum: TASK_LINK_TYPES })
+  @IsEnum(TASK_LINK_TYPES)
   type: TaskLinkType;
 
   @ApiProperty({ description: 'Project ID', format: 'uuid' })
@@ -170,8 +164,8 @@ export class RejectedRelationshipDto {
   @IsString()
   targetTaskId: string;
 
-  @ApiProperty({ enum: TaskLinkType })
-  @IsEnum(TaskLinkType)
+  @ApiProperty({ enum: TASK_LINK_TYPES })
+  @IsEnum(TASK_LINK_TYPES)
   type: TaskLinkType;
 
   @ApiProperty({ enum: RejectedReasonCode })

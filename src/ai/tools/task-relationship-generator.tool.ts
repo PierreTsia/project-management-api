@@ -7,7 +7,6 @@ import { TasksService } from '../../tasks/tasks.service';
 import { CreateTaskBulkDto } from '../../tasks/dto/create-task-bulk.dto';
 import { TaskLinkService } from '../../tasks/services/task-link.service';
 import { CreateTaskLinkDto } from '../../tasks/dto/create-task-link.dto';
-import { TaskLinkType as DomainTaskLinkType } from '../../tasks/enums/task-link-type.enum';
 import { TaskGeneratorTool } from './task-generator.tool';
 import {
   ConfirmLinkedTasksDto,
@@ -19,15 +18,37 @@ import {
   RejectedRelationshipDto,
   RejectedReasonCode,
 } from '../dto/linked-tasks.dto';
-import { GeneratedTaskDto } from '../dto/generate-tasks.dto';
+import { GeneratedTaskDto, Priority } from '../dto/generate-tasks.dto';
 import {
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
 } from '../dto/generate-tasks.dto';
 import { SystemMessage, HumanMessage, initChatModel } from 'langchain';
+import { normalizeOutputContent } from '../utils/message.utils';
+import { TaskPriority } from '../../tasks/enums/task-priority.enum';
+
+const mapAiPriorityToTaskPriority = (
+  p?: Priority,
+): TaskPriority | undefined => {
+  if (!p) return undefined;
+  switch (p) {
+    case 'LOW':
+      return TaskPriority.LOW;
+    case 'MEDIUM':
+      return TaskPriority.MEDIUM;
+    case 'HIGH':
+      return TaskPriority.HIGH;
+    default:
+      return undefined;
+  }
+};
 
 const PROMPTS = {
-  REL_SYSTEM: (allowedTypes: ReadonlyArray<string>, locale: string) =>
+  REL_SYSTEM: (
+    allowedTypes: ReadonlyArray<string>,
+    locale: string,
+    maxEdges: number,
+  ) =>
     [
       'You are a senior project planner specializing in task decomposition and dependency mapping.',
       'Act as a cautious dependency analyst: only create BLOCKS when the source clearly enables the target; otherwise prefer RELATES_TO.',
@@ -42,14 +63,13 @@ const PROMPTS = {
       '-   SPLITS_TO: source breaks down into target (target is a part of source).',
       '- Decision rubric:',
       '-   Prefer local, short hops over long-range links; avoid skipping intermediate steps without strong evidence.',
-      '-   Max 1 outgoing BLOCKS per task; max 3 edges total.',
-      '-   If a natural sequence exists, include consecutive BLOCKS edges (e.g., task_1 → task_2, task_2 → task_3) when justified, staying within the edge cap.',
+      `-   Aim for at most ${maxEdges} edges total; at most 1 outgoing BLOCKS per task when clearly justified.`,
       '-   Reject circular/self/duplicate edges.',
       `- Respond in ${locale}.`,
     ].join('\n'),
   REL_USER: (taskList: string) =>
     [
-      'Given these tasks, propose up to 3 relationships as a JSON array of objects with fields: sourceTask, targetTask, type.',
+      'Given these tasks, propose a concise set of relationships as a JSON array of objects with fields: sourceTask, targetTask, type.',
       'Use only placeholder IDs task_N. Prefer simple prerequisite chains (BLOCKS) that reflect a natural order of execution.',
       'If two tasks are clearly related but not strictly ordered, you may use RELATES_TO.',
       'Tasks in order:',
@@ -128,13 +148,13 @@ export class TaskRelationshipGeneratorTool {
         const total = resolved.length;
         const created = createdLinks.length;
         return {
-          tasks: createdTasks as any,
-          relationships: createdLinks as any,
+          tasks: createdTasks,
+          relationships: createdLinks,
           totalLinks: total,
           createdLinks: created,
           rejectedLinks: total - created,
           rejectedRelationships: rejected,
-        } as any;
+        };
       },
     );
   }
@@ -147,9 +167,9 @@ export class TaskRelationshipGeneratorTool {
     const req: GenerateTasksRequestDto = {
       prompt: params.prompt,
       projectId: params.projectId,
-      locale: (locale || 'en') as any,
+      locale: locale || 'en',
       options: { taskCount: 5 },
-    } as GenerateTasksRequestDto;
+    };
     const result: GenerateTasksResponseDto =
       await this.taskGeneratorTool.generateTasks(req, userId, locale || 'en');
     return result.tasks;
@@ -168,13 +188,15 @@ export class TaskRelationshipGeneratorTool {
 
     const allowedTypes = [
       'BLOCKS',
+      'RELATES_TO',
       'DUPLICATES',
       'SPLITS_TO',
-      'RELATES_TO',
     ] as const;
 
+    const maxEdges = Math.min(8, Math.max(3, Math.ceil(tasks.length / 2)));
+
     const system = new SystemMessage(
-      PROMPTS.REL_SYSTEM(allowedTypes, locale || 'en'),
+      PROMPTS.REL_SYSTEM(allowedTypes, locale || 'en', maxEdges),
     );
 
     const taskList = tasks
@@ -188,46 +210,16 @@ export class TaskRelationshipGeneratorTool {
 
     try {
       const result = await chatModel.invoke([system, user]);
-      const content = (result as any)?.content ?? '';
-      const text = Array.isArray(content)
-        ? content
-            .map((c) => (typeof c === 'string' ? c : (c?.text ?? '')))
-            .join('\n')
-        : String(content);
+      const text = normalizeOutputContent(result);
       const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed)) return this.getConservativeFallback(tasks);
-      const filtered = parsed
-        .filter(
-          (r: any) =>
-            typeof r?.sourceTask === 'string' &&
-            typeof r?.targetTask === 'string' &&
-            (allowedTypes as unknown as string[]).includes(String(r?.type)),
-        )
-        .map((r: any) => ({
-          sourceTask: r.sourceTask,
-          targetTask: r.targetTask,
-          type: r.type,
-        }));
-      return filtered.length > 0
-        ? filtered
-        : this.getConservativeFallback(tasks);
-    } catch (err) {
+
+      return parsed;
+    } catch {
       this.logger.warn(
         'Relationship generation failed; falling back to minimal chain',
       );
-      return this.getConservativeFallback(tasks);
+      return [];
     }
-  }
-
-  private getConservativeFallback(
-    tasks: ReadonlyArray<{ title: string }>,
-  ): ReadonlyArray<TaskRelationshipPreviewDto> {
-    if (tasks.length >= 2) {
-      return [
-        { sourceTask: 'task_1', targetTask: 'task_2', type: 'BLOCKS' as any },
-      ];
-    }
-    return [];
   }
 
   private async createTasks(
@@ -237,11 +229,9 @@ export class TaskRelationshipGeneratorTool {
       items: params.tasks.map((t) => ({
         title: t.title,
         description: t.description,
-        priority: (t.priority as any) ?? undefined,
-        dueDate: (t as any).dueDate,
-        assigneeId: (t as any).assigneeId,
+        priority: mapAiPriorityToTaskPriority(t.priority),
       })),
-    } as CreateTaskBulkDto;
+    };
 
     const saved = await this.tasksService.createMany(bulk, params.projectId);
     return saved.map((s) => ({
@@ -258,7 +248,7 @@ export class TaskRelationshipGeneratorTool {
     return relationships.map((rel) => ({
       sourceTaskId: this.lookup(rel.sourceTask, tasks),
       targetTaskId: this.lookup(rel.targetTask, tasks),
-      type: rel.type as any,
+      type: rel.type,
       projectId: tasks?.[0]?.projectId ?? 'unknown-project',
     }));
   }
@@ -290,12 +280,12 @@ export class TaskRelationshipGeneratorTool {
           projectId: rel.projectId,
           sourceTaskId: rel.sourceTaskId,
           targetTaskId: rel.targetTaskId,
-          type: rel.type as unknown as DomainTaskLinkType,
+          type: rel.type,
         };
         await this.taskLinkService.createLink(input);
         created.push(rel);
-      } catch (e: any) {
-        const message = String(e?.message || 'Unknown');
+      } catch (e) {
+        const message = e?.message || 'Unknown';
         const reasonCode = this.mapReasonToCode(message);
         rejected.push({
           sourceTaskId: rel.sourceTaskId,
@@ -314,8 +304,10 @@ export class TaskRelationshipGeneratorTool {
     const m = message.toLowerCase();
     if (m.includes('project')) return RejectedReasonCode.CROSS_PROJECT;
     if (m.includes('circular')) return RejectedReasonCode.CIRCULAR;
-    if (m.includes('duplicate')) return RejectedReasonCode.DUPLICATE;
-    if (m.includes('hierarchy')) return RejectedReasonCode.INVALID;
+    if (m.includes('duplicate') || m.includes('already_exists'))
+      return RejectedReasonCode.DUPLICATE;
+    if (m.includes('hierarchy') || m.includes('self'))
+      return RejectedReasonCode.INVALID;
     return RejectedReasonCode.UNKNOWN;
   }
 }

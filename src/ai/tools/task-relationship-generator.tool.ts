@@ -3,6 +3,12 @@ import { Tool } from '@rekog/mcp-nest';
 import { LlmProviderService } from '../llm-provider.service';
 import { AiTracingService } from '../ai.tracing.service';
 import { CustomLogger } from '../../common/services/logger.service';
+import { TasksService } from '../../tasks/tasks.service';
+import { CreateTaskBulkDto } from '../../tasks/dto/create-task-bulk.dto';
+import { TaskLinkService } from '../../tasks/services/task-link.service';
+import { CreateTaskLinkDto } from '../../tasks/dto/create-task-link.dto';
+import { TaskLinkType as DomainTaskLinkType } from '../../tasks/enums/task-link-type.enum';
+import { TaskGeneratorTool } from './task-generator.tool';
 import {
   ConfirmLinkedTasksDto,
   GenerateLinkedTasksPreviewDto,
@@ -14,17 +20,55 @@ import {
   RejectedReasonCode,
 } from '../dto/linked-tasks.dto';
 import { GeneratedTaskDto } from '../dto/generate-tasks.dto';
-import { TasksService } from '../../tasks/tasks.service';
-import { CreateTaskBulkDto } from '../../tasks/dto/create-task-bulk.dto';
-import { TaskLinkService } from '../../tasks/services/task-link.service';
-import { CreateTaskLinkDto } from '../../tasks/dto/create-task-link.dto';
-import { TaskLinkType as DomainTaskLinkType } from '../../tasks/enums/task-link-type.enum';
-import { TaskGeneratorTool } from './task-generator.tool';
 import {
   GenerateTasksRequestDto,
   GenerateTasksResponseDto,
 } from '../dto/generate-tasks.dto';
 import { SystemMessage, HumanMessage, initChatModel } from 'langchain';
+
+const PROMPTS = {
+  REL_SYSTEM: (allowedTypes: ReadonlyArray<string>, locale: string) =>
+    [
+      'You are a senior project planner specializing in task decomposition and dependency mapping.',
+      'Act as a cautious dependency analyst: only create BLOCKS when the source clearly enables the target; otherwise prefer RELATES_TO.',
+      'Output policy:',
+      '- Output ONLY a JSON array, no prose or markdown.',
+      '- Use placeholder task references: task_1, task_2, … matching the given ordered list.',
+      `- Allowed types: ${allowedTypes.join(', ')}`,
+      '- Type semantics (concise):',
+      '-   BLOCKS: target can’t start/finish until source is done.',
+      '-   RELATES_TO: weak association; no strict order.',
+      '-   DUPLICATES: target is the same work as source.',
+      '-   SPLITS_TO: source breaks down into target (target is a part of source).',
+      '- Decision rubric:',
+      '-   Prefer local, short hops over long-range links; avoid skipping intermediate steps without strong evidence.',
+      '-   Max 1 outgoing BLOCKS per task; max 3 edges total.',
+      '-   If a natural sequence exists, include consecutive BLOCKS edges (e.g., task_1 → task_2, task_2 → task_3) when justified, staying within the edge cap.',
+      '-   Reject circular/self/duplicate edges.',
+      `- Respond in ${locale}.`,
+    ].join('\n'),
+  REL_USER: (taskList: string) =>
+    [
+      'Given these tasks, propose up to 3 relationships as a JSON array of objects with fields: sourceTask, targetTask, type.',
+      'Use only placeholder IDs task_N. Prefer simple prerequisite chains (BLOCKS) that reflect a natural order of execution.',
+      'If two tasks are clearly related but not strictly ordered, you may use RELATES_TO.',
+      'Tasks in order:',
+      taskList,
+      '',
+      'Example',
+      'Input tasks:',
+      'task_1: Design database schema — Define tables for users, roles',
+      'task_2: Implement user registration — Persist new users',
+      'task_3: Implement user login — Authenticate users',
+      'Expected relationships (JSON array only):',
+      '[',
+      '  { "sourceTask": "task_1", "targetTask": "task_2", "type": "BLOCKS" },',
+      '  { "sourceTask": "task_2", "targetTask": "task_3", "type": "BLOCKS" }',
+      ']',
+      '',
+      'Follow the example format strictly; output only the JSON array for the current tasks.',
+    ].join('\n'),
+} as const;
 
 @Injectable()
 export class TaskRelationshipGeneratorTool {
@@ -124,26 +168,13 @@ export class TaskRelationshipGeneratorTool {
 
     const allowedTypes = [
       'BLOCKS',
-      'IS_BLOCKED_BY',
       'DUPLICATES',
-      'IS_DUPLICATED_BY',
       'SPLITS_TO',
-      'SPLITS_FROM',
       'RELATES_TO',
-    ];
+    ] as const;
 
     const system = new SystemMessage(
-      [
-        'You are a precise task relationship generator.',
-        'Output policy:',
-        '- Output ONLY a JSON array, no prose or markdown.',
-        '- Use placeholder task references: task_1, task_2, … matching the given ordered list.',
-        `- Allowed types: ${allowedTypes.join(', ')}`,
-        '- Prefer BLOCKS for prerequisite/sequence dependencies; use RELATES_TO for weak semantic associations.',
-        '- Avoid circular dependencies; do not link a task to itself.',
-        '- Propose between 1 and 3 relationships when logically justified; otherwise return [].',
-        `- Respond in ${locale || 'en'}.`,
-      ].join('\n'),
+      PROMPTS.REL_SYSTEM(allowedTypes, locale || 'en'),
     );
 
     const taskList = tasks
@@ -153,28 +184,7 @@ export class TaskRelationshipGeneratorTool {
       )
       .join('\n');
 
-    const user = new HumanMessage(
-      [
-        'Given these tasks, propose up to 3 relationships as a JSON array of objects with fields: sourceTask, targetTask, type.',
-        'Use only placeholder IDs task_N. Prefer simple prerequisite chains (BLOCKS) that reflect a natural order of execution.',
-        'If two tasks are clearly related but not strictly ordered, you may use RELATES_TO.',
-        'Tasks in order:',
-        taskList,
-        '',
-        'Example',
-        'Input tasks:',
-        'task_1: Design database schema — Define tables for users, roles',
-        'task_2: Implement user registration — Persist new users',
-        'task_3: Implement user login — Authenticate users',
-        'Expected relationships (JSON array only):',
-        '[',
-        '  { "sourceTask": "task_1", "targetTask": "task_2", "type": "BLOCKS" },',
-        '  { "sourceTask": "task_2", "targetTask": "task_3", "type": "BLOCKS" }',
-        ']',
-        '',
-        'Follow the example format strictly; output only the JSON array for the current tasks.',
-      ].join('\n'),
-    );
+    const user = new HumanMessage(PROMPTS.REL_USER(taskList));
 
     try {
       const result = await chatModel.invoke([system, user]);
@@ -185,25 +195,39 @@ export class TaskRelationshipGeneratorTool {
             .join('\n')
         : String(content);
       const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed)) return [];
-      return parsed
+      if (!Array.isArray(parsed)) return this.getConservativeFallback(tasks);
+      const filtered = parsed
         .filter(
           (r: any) =>
             typeof r?.sourceTask === 'string' &&
             typeof r?.targetTask === 'string' &&
-            allowedTypes.includes(String(r?.type)),
+            (allowedTypes as unknown as string[]).includes(String(r?.type)),
         )
         .map((r: any) => ({
           sourceTask: r.sourceTask,
           targetTask: r.targetTask,
           type: r.type,
         }));
+      return filtered.length > 0
+        ? filtered
+        : this.getConservativeFallback(tasks);
     } catch (err) {
       this.logger.warn(
-        'Relationship generation failed; falling back to empty set',
+        'Relationship generation failed; falling back to minimal chain',
       );
-      return [];
+      return this.getConservativeFallback(tasks);
     }
+  }
+
+  private getConservativeFallback(
+    tasks: ReadonlyArray<{ title: string }>,
+  ): ReadonlyArray<TaskRelationshipPreviewDto> {
+    if (tasks.length >= 2) {
+      return [
+        { sourceTask: 'task_1', targetTask: 'task_2', type: 'BLOCKS' as any },
+      ];
+    }
+    return [];
   }
 
   private async createTasks(

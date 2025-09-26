@@ -30,6 +30,15 @@ export class GenerateLinkedTasksRequestDto {
   @IsOptional()
   @IsBoolean()
   generateRelationships?: boolean;
+
+  @ApiProperty({
+    description:
+      'Optional generation options that influence output (e.g., taskCount, minPriority)',
+    required: false,
+    example: { taskCount: 6, minPriority: 'MEDIUM' },
+  })
+  @IsOptional()
+  options?: Record<string, string | number | boolean>;
 }
 
 export class TaskRelationshipPreviewDto {

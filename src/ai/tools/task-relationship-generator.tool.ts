@@ -178,7 +178,7 @@ export class TaskRelationshipGeneratorTool {
       prompt: params.prompt,
       projectId: params.projectId,
       locale: locale || 'en',
-      options: { taskCount: 5 },
+      options: params.options,
     };
     const result: GenerateTasksResponseDto =
       await this.taskGeneratorTool.generateTasks(req, userId, locale || 'en');

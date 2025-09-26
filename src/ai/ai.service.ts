@@ -1,6 +1,13 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { LlmProviderService } from '../ai/llm-provider.service';
 import { TaskGeneratorTool } from './tools/task-generator.tool';
+import { TaskRelationshipGeneratorTool } from './tools/task-relationship-generator.tool';
+import {
+  ConfirmLinkedTasksDto,
+  GenerateLinkedTasksPreviewDto,
+  GenerateLinkedTasksRequestDto,
+  GenerateLinkedTasksResponseDto,
+} from './dto/linked-tasks.dto';
 import { ProjectHealthRequestDto, ProjectHealthResponseDto } from './types';
 import {
   GenerateTasksRequestDto,
@@ -13,6 +20,7 @@ export class AiService {
   constructor(
     private readonly llmProvider: LlmProviderService,
     private readonly taskGeneratorTool: TaskGeneratorTool,
+    private readonly taskRelationshipGeneratorTool: TaskRelationshipGeneratorTool,
   ) {}
 
   async getHello(
@@ -95,5 +103,35 @@ export class AiService {
     }
 
     return this.taskGeneratorTool.generateTasks(request, userId);
+  }
+
+  async generateLinkedTasksPreview(
+    request: GenerateLinkedTasksRequestDto,
+    userId?: string,
+    lang?: string,
+  ): Promise<GenerateLinkedTasksPreviewDto> {
+    if (process.env.AI_TOOLS_ENABLED !== 'true') {
+      throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
+    }
+    return this.taskRelationshipGeneratorTool.generatePreview(
+      request,
+      userId,
+      lang,
+    );
+  }
+
+  async confirmLinkedTasks(
+    request: ConfirmLinkedTasksDto,
+    userId?: string,
+    lang?: string,
+  ): Promise<GenerateLinkedTasksResponseDto> {
+    if (process.env.AI_TOOLS_ENABLED !== 'true') {
+      throw new ServiceUnavailableException({ code: 'AI_DISABLED' });
+    }
+    return this.taskRelationshipGeneratorTool.confirmAndCreate(
+      request,
+      userId,
+      lang,
+    );
   }
 }

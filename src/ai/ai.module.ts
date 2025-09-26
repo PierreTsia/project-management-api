@@ -17,6 +17,8 @@ import { TasksContextAdapter } from './context/adapters/tasks-context.adapter';
 import { TeamContextAdapter } from './context/adapters/team-context.adapter';
 import { TaskGeneratorTool } from './tools/task-generator.tool';
 import { ValidateDatesTool } from './tools/validate-dates.tool';
+import { TaskRelationshipGeneratorTool } from './tools/task-relationship-generator.tool';
+import { TaskHierarchyGeneratorTool } from './tools/task-hierarchy-generator.tool';
 
 @Module({
   imports: [ProjectsModule, TasksModule, UsersModule],
@@ -36,6 +38,8 @@ import { ValidateDatesTool } from './tools/validate-dates.tool';
     AiBootstrapService,
     TaskGeneratorTool,
     ValidateDatesTool,
+    TaskRelationshipGeneratorTool,
+    TaskHierarchyGeneratorTool,
   ],
   exports: [ContextService],
 })
